@@ -37,18 +37,18 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 add_subdirectory(src/node)
 
 ## Installing of Content
+# install(
+#   DIRECTORY include/
+#   DESTINATION include
+# )
+# install(
+#   DIRECTORY
+#     launch
+#     parameter
+#   DESTINATION share/${PROJECT_NAME}
+# )
 install(
-  DIRECTORY include/
-  DESTINATION include
-)
-install(
-  DIRECTORY
-    launch
-    parameter
-  DESTINATION share/${PROJECT_NAME}
-)
-install(
-  TARGETS fleet-control
+  TARGETS pose_controller
   EXPORT export_${PROJECT_NAME}
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

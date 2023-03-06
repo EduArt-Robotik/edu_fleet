@@ -1,12 +1,15 @@
 ## Build Nodes
 ### Fleet Control
-add_executable(fleet-control
-  fleet-control-node.cpp
+add_executable(pose_controller
+  # fleet_control_node.cpp
+  pid_controller.cpp
+  pose_controller_node.cpp
 )
-target_link_libraries(fleet-control
+target_link_libraries(pose_controller
   Eigen3::Eigen
 )
-ament_target_dependencies(fleet-control
+ament_target_dependencies(pose_controller
   "rclcpp"
+  "geometry_msgs"
 )
-# rosidl_target_interfaces(fleet-control ${PROJECT_NAME} "rosidl_typesupport_cpp")
+# rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
