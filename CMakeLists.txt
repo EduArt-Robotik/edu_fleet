@@ -41,12 +41,12 @@ add_subdirectory(src/node)
 #   DIRECTORY include/
 #   DESTINATION include
 # )
-# install(
-#   DIRECTORY
-#     launch
-#     parameter
-#   DESTINATION share/${PROJECT_NAME}
-# )
+install(
+  DIRECTORY
+    launch
+    parameter
+  DESTINATION share/${PROJECT_NAME}
+)
 install(
   TARGETS pose_controller
   EXPORT export_${PROJECT_NAME}

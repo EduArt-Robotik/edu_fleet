@@ -1,0 +1,11 @@
+/eduard/blue/pose_controller:
+  ros__parameters:
+    pid:
+      kd: 0.0
+      ki: 5.0
+      kp: 1.0
+      limit: 10.0
+      use_anti_windup: true
+
+    use_sim_time: false
+

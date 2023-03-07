@@ -59,6 +59,9 @@ PoseController::PoseController()
     rclcpp::QoS(1).reliable().transient_local(),
     std::bind(&PoseController::callbackCurrentPose, this, std::placeholders::_1)
   );
+  _pub_twist = create_publisher<geometry_msgs::msg::Twist>(
+    "twist_output", rclcpp::QoS(1).best_effort()
+  );
 
   _stamp_last_processed = get_clock()->now();
 }
