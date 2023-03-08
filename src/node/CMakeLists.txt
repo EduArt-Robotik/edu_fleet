@@ -28,3 +28,16 @@ ament_target_dependencies(twist_accumulator
   "geometry_msgs"
 )
 # rosidl_target_interfaces(twist_accumulator ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+### Control Node
+add_executable(fleet_control_node
+  fleet_control_node.cpp
+)
+target_link_libraries(fleet_control_node
+  Eigen3::Eigen
+)
+ament_target_dependencies(fleet_control_node
+  "rclcpp"
+  "geometry_msgs"
+)
+# rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
