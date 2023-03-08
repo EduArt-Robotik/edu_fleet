@@ -1,0 +1,17 @@
+/eduard/blue/pose_controller:
+  ros__parameters:
+    frame_robot: 'eduard/blue/base_link'
+    pid:
+      kd: 0.0
+      ki: 0.0
+      kp: -10.0
+      limit: 1.0
+      use_anti_windup: true
+
+    set_point:
+      x: 1.0
+      y: -0.5
+      yaw: 0.0
+
+    use_sim_time: false
+

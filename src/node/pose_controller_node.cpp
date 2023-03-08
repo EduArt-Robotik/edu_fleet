@@ -24,12 +24,20 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   ros_node.declare_parameter<double>("pid.limit", parameter.pid.limit);
   ros_node.declare_parameter<std::string>("frame_robot", parameter.frame_robot);
 
+  ros_node.declare_parameter<double>("set_point.x", parameter.set_point.x);
+  ros_node.declare_parameter<double>("set_point.y", parameter.set_point.y);
+  ros_node.declare_parameter<double>("set_point.yaw", parameter.set_point.yaw);
+
   parameter.pid.kp = ros_node.get_parameter("pid.kp").as_double();
   parameter.pid.ki = ros_node.get_parameter("pid.ki").as_double();
   parameter.pid.kd = ros_node.get_parameter("pid.kd").as_double();
   parameter.pid.use_anti_windup = ros_node.get_parameter("pid.use_anti_windup").as_bool();
   parameter.pid.limit = ros_node.get_parameter("pid.limit").as_double();
   parameter.frame_robot = ros_node.get_parameter("frame_robot").as_string();
+
+  parameter.set_point.x = ros_node.get_parameter("set_point.x").as_double();
+  parameter.set_point.y = ros_node.get_parameter("set_point.y").as_double();
+  parameter.set_point.yaw = ros_node.get_parameter("set_point.yaw").as_double();
 
   return parameter;
 }
@@ -44,8 +52,8 @@ PoseController::PoseController()
   }
 
   _controller_set_point = std::make_unique<geometry_msgs::msg::Pose>();
-  _controller_set_point->position.x = 1.0;
-  _controller_set_point->position.y = 0.0;
+  _controller_set_point->position.x = _parameter.set_point.x;
+  _controller_set_point->position.y = _parameter.set_point.y;
   _controller_set_point->position.z = 0.0;
   _controller_set_point->orientation.w = 1.0;
   _controller_set_point->orientation.x = 0.0;
@@ -110,15 +118,18 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   const double dt = (now - _stamp_last_processed).seconds();
 
   // Linear X
-  _controller_output->linear.x = _controller[0](_controller_set_point->position.x, pose_in_base_link.pose.position.x, dt);
+  // _controller_output->linear.x = _controller[0](_controller_set_point->position.x, pose_in_base_link.pose.position.x, dt);
+  _controller_output->linear.x = _controller[0](_parameter.set_point.x, pose_in_base_link.pose.position.x, dt);  
 
   // Linear Y
-  _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);  
+  // _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);
+  _controller_output->linear.y = _controller[1](_parameter.set_point.y, pose_in_base_link.pose.position.y, dt);    
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
-  const AnglePiToPi yaw_set_point = quaternion_to_yaw(_controller_set_point->orientation);
+  // const AnglePiToPi yaw_set_point = quaternion_to_yaw(_controller_set_point->orientation);
+  const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;  
 
   _controller_output->angular.z = _controller[2](yaw_set_point, yaw_feedback, dt);
 

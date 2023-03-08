@@ -29,6 +29,11 @@ public:
   struct Parameter {
     PidController::Parameter pid;
     std::string frame_robot = "base_link";
+    struct SetPoint {
+      double x;
+      double y;
+      double yaw;
+    } set_point;
   };
 
   PoseController();

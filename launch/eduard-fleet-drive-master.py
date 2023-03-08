@@ -15,7 +15,7 @@ def generate_launch_description():
     parameter_file = os.path.join(
       package_path,
       'parameter',
-      'eduard-red-fleet-drive.yaml'
+      'eduard-fleet-drive-master.yaml'
     )
 
     pose_controller = Node(

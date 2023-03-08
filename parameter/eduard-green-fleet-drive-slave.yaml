@@ -3,10 +3,15 @@
     frame_robot: 'eduard/green/base_link'
     pid:
       kd: 0.0
-      ki: -0.3
-      kp: -0.5
-      limit: 2.0
+      ki: 0.0
+      kp: -10.0
+      limit: 1.0
       use_anti_windup: true
+
+    set_point:
+      x: 1.0
+      y: 0.5
+      yaw: 0.0
 
     use_sim_time: false
 
