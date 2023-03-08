@@ -81,12 +81,11 @@ PoseController::~PoseController()
 
 static AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q)
 {
-  return atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+  return atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
 }
 
 void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
 {
-  std::cout << __PRETTY_FUNCTION__ << std::endl;
   geometry_msgs::msg::TransformStamped t_sensor_to_base_link;
   geometry_msgs::msg::PoseStamped pose_in_base_link;
 
@@ -109,23 +108,19 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
 
   const auto now = get_clock()->now();
   const double dt = (now - _stamp_last_processed).seconds();
-  std::cout << "dt = " << dt << std::endl;
-  std::cout << "position x = " << pose_in_base_link.pose.position.x << std::endl;
-  std::cout << "position x set point = " << _controller_set_point->position.x << std::endl;
-  // std::cout << "position y = " << pose_in_base_link.pose.position.y << std::endl;
 
   // Linear X
   _controller_output->linear.x = _controller[0](_controller_set_point->position.x, pose_in_base_link.pose.position.x, dt);
-  std::cout << "y for x = " << _controller_output->linear.x << std::endl;
+
   // Linear Y
-  // _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);  
+  _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);  
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
   const AnglePiToPi yaw_set_point = quaternion_to_yaw(_controller_set_point->orientation);
 
-  // _controller_output->angular.z = _controller[2](yaw_set_point, yaw_feedback, dt);
+  _controller_output->angular.z = _controller[2](yaw_set_point, yaw_feedback, dt);
 
   // Publishing Result
   _pub_twist->publish(*_controller_output);
