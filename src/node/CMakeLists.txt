@@ -1,7 +1,6 @@
 ## Build Nodes
-### Fleet Control
+### Pose Controller
 add_executable(pose_controller
-  # fleet_control_node.cpp
   pid_controller.cpp
   pose_controller_node.cpp
 )
@@ -16,3 +15,16 @@ ament_target_dependencies(pose_controller
   "tf2_geometry_msgs"
 )
 # rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+### Twist Accumulator
+add_executable(twist_accumulator
+  twist_accumulator.cpp
+)
+target_link_libraries(twist_accumulator
+
+)
+ament_target_dependencies(twist_accumulator
+  "rclcpp"
+  "geometry_msgs"
+)
+# rosidl_target_interfaces(twist_accumulator ${PROJECT_NAME} "rosidl_typesupport_cpp")
