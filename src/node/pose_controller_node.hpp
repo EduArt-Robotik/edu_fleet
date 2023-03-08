@@ -1,11 +1,10 @@
-/**
+ /**
  * Copyright EduArt Robotik GmbH 2023
  *
  * Author: Christian Wendt (christian.wendt@eduart-robotik.com)
  */
 #pragma once
 
-#include <array>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
@@ -13,7 +12,11 @@
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/subscription.hpp>
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+
 #include <memory>
+#include <array>
 
 #include "pid_controller.hpp"
 
@@ -25,6 +28,7 @@ class PoseController : public rclcpp::Node
 public:
   struct Parameter {
     PidController::Parameter pid;
+    std::string frame_robot = "base_link";
   };
 
   PoseController();
@@ -42,7 +46,10 @@ private:
   rclcpp::Time _stamp_last_processed;
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> _sub_current_pose;
-  std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;  
+  std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
+
+  std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
+  std::unique_ptr<tf2_ros::Buffer> _tf_buffer;
 };
 
 } // end namespace fleet

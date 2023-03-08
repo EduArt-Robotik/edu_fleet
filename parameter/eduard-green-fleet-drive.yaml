@@ -1,10 +1,11 @@
 /eduard/green/pose_controller:
   ros__parameters:
+    frame_robot: 'eduard/green/base_link'
     pid:
       kd: 0.0
-      ki: 5.0
-      kp: 1.0
-      limit: 10.0
+      ki: -0.3
+      kp: -0.5
+      limit: 2.0
       use_anti_windup: true
 
     use_sim_time: false

@@ -24,11 +24,40 @@ def generate_launch_description():
       name='pose_controller',
       namespace='eduard/green',
       parameters=[parameter_file],
+      remappings=[
+        ('pose_feedback', 'object/pose'),
+        ('twist_output', 'cmd_vel')
+      ],
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
 
+    tf_publisher_cam_front = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      arguments=['0.17', '0', '0.05', '0', '0', '0', 'eduard/green/base_link', 'eduard/green/object_sensor/front']
+    )
+    tf_publisher_cam_left = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      arguments=['0', '0.092', '0.05', '1.57', '0', '0', 'eduard/green/base_link', 'eduard/green/object_sensor/left']
+    )
+    tf_publisher_cam_right = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      arguments=['0', '-0.092', '0.05', '-1.57', '0', '0', 'eduard/green/base_link', 'eduard/green/object_sensor/right']
+    )
+    tf_publisher_cam_rear = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      arguments=['-0.17', '0', '0.05', '3.141592654', '0', '0', 'eduard/green/base_link', 'eduard/green/object_sensor/rear']
+    )      
+
     return LaunchDescription([
-      pose_controller
+      pose_controller,
+      tf_publisher_cam_front,
+      tf_publisher_cam_left,
+      tf_publisher_cam_right,
+      tf_publisher_cam_rear
     ])
     

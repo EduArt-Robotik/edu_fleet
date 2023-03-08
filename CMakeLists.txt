@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(edu_swarm)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)# -O2)
+  add_compile_options(-Wall -Wextra -Wpedantic -std=c++1z)# -O2)
 endif()
 
 ## Dependencies

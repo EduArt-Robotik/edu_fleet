@@ -12,11 +12,11 @@ void PidController::reset()
 
 double PidController::operator()(const double set_point, const double feedback, const double dt)
 {
-	const float e = set_point - feedback;
+	const double e = set_point - feedback;
 
 	_e_integral += e * dt;
 
-	float fy = parameter.kp * e // KP
+	double fy = parameter.kp * e // KP
 	         + parameter.ki * _e_integral // KI
 					 + parameter.kd * (e - _e_prev) / dt; // KD
 

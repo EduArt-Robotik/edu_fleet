@@ -11,5 +11,8 @@ target_link_libraries(pose_controller
 ament_target_dependencies(pose_controller
   "rclcpp"
   "geometry_msgs"
+  "tf2"
+  "tf2_ros"
+  "tf2_geometry_msgs"
 )
 # rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
