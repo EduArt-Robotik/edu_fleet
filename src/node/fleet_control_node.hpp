@@ -27,6 +27,13 @@ class FleetControlNode : public rclcpp::Node
 public:
   struct Parameter {
     std::size_t number_of_robots;
+
+    struct Offset {
+      double d_x = 0.0;
+      double d_y = 0.0;
+      double d_yaw = 0.0;
+    };
+    std::vector<Offset> robot_offset;
   };
 
   FleetControlNode();

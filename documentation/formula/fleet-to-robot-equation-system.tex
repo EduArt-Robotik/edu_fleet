@@ -1,0 +1,46 @@
+\documentclass{article}
+    % General document formatting
+    \usepackage[margin=0.7in]{geometry}
+    \usepackage[parfill]{parskip}
+    \usepackage[utf8]{inputenc}
+    
+    % Related to math
+    \usepackage{amsmath,amssymb,amsfonts,amsthm}
+
+
+\newcommand{\Transform}[2]{^{#1}\textbf{T}_{#2}}
+
+\begin{document}
+
+Sammlung von Grundlagen für Geschwindigkeit Transformationen im Kontext einer Roboter-Flotte. Ziel ist die Standardisierung dieser.
+
+\section*{Transformation Flotte auf einen einzelnen Roboter}
+
+\begin{align}
+    \textbf{d} &= \left(\mathit{dx},\,\mathit{dy}\right) \\
+    \textbf{n}_\textbf{d} &= \left(-\frac{\mathit{dy}}{\sqrt{{\left| \mathit{dx} \right|}^{2} + {\left| \mathit{dy} \right|}^{2}}},\,\frac{\mathit{dx}}{\sqrt{{\left| \mathit{dx} \right|}^{2} + {\left| \mathit{dy} \right|}^{2}}}\right) \\
+    \left|\textbf{v}_\omega\right| &= \sqrt{{\left| \mathit{dx} \right|}^{2} + {\left| \mathit{dy} \right|}^{2}} \cdot \omega \\
+    \textbf{v}_\omega &= \textbf{n}_\textbf{d} \cdot \left|\textbf{v}_\omega\right| = \left(-\mathit{dy},\,\mathit{dx}\right) \omega \\
+    \textbf{R} &= \left(\begin{array}{rrr}
+        \cos\left(\pi_{r}\right) & -\sin\left(\pi_{r}\right) & 0 \\
+        \sin\left(\pi_{r}\right) & \cos\left(\pi_{r}\right) & 0 \\
+        0 & 0 & 1
+    \end{array}\right) \\
+    \Transform{F_j}{R_{j,i,\omega=0}} &= \left(\begin{array}{rrr}
+        1 & 0 & -\mathit{dy} \\
+        0 & 1 & \mathit{dx} \\
+        0 & 0 & 1
+    \end{array}\right) \\
+    \Transform{F_j}{R_{j,i}} &= \textbf{R} \Transform{F_j}{R_{j,i,\omega=0}} =
+    \left(\begin{array}{rrr}
+        \cos\left(\pi_{r}\right) & -\sin\left(\pi_{r}\right) & -\mathit{dy} \cos\left(\pi_{r}\right) - \mathit{dx} \sin\left(\pi_{r}\right) \\
+        \sin\left(\pi_{r}\right) & \cos\left(\pi_{r}\right) & \mathit{dx} \cos\left(\pi_{r}\right) - \mathit{dy} \sin\left(\pi_{r}\right) \\
+        0 & 0 & 1
+    \end{array}\right)
+\end{align}
+
+% \section*{Part b}
+
+% etc
+
+\end{document}
