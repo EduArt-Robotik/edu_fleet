@@ -9,7 +9,7 @@
       use_anti_windup: true
 
     set_point:
-      x: 1.0
+      x: 2.0
       y: -0.5
       yaw: 0.0
 

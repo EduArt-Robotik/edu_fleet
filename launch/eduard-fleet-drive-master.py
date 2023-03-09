@@ -11,6 +11,7 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
+    # Bring Up Fleet Control Node
     package_path = get_package_share_path('edu_swarm')
     parameter_file = os.path.join(
       package_path,
@@ -18,12 +19,16 @@ def generate_launch_description():
       'eduard-fleet-drive-master.yaml'
     )
 
-    pose_controller = Node(
+    fleet_control_node = Node(
       package='edu_swarm',
-      executable='pose_controller',
-      name='pose_controller',
-      namespace='eduard/red',
+      executable='fleet_control_node',
+      name='fleet_control_node',
       parameters=[parameter_file],
+      remappings=[
+        ('robot_0/cmd_vel', 'eduard/red/cmd_vel'),
+        ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
+        ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel')                
+      ],
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
@@ -46,12 +51,12 @@ def generate_launch_description():
       executable='remote_control',
       parameters= [parameter_file],
       remappings=[
-        ('cmd_vel', 'eduard/red/cmd_vel')
+        ('cmd_vel', '/cmd_vel')
       ]
     )    
 
     return LaunchDescription([
-      pose_controller,
+      fleet_control_node,
       joy_node,
       remote_control_node
     ])

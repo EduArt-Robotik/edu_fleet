@@ -41,7 +41,7 @@ def generate_launch_description():
       parameters=[parameter_file],
       remappings=[
         ('pose_feedback', 'object/pose'),
-        ('twist_output', 'cmd_vel')
+        ('twist_output', 'pose_controller/cmd_vel')
       ],
       # prefix=['gdbserver localhost:3000'],
       output='screen'
@@ -66,7 +66,23 @@ def generate_launch_description():
       package='tf2_ros',
       executable='static_transform_publisher',
       arguments=['-0.17', '0', '0.05', '3.141592654', '0', '0', robot_namespace + '/base_link', robot_namespace + '/object_sensor/rear']
-    )      
+    )
+
+    # Twist Accumulation
+    twist_accumulator = Node(
+      package='edu_swarm',
+      executable='twist_accumulator',
+      name='twist_accumulator',
+      namespace=robot_namespace,
+      parameters=[parameter_file],
+      remappings=[
+        ('twist/input_0', 'fleet_control/cmd_vel'),
+        ('twist/input_1', 'pose_controller/cmd_vel'),
+        ('twist/output', 'cmd_vel')
+      ],
+      # prefix=['gdbserver localhost:3000'],
+      output='screen'
+    )
 
     return LaunchDescription([
       # robot_namespace_arg,
@@ -75,6 +91,7 @@ def generate_launch_description():
       tf_publisher_cam_front,
       tf_publisher_cam_left,
       tf_publisher_cam_right,
-      tf_publisher_cam_rear
+      tf_publisher_cam_rear,
+      twist_accumulator
     ])
     

@@ -1,0 +1,20 @@
+/fleet_control_node:
+  ros__parameters:
+    use_sim_time: false
+
+    number_of_robots: 3
+
+    robot_0:
+      d_x: 1.0
+      d_y: 0.0
+      d_yaw: 0.0
+
+    robot_1:
+      d_x: -1.0
+      d_y:  0.5
+      d_yaw: 0.0
+
+    robot_2:
+      d_x: -1.0
+      d_y: -0.5
+      d_yaw: 0.0

@@ -31,7 +31,7 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
 
   // Depending on the number of robots n transformation matrices will be constructed.
   for (std::size_t i = 0; i < parameter.number_of_robots; ++i) {
-    const std::string parameter_name = std::string("robot_") + std::to_string(i) + "/";
+    const std::string parameter_name = std::string("robot_") + std::to_string(i) + ".";
     FleetControlNode::Parameter::Offset robot_offset;
 
     ros_node.declare_parameter<double>(parameter_name + "d_x", robot_offset.d_x);
