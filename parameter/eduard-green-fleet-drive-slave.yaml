@@ -15,3 +15,8 @@
 
     use_sim_time: false
 
+/eduard/green/twist_accumulator:
+  ros__parameters:
+    num_subscription: 2
+    use_sim_time: false
+    

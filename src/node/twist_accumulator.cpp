@@ -36,6 +36,7 @@ TwistAccumulator::Parameter TwistAccumulator::get_parameter(rclcpp::Node &ros_no
 
 TwistAccumulator::TwistAccumulator()
   : rclcpp::Node("twist_accumulator")
+  , _parameter(get_parameter(*this))
 {
   for (std::size_t i = 0; i < _parameter.num_subscriptions; ++i) {
     _sub_twist.emplace_back(create_subscription<geometry_msgs::msg::Twist>(
