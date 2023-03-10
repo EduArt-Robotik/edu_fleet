@@ -1,11 +1,13 @@
 #include "pose_controller_node.hpp"
 #include "angle.hpp"
 
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <rclcpp/executors.hpp>
 
 #include <functional>
@@ -94,6 +96,7 @@ static AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q)
 
 void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
 {
+  // Bring pose in robot coordinate system.
   geometry_msgs::msg::TransformStamped t_sensor_to_base_link;
   geometry_msgs::msg::PoseStamped pose_in_base_link;
 
@@ -114,16 +117,22 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
     return;
   }
 
+  // Respect controller set point in pose measurement. (sensor coordinate system will be rotated by the controller output)
+  const Eigen::Vector2d position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
+  const Eigen::Rotation2Dd R_set_point(-_parameter.set_point.yaw);
+  const Eigen::Vector2d position_corrected = R_set_point * position_in_base_link;
+
+  // Process pose controller on each dimension.
   const auto now = get_clock()->now();
   const double dt = (now - _stamp_last_processed).seconds();
 
   // Linear X
   // _controller_output->linear.x = _controller[0](_controller_set_point->position.x, pose_in_base_link.pose.position.x, dt);
-  _controller_output->linear.x = _controller[0](_parameter.set_point.x, pose_in_base_link.pose.position.x, dt);  
+  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_corrected.x(), dt);
 
   // Linear Y
   // _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);
-  _controller_output->linear.y = _controller[1](_parameter.set_point.y, pose_in_base_link.pose.position.y, dt);    
+  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_corrected.y(), dt);    
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;

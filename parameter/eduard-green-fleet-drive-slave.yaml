@@ -11,8 +11,7 @@
     set_point:
       x: 2.0
       y: 0.5
-      # yaw: 0.523598776 # 30°
-      yaw: 0.0
+      yaw: -0.523598776 # 30°
 
     use_sim_time: false
 
