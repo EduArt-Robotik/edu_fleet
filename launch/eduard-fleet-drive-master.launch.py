@@ -41,44 +41,9 @@ def generate_launch_description():
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
-
-    # Bring Up Remote Control Node including Joy
-    package_path = FindPackageShare('edu_robot_control')
-    parameter_file = PathJoinSubstitution([
-      package_path,
-      'parameter',
-      'remote_control.yaml'
-    ])
-
-    joy_node = Node(
-      package='joy',
-      executable='joy_node'
-    )
-
-    remote_control_node_with_fleet = Node(
-      package='edu_robot_control',
-      executable='remote_control',
-      parameters= [parameter_file],
-      remappings=[
-        ('cmd_vel', '/cmd_vel')
-      ],
-      condition=IfCondition(use_fleet_control)
-    )
-    remote_control_node_without_fleet = Node(
-      package='edu_robot_control',
-      executable='remote_control',
-      parameters= [parameter_file],
-      remappings=[
-        ('cmd_vel', 'eduard/red/cmd_vel')
-      ],
-      condition=UnlessCondition(use_fleet_control)      
-    )
     
     return LaunchDescription([
       use_fleet_control_arg,
       fleet_control_node,
-      joy_node,
-      remote_control_node_with_fleet,
-      remote_control_node_without_fleet
     ])
     

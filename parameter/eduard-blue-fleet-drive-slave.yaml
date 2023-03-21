@@ -4,12 +4,12 @@
     pid:
       kd: 0.0
       ki: 0.0
-      kp: -10.0
+      kp: -1.0
       limit: 1.0
       use_anti_windup: true
 
     set_point:
-      x: 2.0
+      x: 1.0
       y: -0.5
       yaw: 0.523598776 # 30°
 
