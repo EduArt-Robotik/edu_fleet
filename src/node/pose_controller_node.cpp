@@ -170,22 +170,26 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
 
 
   // Process pose controller on each dimension.
-  const Eigen::Vector2d position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
+  const Eigen::Vector2f position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
   const auto now = get_clock()->now();
   const double dt = (now - _stamp_last_processed).seconds();
-
-  // Linear X
-  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);
-
-  // Linear Y
-  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);    
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
   const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;  
-
+  // const AnglePiToPi yaw_diff = yaw_set_point - yaw_feedback;
+  // std::cout << "yaw diff: " << yaw_diff << std::endl;
   _controller_output->angular.z = AnglePiToPi(_controller[2](yaw_set_point, yaw_feedback, dt));
+
+  // const Eigen::Vector2f coords_velocity = Eigen::Rotation2Df(-_controller_output->angular.z) * position_in_base_link;
+  // Linear X
+  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);
+  // _controller_output->linear.x += coords_velocity.x() - position_in_base_link.x();
+
+  // Linear Y
+  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);    
+  // _controller_output->linear.y += coords_velocity.y() - position_in_base_link.y();
 
   // \todo replace hack with proper implementation
   if (std::abs(_controller_output->linear.x) < 0.02) _controller_output->linear.x = 0.0;

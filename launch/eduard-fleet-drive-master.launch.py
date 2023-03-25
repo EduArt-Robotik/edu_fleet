@@ -33,6 +33,7 @@ def generate_launch_description():
       name='fleet_control_node',
       parameters=[parameter_file],
       remappings=[
+        ('/cmd_vel'       , 'eduard/red/cmd_vel'), # use joy stick input from Eduard red
         ('robot_0/cmd_vel', 'eduard/red/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
         ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
         ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel')      
