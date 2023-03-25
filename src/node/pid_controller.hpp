@@ -16,6 +16,7 @@ public:
     double ki = 0.0;
     double kd = 0.0;
     double limit = 10.0;
+    double input_filter_weight = 1.0;
     bool use_anti_windup = true;
   } parameter;
 
@@ -25,9 +26,10 @@ public:
   double operator()(const double set_point, const double feedback, const double dt);
 
 private:
-  double _e_integral = 0.0f;
-  double _e_prev = 0.0f;
-  double _set_point_prev = 0.0f;
+  double _e_integral = 0.0;
+  double _e_prev = 0.0;
+  double _set_point_prev = 0.0;
+  double _previous_feedback = 0.0;
 };
 
 } // end namespace fleet

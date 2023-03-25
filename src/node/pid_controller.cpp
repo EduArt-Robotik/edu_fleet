@@ -8,11 +8,14 @@ void PidController::reset()
   _e_integral = 0.0;
   _e_prev = 0.0;
   _set_point_prev = 0.0;
+	_previous_feedback = 0.0;
 }
 
 double PidController::operator()(const double set_point, const double feedback, const double dt)
 {
-	const double e = set_point - feedback;
+	const double filtered_feedback = (1.0 - parameter.input_filter_weight) * _previous_feedback 
+	                               + feedback * parameter.input_filter_weight;
+	const double e = set_point - filtered_feedback;
 
 	_e_integral += e * dt;
 
@@ -37,6 +40,7 @@ double PidController::operator()(const double set_point, const double feedback, 
 
 	_e_prev = e;
   _set_point_prev = set_point;
+	_previous_feedback = filtered_feedback;
 	return fy;  
 }
 

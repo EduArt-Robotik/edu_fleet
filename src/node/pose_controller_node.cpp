@@ -24,11 +24,13 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   ros_node.declare_parameter<double>("pid.linear.kd", parameter.pid_linear.kd);
   ros_node.declare_parameter<bool>("pid.linear.use_anti_windup", parameter.pid_linear.use_anti_windup);
   ros_node.declare_parameter<double>("pid.linear.limit", parameter.pid_linear.limit);
+  ros_node.declare_parameter<double>("pid.linear.input_filter_weight", parameter.pid_linear.input_filter_weight);
   ros_node.declare_parameter<double>("pid.angular.kp", parameter.pid_angular.kp);
   ros_node.declare_parameter<double>("pid.angular.ki", parameter.pid_angular.ki);
   ros_node.declare_parameter<double>("pid.angular.kd", parameter.pid_angular.kd);
   ros_node.declare_parameter<bool>("pid.angular.use_anti_windup", parameter.pid_angular.use_anti_windup);
   ros_node.declare_parameter<double>("pid.angular.limit", parameter.pid_angular.limit);
+  ros_node.declare_parameter<double>("pid.angular.input_filter_weight", parameter.pid_angular.input_filter_weight);
 
   ros_node.declare_parameter<std::string>("frame_robot", parameter.frame_robot);
 
@@ -41,11 +43,13 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   parameter.pid_linear.kd = ros_node.get_parameter("pid.linear.kd").as_double();
   parameter.pid_linear.use_anti_windup = ros_node.get_parameter("pid.linear.use_anti_windup").as_bool();
   parameter.pid_linear.limit = ros_node.get_parameter("pid.linear.limit").as_double();
+  parameter.pid_linear.input_filter_weight = ros_node.get_parameter("pid.linear.input_filter_weight").as_double();
   parameter.pid_angular.kp = ros_node.get_parameter("pid.angular.kp").as_double();
   parameter.pid_angular.ki = ros_node.get_parameter("pid.angular.ki").as_double();
   parameter.pid_angular.kd = ros_node.get_parameter("pid.angular.kd").as_double();
   parameter.pid_angular.use_anti_windup = ros_node.get_parameter("pid.angular.use_anti_windup").as_bool();
   parameter.pid_angular.limit = ros_node.get_parameter("pid.angular.limit").as_double();
+  parameter.pid_angular.input_filter_weight = ros_node.get_parameter("pid.angular.input_filter_weight").as_double();
   parameter.frame_robot = ros_node.get_parameter("frame_robot").as_string();
 
   parameter.set_point.x = ros_node.get_parameter("set_point.x").as_double();
@@ -164,30 +168,29 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   qr_code_transform.transform.rotation = pose_in_base_link.pose.orientation;
   _tf_broadcaster->sendTransform(qr_code_transform);
 
-  // Respect controller set point in pose measurement. (sensor coordinate system will be rotated by the controller output)
-  const Eigen::Vector2d position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
-  const Eigen::Rotation2Dd R_set_point(-_parameter.set_point.yaw);
-  const Eigen::Vector2d position_corrected = /* R_set_point * */ position_in_base_link;
 
   // Process pose controller on each dimension.
+  const Eigen::Vector2d position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
   const auto now = get_clock()->now();
   const double dt = (now - _stamp_last_processed).seconds();
 
   // Linear X
-  // _controller_output->linear.x = _controller[0](_controller_set_point->position.x, pose_in_base_link.pose.position.x, dt);
-  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_corrected.x(), dt);
+  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);
 
   // Linear Y
-  // _controller_output->linear.y = _controller[1](_controller_set_point->position.y, pose_in_base_link.pose.position.y, dt);
-  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_corrected.y(), dt);    
+  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);    
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
-  // const AnglePiToPi yaw_set_point = quaternion_to_yaw(_controller_set_point->orientation);
   const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;  
 
   _controller_output->angular.z = AnglePiToPi(_controller[2](yaw_set_point, yaw_feedback, dt));
+
+  // \todo replace hack with proper implementation
+  if (std::abs(_controller_output->linear.x) < 0.02) _controller_output->linear.x = 0.0;
+  if (std::abs(_controller_output->linear.y) < 0.02) _controller_output->linear.y = 0.0;
+  if (std::abs(_controller_output->angular.z) < 0.05) _controller_output->angular.z = 0.0;
 
   // Publishing Result
   _pub_twist->publish(*_controller_output);
