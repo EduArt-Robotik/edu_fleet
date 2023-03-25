@@ -13,6 +13,7 @@
 #include <rclcpp/subscription.hpp>
 
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
 
 #include <memory>
@@ -27,7 +28,8 @@ class PoseController : public rclcpp::Node
 {
 public:
   struct Parameter {
-    PidController::Parameter pid;
+    PidController::Parameter pid_linear;
+    PidController::Parameter pid_angular;
     std::string frame_robot = "base_link";
     struct SetPoint {
       double x;
@@ -54,6 +56,7 @@ private:
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
 
   std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
   std::unique_ptr<tf2_ros::Buffer> _tf_buffer;
 };
 

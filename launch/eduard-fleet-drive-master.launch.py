@@ -33,7 +33,7 @@ def generate_launch_description():
       name='fleet_control_node',
       parameters=[parameter_file],
       remappings=[
-        ('robot_0/cmd_vel', 'eduard/red/cmd_vel'),
+        ('robot_0/cmd_vel', 'eduard/red/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
         ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
         ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel')      
       ],
@@ -41,9 +41,20 @@ def generate_launch_description():
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
-    
+  
+    tf_publisher_cam_rear = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      arguments=[
+        '-0.1', '0', '0', '4.71238898', '0', '-1.570796327',
+        PathJoinSubstitution(['eduard/red', 'base_link']),
+        PathJoinSubstitution(['eduard/red', 'qr_code', 'rear'])
+      ]
+    )
+
     return LaunchDescription([
       use_fleet_control_arg,
       fleet_control_node,
+      tf_publisher_cam_rear
     ])
     
