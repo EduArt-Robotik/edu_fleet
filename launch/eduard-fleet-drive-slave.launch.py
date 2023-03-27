@@ -57,7 +57,7 @@ def generate_launch_description():
       package='tf2_ros',
       executable='static_transform_publisher',
       arguments=[
-        '0.17', '0', '0.05', '0', '0', '0',
+        '0.17', '0.04', '0.05', '0', '0', '0',
         PathJoinSubstitution([robot_namespace, 'base_link']),
         PathJoinSubstitution([robot_namespace, 'object_sensor', 'front'])
       ]

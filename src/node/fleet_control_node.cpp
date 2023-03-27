@@ -64,7 +64,7 @@ FleetControlNode::FleetControlNode()
   }
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
     "/cmd_vel",
-    rclcpp::QoS(1).reliable(),
+    rclcpp::QoS(1).best_effort(),
     std::bind(&FleetControlNode::callbackTwistFleet, this, std::placeholders::_1)
   );
   // \todo request kinematic matrices.

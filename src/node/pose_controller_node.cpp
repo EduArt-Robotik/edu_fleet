@@ -134,25 +134,15 @@ static geometry_msgs::msg::Pose transform_pose(const geometry_msgs::msg::Pose& p
 void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
 {
   // Bring pose in robot coordinate system.
-  geometry_msgs::msg::TransformStamped t_qr_code_to_base_link;
-  geometry_msgs::msg::PoseStamped pose_in_eduard_red_base_link;
   geometry_msgs::msg::PoseStamped pose_in_base_link;
 
   try {
-    t_qr_code_to_base_link = _tf_buffer->lookupTransform(
-       "eduard/red/base_link", "eduard/red/qr_code/rear", tf2::TimePointZero
-    );
-    pose_in_eduard_red_base_link.pose = transform_pose(pose_msg->pose, t_qr_code_to_base_link.transform);
-    pose_in_eduard_red_base_link.header = pose_msg->header;
-    pose_in_base_link = _tf_buffer->transform(pose_in_eduard_red_base_link, _parameter.frame_robot);
+    pose_in_base_link = _tf_buffer->transform(*pose_msg, _parameter.frame_robot);
   }
   catch (const tf2::TransformException & ex) {
     RCLCPP_ERROR(
-      get_logger(),
-      "Could not transform %s to %s: %s",
-      _parameter.frame_robot.c_str(),
-      pose_msg->header.frame_id.c_str(),
-      ex.what()
+      get_logger(), "Could not transform %s to %s: %s", _parameter.frame_robot.c_str(), 
+      pose_msg->header.frame_id.c_str(), ex.what()
     );
     return;
   }
@@ -172,23 +162,28 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   // Process pose controller on each dimension.
   const Eigen::Vector2f position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
   const auto now = get_clock()->now();
-  const double dt = (now - _stamp_last_processed).seconds();
+  // Keep dt smaller than 100ms. Bigger values are bad for the PID controller.
+  const double dt = std::min((now - _stamp_last_processed).seconds(), 0.1);
 
   // Yaw Orientation
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
-  const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;  
+  const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;
   // const AnglePiToPi yaw_diff = yaw_set_point - yaw_feedback;
   // std::cout << "yaw diff: " << yaw_diff << std::endl;
   _controller_output->angular.z = AnglePiToPi(_controller[2](yaw_set_point, yaw_feedback, dt));
-
-  // const Eigen::Vector2f coords_velocity = Eigen::Rotation2Df(-_controller_output->angular.z) * position_in_base_link;
+  const Eigen::Vector2f set_point = Eigen::Rotation2Df(yaw_feedback) * Eigen::Vector2f(_parameter.set_point.x, _parameter.set_point.y);
+  std::cout << "set_point:\n" << set_point << std::endl;
+  const Eigen::Vector2f target_point = position_in_base_link - set_point;
+  std::cout << "target_point:\n" << target_point << std::endl;
   // Linear X
-  _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);
+  _controller_output->linear.x = _controller[0](0.0f, target_point.x(), dt);
+  // _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);  
   // _controller_output->linear.x += coords_velocity.x() - position_in_base_link.x();
 
   // Linear Y
-  _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);    
+  _controller_output->linear.y = _controller[1](0.0f, target_point.y(), dt); 
+  // _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);  
   // _controller_output->linear.y += coords_velocity.y() - position_in_base_link.y();
 
   // \todo replace hack with proper implementation

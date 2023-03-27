@@ -22,6 +22,8 @@ class TwistAccumulator : public rclcpp::Node
 public:
   struct Parameter {
     std::size_t num_subscriptions = 2;
+    float timeout = 0.2; // timeout for twist inputs. The twist input update for each channel must be below this value.
+                         // If the timeout was exceeded for this channel the twist input will be set to zero.
   };
 
   TwistAccumulator();
@@ -34,6 +36,7 @@ private:
 
   Parameter _parameter;
   std::vector<geometry_msgs::msg::Twist> _current_input;
+  std::vector<rclcpp::Time> _stamp_last_input_update;
 
   std::vector<std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>>> _sub_twist;
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
