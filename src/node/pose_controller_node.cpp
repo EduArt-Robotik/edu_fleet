@@ -112,25 +112,6 @@ static AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q)
   return atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
 }
 
-static geometry_msgs::msg::Pose transform_pose(const geometry_msgs::msg::Pose& pose_in, const geometry_msgs::msg::Transform& transform)
-{
-  const Eigen::Quaternionf rot_transform(transform.rotation.w, transform.rotation.x, transform.rotation.y, transform.rotation.z);
-  const Eigen::Quaternionf rot_pose(pose_in.orientation.w, pose_in.orientation.x, pose_in.orientation.y, pose_in.orientation.z);
-  const Eigen::Quaternionf new_rot = rot_pose * rot_transform.inverse();
-  const Eigen::Vector3f translation = new_rot * Eigen::Vector3f(-transform.translation.x, -transform.translation.y, -transform.translation.z);
-
-  geometry_msgs::msg::Pose pose_out;
-  pose_out.position.x = pose_in.position.x + translation.x();
-  pose_out.position.y = pose_in.position.y + translation.y();
-  pose_out.position.z = pose_in.position.z + translation.z();
-  pose_out.orientation.w = new_rot.w();
-  pose_out.orientation.x = new_rot.x();
-  pose_out.orientation.y = new_rot.y();
-  pose_out.orientation.z = new_rot.z();
-
-  return pose_out;
-}
-
 void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
 {
   // Bring pose in robot coordinate system.
@@ -149,7 +130,7 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
 
   // For Debugging
   geometry_msgs::msg::TransformStamped qr_code_transform;
-  qr_code_transform.header.frame_id = pose_in_base_link.header.frame_id;
+  qr_code_transform.header.frame_id = _parameter.frame_robot;
   qr_code_transform.header.stamp = get_clock()->now();
   qr_code_transform.child_frame_id = "eduard_red";
   qr_code_transform.transform.translation.x = pose_in_base_link.pose.position.x;
@@ -171,25 +152,25 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;
   // const AnglePiToPi yaw_diff = yaw_set_point - yaw_feedback;
   // std::cout << "yaw diff: " << yaw_diff << std::endl;
-  _controller_output->angular.z = AnglePiToPi(_controller[2](yaw_set_point, yaw_feedback, dt));
+  _controller_output->angular.z = _controller[2](yaw_set_point, -yaw_feedback, dt);
   const Eigen::Vector2f set_point = Eigen::Rotation2Df(yaw_feedback) * Eigen::Vector2f(_parameter.set_point.x, _parameter.set_point.y);
   std::cout << "set_point:\n" << set_point << std::endl;
   const Eigen::Vector2f target_point = position_in_base_link - set_point;
   std::cout << "target_point:\n" << target_point << std::endl;
   // Linear X
-  _controller_output->linear.x = _controller[0](0.0f, target_point.x(), dt);
+  _controller_output->linear.x = _controller[0](0.0f, -target_point.x(), dt);
   // _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);  
   // _controller_output->linear.x += coords_velocity.x() - position_in_base_link.x();
 
   // Linear Y
-  _controller_output->linear.y = _controller[1](0.0f, target_point.y(), dt); 
+  _controller_output->linear.y = _controller[1](0.0f, -target_point.y(), dt); 
   // _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);  
   // _controller_output->linear.y += coords_velocity.y() - position_in_base_link.y();
 
   // \todo replace hack with proper implementation
   if (std::abs(_controller_output->linear.x) < 0.02) _controller_output->linear.x = 0.0;
   if (std::abs(_controller_output->linear.y) < 0.02) _controller_output->linear.y = 0.0;
-  if (std::abs(_controller_output->angular.z) < 0.05) _controller_output->angular.z = 0.0;
+  if (std::abs(_controller_output->angular.z) < 0.02) _controller_output->angular.z = 0.0;
 
   // Publishing Result
   _pub_twist->publish(*_controller_output);
