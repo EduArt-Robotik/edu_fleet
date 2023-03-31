@@ -25,6 +25,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # Services
   "srv/GetTransform.srv"
   DEPENDENCIES
+  "edu_robot"
 )
 ## Line below needed for ROS distro humble and newer. TODO: handle this somehow!
 # rosidl_get_typesupport_target(CPP_TYPESUPPORT_TARGET "${PROJECT_NAME}" "rosidl_typesupport_cpp")

@@ -1,5 +1,4 @@
-string robot_name
+string from
+string to
 ---
-float64 pos_x
-float64 pos_y
-float64 yaw
+edu_robot/Matrix t

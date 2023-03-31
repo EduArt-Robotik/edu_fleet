@@ -1,5 +1,7 @@
 #include "fleet_control_node.hpp"
 
+#include <Eigen/Geometry>
+
 #include <cstddef>
 #include <functional>
 #include <string>
@@ -33,19 +35,19 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
 
   // Depending on the number of robots n transformation matrices will be constructed.
   for (std::size_t i = 0; i < parameter.number_of_robots; ++i) {
-    const std::string parameter_name = std::string("robot_") + std::to_string(i) + ".";
+    const std::string robot_name = std::string("robot_") + std::to_string(i);
     FleetControlNode::Parameter::Pose2D robot_pose;
 
-    ros_node.declare_parameter<double>(parameter_name + "x", robot_pose.x);
-    robot_pose.x = ros_node.get_parameter(parameter_name + "x").as_double();
+    ros_node.declare_parameter<double>(robot_name + ".x", robot_pose.x);
+    ros_node.declare_parameter<double>(robot_name + ".y", robot_pose.y);
+    ros_node.declare_parameter<double>(robot_name + ".yaw", robot_pose.yaw);
+    ros_node.declare_parameter<std::string>(robot_name + ".name", robot_name);
 
-    ros_node.declare_parameter<double>(parameter_name + "y", robot_pose.y);
-    robot_pose.y = ros_node.get_parameter(parameter_name + "y").as_double();
-
-    ros_node.declare_parameter<double>(parameter_name + "yaw", robot_pose.yaw);
-    robot_pose.yaw = ros_node.get_parameter(parameter_name + "yaw").as_double();   
-
-    parameter.robot_pose.emplace_back(robot_pose);     
+    robot_pose.x = ros_node.get_parameter(robot_name + ".x").as_double();
+    robot_pose.y = ros_node.get_parameter(robot_name + ".y").as_double();
+    robot_pose.yaw = ros_node.get_parameter(robot_name + ".yaw").as_double();
+    parameter.robot_name.emplace_back(ros_node.get_parameter(robot_name + ".name").as_string());
+    parameter.robot_pose.emplace_back(robot_pose);
   }
 
   return parameter;
@@ -136,7 +138,37 @@ void FleetControlNode::callbackServiceGetTransform(
   const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request, 
   std::shared_ptr<edu_swarm::srv::GetTransform::Response> response)
 {
+  const auto search_from = std::find(
+    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->from);
+  const auto search_to = std::find(
+    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->to);
 
+  // robot to fleet, fleet to robot = transform
+  if (search_from == _parameter.robot_name.end() || search_to == _parameter.robot_name.end()) {
+    throw std::runtime_error("Requested transformation is not available.");
+  }
+
+  // Calculate transformation: t_to * t_from.inv() * p = t * p
+  const std::size_t idx_from = search_from - _parameter.robot_name.begin();
+  const std::size_t idx_to = search_to - _parameter.robot_name.begin();
+  const auto t_from = calculate_fleet_to_robot_matrix(
+    _parameter.robot_pose[idx_from].x, _parameter.robot_pose[idx_from].y, _parameter.robot_pose[idx_from].yaw
+  );
+  const auto t_to = calculate_fleet_to_robot_matrix(
+    _parameter.robot_pose[idx_to].x, _parameter.robot_pose[idx_to].y, _parameter.robot_pose[idx_to].yaw
+  );
+  const Eigen::Matrix3d t = t_from.inverse() * t_to;
+
+  // Copying Result to Response
+  response->t.rows = t.rows();
+  response->t.cols = t.cols();
+  response->t.data.resize(t.rows() * t.cols());
+
+  for (Eigen::Index row = 0; row < t.rows(); ++row) {
+    for (Eigen::Index col = 0; col < t.cols(); ++col) {
+      response->t.data[row * col + col] = t(row, col);
+    }
+  }
 }    
 
 void FleetControlNode::updateKinematicDescription()
