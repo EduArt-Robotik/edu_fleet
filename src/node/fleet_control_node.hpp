@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <edu_swarm/srv/get_transform.hpp>
+
 #include <edu_robot/srv/get_kinematic_description.hpp>
 #include <edu_robot/rotation_per_minute.hpp>
 
@@ -45,19 +47,23 @@ public:
 
 private:
   void callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg);
+  void callbackServiceGetTransform(
+    const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request,
+    std::shared_ptr<edu_swarm::srv::GetTransform::Response> response);
   void updateKinematicDescription();
   void processKinematicDescription(
     const edu_robot::msg::RobotKinematicDescription& description, const std::size_t robot_index);
 
   Parameter _parameter;
 
-  std::vector<Eigen::MatrixXf> _kinematic_matrix;
+  std::vector<Eigen::MatrixXd> _kinematic_matrix;
   std::vector<std::vector<eduart::robot::Rpm>> _robot_rpm_limit;
   std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot;
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
   std::vector<std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>>> _pub_twist_robot;
   std::vector<std::shared_ptr<rclcpp::Client<edu_robot::srv::GetKinematicDescription>>> _srv_client_get_kinematic;
+  std::shared_ptr<rclcpp::Service<edu_swarm::srv::GetTransform>> _srv_server_get_transform;
   std::shared_ptr<rclcpp::TimerBase> _timer_update_kinematic;
 };
 

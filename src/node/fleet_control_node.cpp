@@ -69,15 +69,22 @@ FleetControlNode::FleetControlNode()
     _t_fleet_to_robot.emplace_back(calculate_fleet_to_robot_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
     ));
-    _kinematic_matrix.emplace_back(Eigen::Matrix3f::Identity());
+    _kinematic_matrix.emplace_back(Eigen::Matrix3d::Identity());
     _robot_rpm_limit.emplace_back();
   }
+
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
     "/cmd_vel",
     rclcpp::QoS(1).best_effort(),
     std::bind(&FleetControlNode::callbackTwistFleet, this, std::placeholders::_1)
   );
-  _timer_update_kinematic = create_wall_timer(2s, std::bind(&FleetControlNode::updateKinematicDescription, this));
+  _srv_server_get_transform = create_service<edu_swarm::srv::GetTransform>(
+    "get_transform",
+    std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
+  );
+  _timer_update_kinematic = create_wall_timer(
+    2s, std::bind(&FleetControlNode::updateKinematicDescription, this)
+  );
 }
 
 FleetControlNode::~FleetControlNode()
@@ -103,13 +110,34 @@ static geometry_msgs::msg::Twist to_twist_message(const Eigen::Vector3d& velocit
 void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg)
 {
   const Eigen::Vector3d velocity(twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
+  std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> velocity_robot(_parameter.number_of_robots);
+  float reduce_factor = 1.0;
 
-  for (std::size_t i = 0; i < _t_fleet_to_robot.size(); ++i) {
-    const Eigen::Vector3d velocity_robot = _t_fleet_to_robot[i] * velocity;
-    // \todo handle maximum rpm limit of the robot's wheels.
-    _pub_twist_robot[i]->publish(to_twist_message(velocity_robot));
+  for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
+    velocity_robot[robot_idx] = _t_fleet_to_robot[robot_idx] * velocity;
+
+    // Calculate wheel rotation speed using provided kinematic matrix.
+    // Apply velocity reduction if a limit is reached.
+    Eigen::VectorXd radps = _kinematic_matrix[robot_idx] * velocity_robot[robot_idx];
+  
+    for (std::size_t wheel_idx = 0; wheel_idx < _robot_rpm_limit[robot_idx].size(); ++wheel_idx) {
+      reduce_factor = std::min(
+        std::abs(_robot_rpm_limit[robot_idx][wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
+        reduce_factor
+      );
+    }
+  }
+  for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
+    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
   }
 }
+
+void FleetControlNode::callbackServiceGetTransform(
+  const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request, 
+  std::shared_ptr<edu_swarm::srv::GetTransform::Response> response)
+{
+
+}    
 
 void FleetControlNode::updateKinematicDescription()
 {

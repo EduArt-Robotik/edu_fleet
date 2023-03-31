@@ -20,18 +20,12 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(edu_robot REQUIRED)
 
 ## Build Defined ROS Messages
-# rosidl_generate_interfaces(${PROJECT_NAME}
-# # Messages
-#   "msg/Mode.msg"
-#   "msg/State.msg"
-#   "msg/RobotState.msg"
-#   "msg/SetLightingColor.msg"
-#   "msg/RobotStatusReport.msg"
-# # Services
-#   "srv/SetMode.srv"
-#   DEPENDENCIES
-#   std_msgs
-# )
+rosidl_generate_interfaces(${PROJECT_NAME}
+# Messages
+# Services
+  "srv/GetTransform.srv"
+  DEPENDENCIES
+)
 ## Line below needed for ROS distro humble and newer. TODO: handle this somehow!
 # rosidl_get_typesupport_target(CPP_TYPESUPPORT_TARGET "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
