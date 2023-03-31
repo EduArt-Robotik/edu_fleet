@@ -39,5 +39,6 @@ target_link_libraries(fleet_control_node
 ament_target_dependencies(fleet_control_node
   "rclcpp"
   "geometry_msgs"
+  "edu_robot"
 )
 # rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")

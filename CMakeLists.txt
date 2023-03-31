@@ -17,6 +17,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(edu_robot REQUIRED)
 
 ## Build Defined ROS Messages
 # rosidl_generate_interfaces(${PROJECT_NAME}

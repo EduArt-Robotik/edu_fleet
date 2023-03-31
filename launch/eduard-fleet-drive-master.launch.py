@@ -36,7 +36,9 @@ def generate_launch_description():
         ('/cmd_vel'       , 'eduard/red/cmd_vel'), # use joy stick input from Eduard red
         ('robot_0/cmd_vel', 'eduard/red/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
         ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
-        ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel')      
+        ('robot_1/get_kinematic_description', 'eduard/green/get_kinematic_description'),
+        ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel'),
+        ('robot_2/get_kinematic_description', 'eduard/blue/get_kinematic_description'),        
       ],
       condition=IfCondition(use_fleet_control),
       # prefix=['gdbserver localhost:3000'],
