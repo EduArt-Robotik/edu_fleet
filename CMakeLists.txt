@@ -18,6 +18,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(edu_robot REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -28,7 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "edu_robot"
 )
 ## Line below needed for ROS distro humble and newer. TODO: handle this somehow!
-# rosidl_get_typesupport_target(CPP_TYPESUPPORT_TARGET "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
 add_subdirectory(src/node)
 

@@ -51,9 +51,9 @@ private:
   void callbackServiceGetTransform(
     const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request,
     std::shared_ptr<edu_swarm::srv::GetTransform::Response> response);
-  void updateKinematicDescription();
+  // void updateKinematicDescription();
   void processKinematicDescription(
-    const edu_robot::msg::RobotKinematicDescription& description, const std::size_t robot_index);
+    std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index);
 
   Parameter _parameter;
 
@@ -62,10 +62,11 @@ private:
   std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot;
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
+  std::vector<std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotKinematicDescription>>> _sub_kinematic_description;
   std::vector<std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>>> _pub_twist_robot;
-  std::vector<std::shared_ptr<rclcpp::Client<edu_robot::srv::GetKinematicDescription>>> _srv_client_get_kinematic;
+  // std::vector<std::shared_ptr<rclcpp::Client<edu_robot::srv::GetKinematicDescription>>> _srv_client_get_kinematic;
   std::shared_ptr<rclcpp::Service<edu_swarm::srv::GetTransform>> _srv_server_get_transform;
-  std::shared_ptr<rclcpp::TimerBase> _timer_update_kinematic;
+  // std::shared_ptr<rclcpp::TimerBase> _timer_update_kinematic;
 };
 
 } // end namespace fleet

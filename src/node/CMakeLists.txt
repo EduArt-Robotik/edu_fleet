@@ -35,10 +35,11 @@ add_executable(fleet_control_node
 )
 target_link_libraries(fleet_control_node
   Eigen3::Eigen
+  "${cpp_typesupport_target}"
 )
 ament_target_dependencies(fleet_control_node
   "rclcpp"
   "geometry_msgs"
   "edu_robot"
 )
-rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
+# rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")

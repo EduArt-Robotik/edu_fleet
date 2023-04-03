@@ -63,9 +63,16 @@ FleetControlNode::FleetControlNode()
       robot_namespace + "/cmd_vel",
       rclcpp::QoS(1).reliable()
     ));
-    _srv_client_get_kinematic.emplace_back(create_client<edu_robot::srv::GetKinematicDescription>(
-      robot_namespace + "/get_kinematic_description"
+    _sub_kinematic_description.emplace_back(create_subscription<edu_robot::msg::RobotKinematicDescription>(
+      robot_namespace + "/kinematic_description",
+      rclcpp::QoS(2).reliable().transient_local(),
+      [this, i](std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description) {
+        processKinematicDescription(description, i);
+      }
     ));
+    // _srv_client_get_kinematic.emplace_back(create_client<edu_robot::srv::GetKinematicDescription>(
+    //   robot_namespace + "/get_kinematic_description"
+    // ));
 
     // Initialize twist calculation variables with default values.
     _t_fleet_to_robot.emplace_back(calculate_fleet_to_robot_matrix(
@@ -84,9 +91,9 @@ FleetControlNode::FleetControlNode()
     "get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
   );
-  _timer_update_kinematic = create_wall_timer(
-    2s, std::bind(&FleetControlNode::updateKinematicDescription, this)
-  );
+  // _timer_update_kinematic = create_wall_timer(
+  //   2s, std::bind(&FleetControlNode::updateKinematicDescription, this)
+  // );
 }
 
 FleetControlNode::~FleetControlNode()
@@ -132,6 +139,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
     _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
   }
+  // rclcpp::QoS(1).transient_local().reliable()
 }
 
 void FleetControlNode::callbackServiceGetTransform(
@@ -171,44 +179,44 @@ void FleetControlNode::callbackServiceGetTransform(
   }
 }    
 
-void FleetControlNode::updateKinematicDescription()
-{
-  for (std::size_t i = 0; i < _srv_client_get_kinematic.size(); ++i) {
-    auto request = std::make_shared<edu_robot::srv::GetKinematicDescription::Request>();
-    auto& client = _srv_client_get_kinematic[i];
+// void FleetControlNode::updateKinematicDescription()
+// {
+//   for (std::size_t i = 0; i < _srv_client_get_kinematic.size(); ++i) {
+//     auto request = std::make_shared<edu_robot::srv::GetKinematicDescription::Request>();
+//     auto& client = _srv_client_get_kinematic[i];
 
-    if (client->service_is_ready()) {
-      RCLCPP_INFO(get_logger(), "Requesting kinematic description on: %s", client->get_service_name());
-      client->async_send_request(
-        request,
-        [this, i] (rclcpp::Client<edu_robot::srv::GetKinematicDescription>::SharedFutureWithRequest future) {
-          processKinematicDescription(future.get().second->kinematic, i);
-        }
-      );
-    }
-    // else:
-    //  do nothing
-  }
-}
+//     if (client->service_is_ready()) {
+//       RCLCPP_INFO(get_logger(), "Requesting kinematic description on: %s", client->get_service_name());
+//       client->async_send_request(
+//         request,
+//         [this, i] (rclcpp::Client<edu_robot::srv::GetKinematicDescription>::SharedFutureWithRequest future) {
+//           processKinematicDescription(future.get().second->kinematic, i);
+//         }
+//       );
+//     }
+//     // else:
+//     //  do nothing
+//   }
+// }
 
 void FleetControlNode::processKinematicDescription(
-  const edu_robot::msg::RobotKinematicDescription& description, const std::size_t robot_index)
+  std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
   if (robot_index >= _kinematic_matrix.size() || robot_index >= _robot_rpm_limit.size()) {
     RCLCPP_ERROR(get_logger(), "Robot index out of range. Must not be happen! Debug it!");
     return;
   }
 
-  _kinematic_matrix[robot_index].resize(description.k.rows, description.k.cols);
+  _kinematic_matrix[robot_index].resize(description->k.rows, description->k.cols);
   _robot_rpm_limit[robot_index].clear();
-  _robot_rpm_limit[robot_index].reserve(description.wheel_limits.size());
+  _robot_rpm_limit[robot_index].reserve(description->wheel_limits.size());
 
   for (Eigen::Index row = 0; row < _kinematic_matrix[robot_index].rows(); ++row) {
     for (Eigen::Index col = 0; col < _kinematic_matrix[robot_index].cols(); ++col) {
-      _kinematic_matrix[robot_index](row, col) = description.k.data[row * description.k.cols + description.k.cols];
+      _kinematic_matrix[robot_index](row, col) = description->k.data[row * description->k.cols + description->k.cols];
     }
   }
-  for (const auto& limit : description.wheel_limits) {
+  for (const auto& limit : description->wheel_limits) {
     _robot_rpm_limit[robot_index].emplace_back(limit);
   }
 }
