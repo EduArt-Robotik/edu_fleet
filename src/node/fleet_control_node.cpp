@@ -2,8 +2,10 @@
 
 #include <Eigen/Geometry>
 
+#include <Eigen/src/Core/Matrix.h>
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <string>
 
 namespace eduart {
@@ -11,7 +13,7 @@ namespace fleet {
 
 using namespace std::chrono_literals;
 
-static Eigen::Matrix3d calculate_fleet_to_robot_matrix(const double d_x, const double d_y, const double d_yaw)
+static Eigen::Matrix3d calculate_fleet_to_robot_velocity_matrix(const double d_x, const double d_y, const double d_yaw)
 {
   const double cos_yaw = std::cos(d_yaw);
   const double sin_yaw = std::sin(d_yaw);
@@ -24,6 +26,19 @@ static Eigen::Matrix3d calculate_fleet_to_robot_matrix(const double d_x, const d
                           0.0,      0.0,                            1.0;
 
   return  t_fleet_to_robot;                          
+}
+
+static Eigen::Matrix3d calculate_fleet_to_robot_transform_matrix(const double x, const double y, const double yaw)
+{
+  const double cos_yaw = std::cos(yaw);
+  const double sin_yaw = std::sin(yaw);
+  Eigen::Matrix3d t_fleet_to_robot;
+
+  t_fleet_to_robot << cos_yaw, -sin_yaw,   x,
+                      sin_yaw,  cos_yaw,   y,
+                          0.0,      0.0, 1.0;
+
+  return  t_fleet_to_robot;      
 }
 
 FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_node)
@@ -70,14 +85,14 @@ FleetControlNode::FleetControlNode()
         processKinematicDescription(description, i);
       }
     ));
-    // _srv_client_get_kinematic.emplace_back(create_client<edu_robot::srv::GetKinematicDescription>(
-    //   robot_namespace + "/get_kinematic_description"
-    // ));
 
     // Initialize twist calculation variables with default values.
-    _t_fleet_to_robot.emplace_back(calculate_fleet_to_robot_matrix(
+    _t_fleet_to_robot_velocity.emplace_back(calculate_fleet_to_robot_velocity_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
     ));
+    _t_fleet_to_robot_transform.emplace_back(calculate_fleet_to_robot_transform_matrix(
+      _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
+    ));    
     _kinematic_matrix.emplace_back(Eigen::Matrix3d::Identity());
     _robot_rpm_limit.emplace_back();
   }
@@ -91,9 +106,6 @@ FleetControlNode::FleetControlNode()
     "get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
   );
-  // _timer_update_kinematic = create_wall_timer(
-  //   2s, std::bind(&FleetControlNode::updateKinematicDescription, this)
-  // );
 }
 
 FleetControlNode::~FleetControlNode()
@@ -123,7 +135,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   float reduce_factor = 1.0;
 
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    velocity_robot[robot_idx] = _t_fleet_to_robot[robot_idx] * velocity;
+    velocity_robot[robot_idx] = _t_fleet_to_robot_velocity[robot_idx] * velocity;
 
     // Calculate wheel rotation speed using provided kinematic matrix.
     // Apply velocity reduction if a limit is reached.
@@ -139,7 +151,6 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
     _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
   }
-  // rclcpp::QoS(1).transient_local().reliable()
 }
 
 void FleetControlNode::callbackServiceGetTransform(
@@ -153,19 +164,22 @@ void FleetControlNode::callbackServiceGetTransform(
 
   // robot to fleet, fleet to robot = transform
   if (search_from == _parameter.robot_name.end() || search_to == _parameter.robot_name.end()) {
-    throw std::runtime_error("Requested transformation is not available.");
+    // throw std::runtime_error("Requested transformation is not available.");
+    return;
   }
 
   // Calculate transformation: t_to * t_from.inv() * p = t * p
   const std::size_t idx_from = search_from - _parameter.robot_name.begin();
   const std::size_t idx_to = search_to - _parameter.robot_name.begin();
-  const auto t_from = calculate_fleet_to_robot_matrix(
-    _parameter.robot_pose[idx_from].x, _parameter.robot_pose[idx_from].y, _parameter.robot_pose[idx_from].yaw
-  );
-  const auto t_to = calculate_fleet_to_robot_matrix(
-    _parameter.robot_pose[idx_to].x, _parameter.robot_pose[idx_to].y, _parameter.robot_pose[idx_to].yaw
-  );
-  const Eigen::Matrix3d t = t_from.inverse() * t_to;
+  // std::cout << "idx from = " << idx_from << std::endl;
+  // std::cout << "idx to = "<< idx_to << std::endl;
+  const auto t_from = _t_fleet_to_robot_transform[idx_from];
+  const auto t_to = _t_fleet_to_robot_transform[idx_to];
+  // std::cout << "t from:\n" << t_from << std::endl;
+  // std::cout << "t to:\n" << t_to << std::endl;
+  const Eigen::Matrix3d t = t_from.inverse();
+  std::cout << "t:\n" << t << std::endl;
+  std::cout << "p:\n" << t * Eigen::Vector3d(0.0, 0.0, 1.0) << std::endl;
 
   // Copying Result to Response
   response->t.rows = t.rows();
@@ -174,34 +188,16 @@ void FleetControlNode::callbackServiceGetTransform(
 
   for (Eigen::Index row = 0; row < t.rows(); ++row) {
     for (Eigen::Index col = 0; col < t.cols(); ++col) {
-      response->t.data[row * col + col] = t(row, col);
+      response->t.data[row * t.cols() + col] = t(row, col);
     }
   }
 }    
 
-// void FleetControlNode::updateKinematicDescription()
-// {
-//   for (std::size_t i = 0; i < _srv_client_get_kinematic.size(); ++i) {
-//     auto request = std::make_shared<edu_robot::srv::GetKinematicDescription::Request>();
-//     auto& client = _srv_client_get_kinematic[i];
-
-//     if (client->service_is_ready()) {
-//       RCLCPP_INFO(get_logger(), "Requesting kinematic description on: %s", client->get_service_name());
-//       client->async_send_request(
-//         request,
-//         [this, i] (rclcpp::Client<edu_robot::srv::GetKinematicDescription>::SharedFutureWithRequest future) {
-//           processKinematicDescription(future.get().second->kinematic, i);
-//         }
-//       );
-//     }
-//     // else:
-//     //  do nothing
-//   }
-// }
-
 void FleetControlNode::processKinematicDescription(
   std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
+  std::cout << __PRETTY_FUNCTION__ << std::endl;
+
   if (robot_index >= _kinematic_matrix.size() || robot_index >= _robot_rpm_limit.size()) {
     RCLCPP_ERROR(get_logger(), "Robot index out of range. Must not be happen! Debug it!");
     return;
@@ -219,6 +215,7 @@ void FleetControlNode::processKinematicDescription(
   for (const auto& limit : description->wheel_limits) {
     _robot_rpm_limit[robot_index].emplace_back(limit);
   }
+  std::cout << "kinematic matrix:\n" << _kinematic_matrix[robot_index] << std::endl;
 }
 
 } // end namespace fleet

@@ -29,7 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "edu_robot"
 )
 ## Line below needed for ROS distro humble and newer. TODO: handle this somehow!
-rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+# rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
 add_subdirectory(src/node)
 

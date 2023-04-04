@@ -5,17 +5,19 @@
     number_of_robots: 3
 
     robot_0:
-      d_x: 0.35
-      d_y: 0.0
-      d_yaw: 0.0
+      name: 'eduard/red'
+      x: 0.35
+      y: 0.0
+      yaw: 0.0
 
     robot_1:
-      d_x: -0.35
-      d_y: 0.0
-      # d_yaw: -0.523598776 # 30°
-      d_yaw: 0.0
+      name: 'eduard/green'
+      x: -0.35
+      y: 0.2
+      yaw: -0.523598776 # 30°
 
     robot_2:
-      d_x: -1.0
-      d_y:  0.5
-      d_yaw: 0.523598776 # 30°
+      name: 'eduard/blue'
+      x: -0.35
+      y:  -0.2
+      yaw: -0.523598776 # 30°

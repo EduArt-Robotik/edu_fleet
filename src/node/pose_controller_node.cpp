@@ -1,5 +1,6 @@
 #include "pose_controller_node.hpp"
 #include "angle.hpp"
+#include "edu_swarm/srv/detail/get_transform__struct.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -7,6 +8,7 @@
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <memory>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <rclcpp/executors.hpp>
 
@@ -14,6 +16,8 @@
 
 namespace eduart {
 namespace fleet {
+
+using namespace std::chrono_literals;
 
 PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
 {
@@ -33,6 +37,8 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   ros_node.declare_parameter<double>("pid.angular.input_filter_weight", parameter.pid_angular.input_filter_weight);
 
   ros_node.declare_parameter<std::string>("frame_robot", parameter.frame_robot);
+  ros_node.declare_parameter<std::string>("robot_name", parameter.robot_name);
+  ros_node.declare_parameter<std::string>("reference_robot_name", parameter.reference_robot_name);
 
   ros_node.declare_parameter<double>("set_point.x", parameter.set_point.x);
   ros_node.declare_parameter<double>("set_point.y", parameter.set_point.y);
@@ -50,7 +56,10 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   parameter.pid_angular.use_anti_windup = ros_node.get_parameter("pid.angular.use_anti_windup").as_bool();
   parameter.pid_angular.limit = ros_node.get_parameter("pid.angular.limit").as_double();
   parameter.pid_angular.input_filter_weight = ros_node.get_parameter("pid.angular.input_filter_weight").as_double();
+
   parameter.frame_robot = ros_node.get_parameter("frame_robot").as_string();
+  parameter.robot_name = ros_node.get_parameter("robot_name").as_string();
+  parameter.reference_robot_name = ros_node.get_parameter("reference_robot_name").as_string();
 
   parameter.set_point.x = ros_node.get_parameter("set_point.x").as_double();
   parameter.set_point.y = ros_node.get_parameter("set_point.y").as_double();
@@ -93,6 +102,7 @@ PoseController::PoseController()
   _pub_twist = create_publisher<geometry_msgs::msg::Twist>(
     "twist_output", rclcpp::QoS(1).reliable()
   );
+  _srv_client_get_transform = create_client<edu_swarm::srv::GetTransform>("/get_transform");
   _tf_buffer = std::make_unique<tf2_ros::Buffer>(get_clock());
   _tf_listener = std::make_shared<tf2_ros::TransformListener>(*_tf_buffer);
 
@@ -100,6 +110,7 @@ PoseController::PoseController()
   for (auto& controller : _controller) {
     controller.reset();
   }
+  _timer_get_transform = create_wall_timer(2s, std::bind(&PoseController::getTransform, this));
 }
 
 PoseController::~PoseController()
@@ -175,6 +186,35 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   // Publishing Result
   _pub_twist->publish(*_controller_output);
   _stamp_last_processed = now;
+}
+
+void PoseController::getTransform()
+{
+  using ResponseFuture = rclcpp::Client<edu_swarm::srv::GetTransform>::SharedFutureWithRequest;
+
+  auto request = std::make_shared<edu_swarm::srv::GetTransform::Request>();
+  request->from = _parameter.robot_name;
+  request->to = _parameter.reference_robot_name;
+
+  _srv_client_get_transform->async_send_request(request, [this](ResponseFuture future){
+    const auto response = future.get();
+    const auto t = response.second->t;
+
+    if (t.cols != 3 || t.rows != 3) {
+      std::cout << "received transform is null" << std::endl;
+      return;
+    }
+
+    _parameter.set_point.x = t.data[0 * t.cols + 2];
+    _parameter.set_point.y = t.data[1 * t.cols + 2];
+    _parameter.set_point.yaw = std::asin(t.data[1 * t.cols + 0]);
+
+    std::cout << "New Set Point:\n";
+    std::cout << "  from: " << response.first->from << " to: " << response.first->to << std::endl;
+    std::cout << "  x = " << _parameter.set_point.x << std::endl;
+    std::cout << "  y = " << _parameter.set_point.y << std::endl;
+    std::cout << "  yaw = " << _parameter.set_point.yaw << std::endl;
+  });
 }
 
 } // end namespace fleet

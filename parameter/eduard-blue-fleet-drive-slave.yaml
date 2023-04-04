@@ -1,17 +1,29 @@
-/eduard/blue/pose_controller:
+/**:
   ros__parameters:
+    use_sim_time: false
     frame_robot: 'eduard/blue/base_link'
+    reference_robot_name: 'eduard/red'
+    robot_name: 'eduard/blue'
+
     pid:
-      kd: 0.0
-      ki: 0.0
-      kp: -1.0
-      limit: 1.0
-      use_anti_windup: true
+      angular:
+        kd: 0.0
+        ki: 0.0
+        kp: 0.75
+        limit: 0.2
+        input_filter_weight: 1.0
+        use_anti_windup: true
+
+      linear:
+        kd: 0.0
+        ki: 0.0
+        kp: 0.75
+        limit: 0.2
+        input_filter_weight: 0.3
+        use_anti_windup: true
 
     set_point:
-      x: 1.0
-      y: -0.5
-      yaw: 0.523598776 # 30°
-
-    use_sim_time: false
+      x: 0.7
+      y: -0.2
+      yaw: -0.523598776
 

@@ -6,6 +6,7 @@ add_executable(pose_controller
 )
 target_link_libraries(pose_controller
   Eigen3::Eigen
+  "${cpp_typesupport_target}"
 )
 ament_target_dependencies(pose_controller
   "rclcpp"
@@ -14,7 +15,7 @@ ament_target_dependencies(pose_controller
   "tf2_ros"
   "tf2_geometry_msgs"
 )
-# rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ### Twist Accumulator
 add_executable(twist_accumulator
@@ -42,4 +43,4 @@ ament_target_dependencies(fleet_control_node
   "geometry_msgs"
   "edu_robot"
 )
-# rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")

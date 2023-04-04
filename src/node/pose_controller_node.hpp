@@ -5,13 +5,17 @@
  */
 #pragma once
 
+#include <edu_swarm/srv/get_transform.hpp>
+
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
+#include <rclcpp/client.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/subscription.hpp>
 
+#include <rclcpp/timer.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
@@ -31,6 +35,9 @@ public:
     PidController::Parameter pid_linear;
     PidController::Parameter pid_angular;
     std::string frame_robot = "base_link";
+    std::string robot_name = "eduard/green";
+    std::string reference_robot_name = "eduard/red";
+    
     struct SetPoint {
       double x;
       double y;
@@ -45,6 +52,7 @@ public:
 
 private:
   void callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg);
+  void getTransform();
 
   Parameter _parameter;
   std::array<PidController, 3> _controller;
@@ -54,6 +62,8 @@ private:
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> _sub_current_pose;
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
+  std::shared_ptr<rclcpp::Client<edu_swarm::srv::GetTransform>> _srv_client_get_transform;
+  std::shared_ptr<rclcpp::TimerBase> _timer_get_transform;
 
   std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
   std::shared_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
