@@ -15,8 +15,8 @@ using namespace std::chrono_literals;
 
 static Eigen::Matrix3d calculate_fleet_to_robot_velocity_matrix(const double d_x, const double d_y, const double d_yaw)
 {
-  const double cos_yaw = std::cos(d_yaw);
-  const double sin_yaw = std::sin(d_yaw);
+  const double cos_yaw = std::cos(-d_yaw);
+  const double sin_yaw = std::sin(-d_yaw);
   Eigen::Matrix3d t_fleet_to_robot;
 
   // Create transformation matrix using flexible kinematic approach.
@@ -148,8 +148,9 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
       );
     }
   }
+  std::cout << "reduce factor = " << reduce_factor << std::endl;
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
+    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * 1.0f));
   }
 }
 
@@ -177,9 +178,9 @@ void FleetControlNode::callbackServiceGetTransform(
   const auto t_to = _t_fleet_to_robot_transform[idx_to];
   // std::cout << "t from:\n" << t_from << std::endl;
   // std::cout << "t to:\n" << t_to << std::endl;
-  const Eigen::Matrix3d t = t_from.inverse();
+  const Eigen::Matrix3d t = t_from.inverse() * t_to;
   std::cout << "t:\n" << t << std::endl;
-  std::cout << "p:\n" << t * Eigen::Vector3d(0.0, 0.0, 1.0) << std::endl;
+  // std::cout << "p:\n" << t * Eigen::Vector3d(0.0, 0.0, 1.0) << std::endl;
 
   // Copying Result to Response
   response->t.rows = t.rows();
@@ -191,6 +192,11 @@ void FleetControlNode::callbackServiceGetTransform(
       response->t.data[row * t.cols() + col] = t(row, col);
     }
   }
+
+  for (std::size_t i = 0; i < response->t.data.size(); ++i) {
+    std::cout << response->t.data[i] << ", ";
+  }
+  std::cout << std::endl;
 }    
 
 void FleetControlNode::processKinematicDescription(

@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <cstddef>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -161,10 +162,10 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   const auto q_yaw_feedback = pose_in_base_link.pose.orientation;
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
   const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;
-  // const AnglePiToPi yaw_diff = yaw_set_point - yaw_feedback;
-  // std::cout << "yaw diff: " << yaw_diff << std::endl;
-  _controller_output->angular.z = _controller[2](yaw_set_point, -yaw_feedback, dt);
-  const Eigen::Vector2f set_point = Eigen::Rotation2Df(yaw_feedback) * Eigen::Vector2f(_parameter.set_point.x, _parameter.set_point.y);
+
+  std::cout << "yaw feedback = " << yaw_feedback << std::endl;
+  _controller_output->angular.z = _controller[2](-yaw_set_point, -yaw_feedback, dt);
+  const Eigen::Vector2f set_point = Eigen::Rotation2Df(yaw_feedback - _parameter.set_point.yaw) * Eigen::Vector2f(_parameter.set_point.x, _parameter.set_point.y);
   std::cout << "set_point:\n" << set_point << std::endl;
   const Eigen::Vector2f target_point = position_in_base_link - set_point;
   std::cout << "target_point:\n" << target_point << std::endl;
@@ -204,7 +205,10 @@ void PoseController::getTransform()
       std::cout << "received transform is null" << std::endl;
       return;
     }
-
+    for (std::size_t i = 0; i < t.data.size(); ++i) {
+      std::cout << t.data[i] << ", ";
+    }
+    std::cout << std::endl;
     _parameter.set_point.x = t.data[0 * t.cols + 2];
     _parameter.set_point.y = t.data[1 * t.cols + 2];
     _parameter.set_point.yaw = std::asin(t.data[1 * t.cols + 0]);
