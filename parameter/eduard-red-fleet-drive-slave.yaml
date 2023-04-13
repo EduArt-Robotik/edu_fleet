@@ -1,9 +1,9 @@
 /**:
   ros__parameters:
     use_sim_time: false
-    frame_robot: 'eduard/blue/base_link'
-    reference_robot_name: 'eduard/red'
-    robot_name: 'eduard/blue'
+    frame_robot: 'eduard/red/base_link'
+    reference_robot_name: 'eduard/blue'
+    robot_name: 'eduard/red'
 
     pid:
       angular:

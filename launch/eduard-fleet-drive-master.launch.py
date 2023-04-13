@@ -33,32 +33,32 @@ def generate_launch_description():
       name='fleet_control_node',
       parameters=[parameter_file],
       remappings=[
-        ('/cmd_vel'       , 'eduard/red/cmd_vel'), # use joy stick input from Eduard red
-        ('robot_0/cmd_vel', 'eduard/red/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
-        ('robot_0/kinematic_description', 'eduard/red/robot_kinematic_description'),
+        ('/cmd_vel'       , 'eduard/blue/cmd_vel'), # use joy stick input from Eduard red
+        ('robot_0/cmd_vel', 'eduard/blue/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
+        ('robot_0/kinematic_description', 'eduard/blue/robot_kinematic_description'),
         ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
         ('robot_1/kinematic_description', 'eduard/green/robot_kinematic_description'),
-        ('robot_2/cmd_vel', 'eduard/blue/fleet_control/cmd_vel'),
-        ('robot_2/kinematic_description', 'eduard/blue/robot_kinematic_description'),        
+        ('robot_2/cmd_vel', 'eduard/red/fleet_control/cmd_vel'),
+        ('robot_2/kinematic_description', 'eduard/red/robot_kinematic_description'),        
       ],
       condition=IfCondition(use_fleet_control),
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
   
-    tf_publisher_cam_rear = Node(
+    tf_publisher_qr_code_rear = Node(
       package='tf2_ros',
       executable='static_transform_publisher',
       arguments=[
         '-0.17', '0', '0', '4.71238898', '0', '-1.570796327',
-        PathJoinSubstitution(['eduard/red', 'base_link']),
-        PathJoinSubstitution(['eduard/red', 'qr_code', 'rear'])
+        PathJoinSubstitution(['eduard/blue', 'base_link']),
+        PathJoinSubstitution(['eduard/blue', 'qr_code', 'rear'])
       ]
     )
 
     return LaunchDescription([
       use_fleet_control_arg,
       fleet_control_node,
-      tf_publisher_cam_rear
+      tf_publisher_qr_code_rear
     ])
     

@@ -29,6 +29,7 @@ ENV EDU_WORKSPACE swam_ws
 RUN mkdir -p /home/$EDU_WORKSPACE/src
 
 COPY ./edu_swarm /home/$EDU_WORKSPACE/src/edu_swarm
+COPY ./edu_robot /home/$EDU_WORKSPACE/src/edu_robot
 COPY ./fastrtps_profile.xml /home/$EDU_WORKSPACE
 
 WORKDIR /home/$EDU_WORKSPACE

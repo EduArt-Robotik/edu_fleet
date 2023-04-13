@@ -33,7 +33,7 @@ def generate_launch_description():
     }.items()
   )
 
-  eduard_blue = IncludeLaunchDescription(
+  eduard_red = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([
       PathJoinSubstitution([
         FindPackageShare('edu_swarm'),
@@ -42,13 +42,13 @@ def generate_launch_description():
       ]),
     ]),
     launch_arguments={
-      'parameter_file_name': 'eduard-blue-fleet-drive-slave.yaml',
-      'robot_namespace': 'eduard/blue',
+      'parameter_file_name': 'eduard-red-fleet-drive-slave.yaml',
+      'robot_namespace': 'eduard/red',
       'use_pose_controller': use_pose_controller      
     }.items()
   )
 
-  eduard_red = IncludeLaunchDescription(
+  eduard_blue = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([
       PathJoinSubstitution([
         FindPackageShare('edu_swarm'),
