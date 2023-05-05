@@ -140,7 +140,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
     // Calculate wheel rotation speed using provided kinematic matrix.
     // Apply velocity reduction if a limit is reached.
     Eigen::VectorXd radps = _kinematic_matrix[robot_idx] * velocity_robot[robot_idx];
-  
+
     for (std::size_t wheel_idx = 0; wheel_idx < _robot_rpm_limit[robot_idx].size(); ++wheel_idx) {
       reduce_factor = std::min(
         std::abs(_robot_rpm_limit[robot_idx][wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
@@ -150,7 +150,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   }
   std::cout << "reduce factor = " << reduce_factor << std::endl;
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * 1.0f));
+    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
   }
 }
 
@@ -202,8 +202,6 @@ void FleetControlNode::callbackServiceGetTransform(
 void FleetControlNode::processKinematicDescription(
   std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
-  std::cout << __PRETTY_FUNCTION__ << std::endl;
-
   if (robot_index >= _kinematic_matrix.size() || robot_index >= _robot_rpm_limit.size()) {
     RCLCPP_ERROR(get_logger(), "Robot index out of range. Must not be happen! Debug it!");
     return;
@@ -215,7 +213,7 @@ void FleetControlNode::processKinematicDescription(
 
   for (Eigen::Index row = 0; row < _kinematic_matrix[robot_index].rows(); ++row) {
     for (Eigen::Index col = 0; col < _kinematic_matrix[robot_index].cols(); ++col) {
-      _kinematic_matrix[robot_index](row, col) = description->k.data[row * description->k.cols + description->k.cols];
+      _kinematic_matrix[robot_index](row, col) = description->k.data[row * description->k.cols + col];
     }
   }
   for (const auto& limit : description->wheel_limits) {
