@@ -70,6 +70,6 @@ RUN export RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
 
 # launch control node and joy interpreter
 CMD export RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
-    && export FASTRTPS_DEFAULT_PROFILES_FILE=/home/$EDU_WORKSPACE/fastrtps_profile.xml \
-    && source /home/$EDU_WORKSPACE/install/setup.bash \
+    && export FASTRTPS_DEFAULT_PROFILES_FILE=/home/user/fastrtps_profile.xml \
+    && source /home/user/install/setup.bash \
     && ros2 launch edu_swarm eduard-fleet-drive.launch.py
