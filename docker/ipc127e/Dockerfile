@@ -1,49 +1,72 @@
-FROM ros:galactic-ros-core-focal
+FROM ubuntu:jammy
 
 # using bash
 SHELL ["/bin/bash", "-c"]
-ENV ROS_DISTRO galactic
+ENV UBUNTU_DISTRO jammy
+ENV ROS_DISTRO humble
+ENV USER user
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN \
     apt-get update \
-    && apt-get install -y software-properties-common
-
-# Install Dependencies for Perception Package
-RUN apt-get update \
-    && apt-get install -y \
-    ros-$ROS_DISTRO-geometry-msgs \
-    ros-$ROS_DISTRO-cv-bridge \
-    ros-$ROS_DISTRO-rmw-fastrtps-cpp \
-    ros-$ROS_DISTRO-fastrtps \
-    ros-$ROS_DISTRO-tf2-ros \
-    ros-$ROS_DISTRO-tf2-geometry-msgs \
-    libeigen3-dev \
+    && apt-get install -q -y --no-install-recommends \
+    apt-utils \
+    software-properties-common \
+    nano \
+    curl \
+    gnupg \
+    git \
+    build-essential \
+    sudo \
+########################################################
+# Install ROS
+## Get package archive key and ROS source list entry.
+    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $UBUNTU_DISTRO main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
+    && apt-get update \
+########################################################
+# Install ROS packages
+    && apt-get install -q -y --no-install-recommends \
+    ros-$ROS_DISTRO-ros-base \
     python3-colcon-common-extensions \
-    python3-colcon-ros \
-    make \
-    cmake \
-    build-essential
+    software-properties-common \
+    ros-$ROS_DISTRO-rmw-fastrtps-cpp \
+    ros-$ROS_DISTRO-fastrtps
+
+# write source commands to .bashrc -> no need to source afterwards
+RUN \
+########################################################
+# Add non root user for development.
+    useradd --create-home --shell /bin/bash $USER \
+    && echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && /sbin/usermod -aG sudo $USER \
+########################################################
+# Add exports and sources to bash rc for easy handling.
+    && echo "export RMW_IMPLEMENTATION=rmw_fastrtps_cpp" >> /home/$USER/.bashrc \
+    && echo "export FASTRTPS_DEFAULT_PROFILES_FILE=/home/$USER/fastrtps_profile.xml" >> /home/$USER/.bashrc \
+    && echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> /home/$USER/.bashrc \
+    && echo "source /home/$USER/ipcbot_ws/install/setup.bash" >> /home/$USER/.bashrc \
+########################################################
+# Clean up
+    && apt-get clean
+
+# work with user user
+USER $USER
 
 # set up iotbot workspace
-ENV EDU_WORKSPACE swam_ws
-RUN mkdir -p /home/$EDU_WORKSPACE/src
+RUN mkdir -p /home/$USER/ipcbot_ws/src
 
-COPY ./edu_swarm /home/$EDU_WORKSPACE/src/edu_swarm
-COPY ./edu_robot /home/$EDU_WORKSPACE/src/edu_robot
-COPY ./fastrtps_profile.xml /home/$EDU_WORKSPACE
+WORKDIR /home/$USER/ipcbot_ws
 
-WORKDIR /home/$EDU_WORKSPACE
+# copy in needed software sources
+COPY ./edu_swarm /home/$USER/ipcbot_ws/src/edu_swarm
+COPY ./edu_robot /home/$USER/ipcbot_ws/src/edu_robot
+COPY ./fastrtps_profile.xml /home/$USER/ipcbot_ws
 
 # build EduArt packages nodes
 RUN export RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
     && source /opt/ros/$ROS_DISTRO/setup.bash \
     && MAKEFLAGS="-j2" colcon build --symlink-install --executor sequential --event-handlers console_direct+ --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-# write source commands to .bashrc -> no need to source afterwards
-RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc \
-    && echo "export RMW_IMPLEMENTATION=rmw_fastrtps_cpp" >> ~/.bashrc \
-    && echo "export FASTRTPS_DEFAULT_PROFILES_FILE=/home/$EDU_WORKSPACE/fastrtps_profile.xml" >> ~/.bashrc \
-    && echo "source /home/$EDU_WORKSPACE/install/setup.bash" >> ~/.bashrc
 
 # launch control node and joy interpreter
 CMD export RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
