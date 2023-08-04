@@ -163,21 +163,17 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   const AnglePiToPi yaw_feedback = quaternion_to_yaw(q_yaw_feedback);
   const AnglePiToPi yaw_set_point = _parameter.set_point.yaw;
 
-  std::cout << "yaw feedback = " << yaw_feedback << std::endl;
   _controller_output->angular.z = _controller[2](-yaw_set_point, -yaw_feedback, dt);
+
+  // Linear
   const Eigen::Vector2f set_point = Eigen::Rotation2Df(yaw_feedback - _parameter.set_point.yaw) * Eigen::Vector2f(_parameter.set_point.x, _parameter.set_point.y);
-  std::cout << "set_point:\n" << set_point << std::endl;
   const Eigen::Vector2f target_point = position_in_base_link - set_point;
-  std::cout << "target_point:\n" << target_point << std::endl;
+
   // Linear X
   _controller_output->linear.x = _controller[0](0.0f, -target_point.x(), dt);
-  // _controller_output->linear.x = _controller[0](_parameter.set_point.x, position_in_base_link.x(), dt);  
-  // _controller_output->linear.x += coords_velocity.x() - position_in_base_link.x();
 
   // Linear Y
   _controller_output->linear.y = _controller[1](0.0f, -target_point.y(), dt); 
-  // _controller_output->linear.y = _controller[1](_parameter.set_point.y, position_in_base_link.y(), dt);  
-  // _controller_output->linear.y += coords_velocity.y() - position_in_base_link.y();
 
   // \todo replace hack with proper implementation
   if (std::abs(_controller_output->linear.x) < 0.02) _controller_output->linear.x = 0.0;
@@ -194,30 +190,21 @@ void PoseController::getTransform()
   using ResponseFuture = rclcpp::Client<edu_swarm::srv::GetTransform>::SharedFutureWithRequest;
 
   auto request = std::make_shared<edu_swarm::srv::GetTransform::Request>();
-  request->from = _parameter.robot_name;
-  request->to = _parameter.reference_robot_name;
+  request->from_robot = _parameter.robot_name;
+  request->to_robot = _parameter.reference_robot_name;
 
   _srv_client_get_transform->async_send_request(request, [this](ResponseFuture future){
     const auto response = future.get();
     const auto t = response.second->t;
 
     if (t.cols != 3 || t.rows != 3) {
-      std::cout << "received transform is null" << std::endl;
+      RCLCPP_ERROR(get_logger(), "Received transform is null");
       return;
     }
-    for (std::size_t i = 0; i < t.data.size(); ++i) {
-      std::cout << t.data[i] << ", ";
-    }
-    std::cout << std::endl;
+
     _parameter.set_point.x = t.data[0 * t.cols + 2];
     _parameter.set_point.y = t.data[1 * t.cols + 2];
     _parameter.set_point.yaw = std::asin(t.data[1 * t.cols + 0]);
-
-    std::cout << "New Set Point:\n";
-    std::cout << "  from: " << response.first->from << " to: " << response.first->to << std::endl;
-    std::cout << "  x = " << _parameter.set_point.x << std::endl;
-    std::cout << "  y = " << _parameter.set_point.y << std::endl;
-    std::cout << "  yaw = " << _parameter.set_point.yaw << std::endl;
   });
 }
 

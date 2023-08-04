@@ -159,9 +159,9 @@ void FleetControlNode::callbackServiceGetTransform(
   std::shared_ptr<edu_swarm::srv::GetTransform::Response> response)
 {
   const auto search_from = std::find(
-    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->from);
+    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->from_robot);
   const auto search_to = std::find(
-    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->to);
+    _parameter.robot_name.begin(), _parameter.robot_name.end(), request->to_robot);
 
   // robot to fleet, fleet to robot = transform
   if (search_from == _parameter.robot_name.end() || search_to == _parameter.robot_name.end()) {

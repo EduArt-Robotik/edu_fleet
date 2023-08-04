@@ -1,4 +1,4 @@
-string from
-string to
+string from_robot
+string to_robot
 ---
 edu_robot/Matrix t

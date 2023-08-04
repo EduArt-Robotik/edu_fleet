@@ -91,7 +91,7 @@ static void clear_outdated_twist(
       current_input[channel] = create_null_twist();
     }
   }
-}  
+}
 
 void TwistAccumulator::callbackTwistInput(
   std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t index)
