@@ -19,6 +19,8 @@ find_package(nav_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(edu_robot REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}
