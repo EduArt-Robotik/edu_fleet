@@ -35,13 +35,12 @@ public:
     PidController::Parameter pid_linear;
     PidController::Parameter pid_angular;
     std::string frame_robot = "base_link";
-    std::string robot_name = "eduard/green";
-    std::string reference_robot_name = "eduard/red";
+    std::string reference_robot_name = "eduard/blue";
     
     struct SetPoint {
-      double x;
-      double y;
-      double yaw;
+      double x   = 0.0;
+      double y   = 0.0;
+      double yaw = 0.0;
     } set_point;
   };
 
@@ -53,6 +52,7 @@ public:
 private:
   void callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg);
   void getTransform();
+  std::string getRobotName() const;
 
   Parameter _parameter;
   std::array<PidController, 3> _controller;
