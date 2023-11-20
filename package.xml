@@ -2,21 +2,30 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>edu_swarm</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <version>0.1.0</version>
+  <description>ROS2 Software for implementing fleet control for Eduart robots.</description>
   <maintainer email="apastore@todo.todo">apastore</maintainer>
-  <license>TODO: License declaration</license>
+  <maintainer email="christian.wendt@eduart-robotik.com">user</maintainer>
+  <license>BSD 3-Clause</license>
 
-  <depend>rclpy</depend>
+  <!-- <depend>rclpy</depend> -->
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>tf2</depend>
+  <depend>edu_robot</depend>
+  <depend>sensor_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
+  <!-- <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
+  <test_depend>python3-pytest</test_depend> -->
+
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
-    <build_type>ament_python</build_type>
+    <!-- <build_type>ament_python</build_type> -->
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

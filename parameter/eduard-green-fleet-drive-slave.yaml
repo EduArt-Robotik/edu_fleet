@@ -1,0 +1,29 @@
+/**:
+  ros__parameters:
+    use_sim_time: false
+    frame_robot: 'eduard/green/base_link'
+    reference_robot_name: 'eduard/blue'
+    robot_name: 'eduard/green'
+
+    pid:
+      angular:
+        kd: 0.0
+        ki: 0.0
+        kp: 0.75
+        limit: 0.2
+        input_filter_weight: 1.0
+        use_anti_windup: true
+
+      linear:
+        kd: 0.0
+        ki: 0.0
+        kp: 0.75
+        limit: 0.2
+        input_filter_weight: 0.3
+        use_anti_windup: true
+
+    set_point:
+      x: 0.7
+      y: 0.2
+      yaw: 0.523598776
+
