@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    use_sim_time: false
+
+    number_of_robots: 3
+
+    robot_0:
+      name: 'eduard/blue'
+      x: 0.35
+      y: 0.0
+      yaw: 0.0
+
+    robot_1:
+      name: 'eduard/green'
+      x: -0.35
+      y: 0.35
+      yaw: -0.523598776 # -30°
+
+    robot_2:
+      name: 'eduard/red'
+      x: -0.35
+      y:  -0.35
+      yaw: 0.523598776 # 30°
