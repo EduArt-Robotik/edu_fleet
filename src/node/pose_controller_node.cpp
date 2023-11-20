@@ -38,7 +38,6 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   ros_node.declare_parameter<double>("pid.angular.input_filter_weight", parameter.pid_angular.input_filter_weight);
 
   ros_node.declare_parameter<std::string>("frame_robot", parameter.frame_robot);
-  ros_node.declare_parameter<std::string>("robot_name", parameter.robot_name);
   ros_node.declare_parameter<std::string>("reference_robot_name", parameter.reference_robot_name);
 
   ros_node.declare_parameter<double>("set_point.x", parameter.set_point.x);
@@ -59,7 +58,6 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
   parameter.pid_angular.input_filter_weight = ros_node.get_parameter("pid.angular.input_filter_weight").as_double();
 
   parameter.frame_robot = ros_node.get_parameter("frame_robot").as_string();
-  parameter.robot_name = ros_node.get_parameter("robot_name").as_string();
   parameter.reference_robot_name = ros_node.get_parameter("reference_robot_name").as_string();
 
   parameter.set_point.x = ros_node.get_parameter("set_point.x").as_double();
@@ -130,27 +128,26 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   geometry_msgs::msg::PoseStamped pose_in_base_link;
 
   try {
-    pose_in_base_link = _tf_buffer->transform(*pose_msg, _parameter.frame_robot);
+    pose_in_base_link = _tf_buffer->transform(*pose_msg, getRobotName() + '/' + _parameter.frame_robot);
   }
   catch (const tf2::TransformException & ex) {
     RCLCPP_ERROR(
-      get_logger(), "Could not transform %s to %s: %s", _parameter.frame_robot.c_str(), 
+      get_logger(), "Could not transform %s to %s: %s", (getRobotName() + '/' + _parameter.frame_robot).c_str(), 
       pose_msg->header.frame_id.c_str(), ex.what()
     );
     return;
   }
 
   // For Debugging
-  geometry_msgs::msg::TransformStamped qr_code_transform;
-  qr_code_transform.header.frame_id = _parameter.frame_robot;
-  qr_code_transform.header.stamp = get_clock()->now();
-  qr_code_transform.child_frame_id = "eduard_red";
-  qr_code_transform.transform.translation.x = pose_in_base_link.pose.position.x;
-  qr_code_transform.transform.translation.y = pose_in_base_link.pose.position.y;
-  qr_code_transform.transform.translation.z = pose_in_base_link.pose.position.z;
-  qr_code_transform.transform.rotation = pose_in_base_link.pose.orientation;
-  _tf_broadcaster->sendTransform(qr_code_transform);
-
+  // geometry_msgs::msg::TransformStamped qr_code_transform;
+  // qr_code_transform.header.frame_id = _parameter.frame_robot;
+  // qr_code_transform.header.stamp = get_clock()->now();
+  // qr_code_transform.child_frame_id = "eduard_red";
+  // qr_code_transform.transform.translation.x = pose_in_base_link.pose.position.x;
+  // qr_code_transform.transform.translation.y = pose_in_base_link.pose.position.y;
+  // qr_code_transform.transform.translation.z = pose_in_base_link.pose.position.z;
+  // qr_code_transform.transform.rotation = pose_in_base_link.pose.orientation;
+  // _tf_broadcaster->sendTransform(qr_code_transform);
 
   // Process pose controller on each dimension.
   const Eigen::Vector2f position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
@@ -190,7 +187,8 @@ void PoseController::getTransform()
   using ResponseFuture = rclcpp::Client<edu_swarm::srv::GetTransform>::SharedFutureWithRequest;
 
   auto request = std::make_shared<edu_swarm::srv::GetTransform::Request>();
-  request->from_robot = _parameter.robot_name;
+  // request->from_robot = _parameter.robot_name;
+  request->from_robot = getRobotName();
   request->to_robot = _parameter.reference_robot_name;
 
   _srv_client_get_transform->async_send_request(request, [this](ResponseFuture future){
@@ -206,6 +204,13 @@ void PoseController::getTransform()
     _parameter.set_point.y = t.data[1 * t.cols + 2];
     _parameter.set_point.yaw = std::asin(t.data[1 * t.cols + 0]);
   });
+}
+
+std::string PoseController::getRobotName() const
+{
+  // remove slash at the beginning
+  std::string frame_id_prefix(get_effective_namespace().begin() + 1, get_effective_namespace().end());
+  return frame_id_prefix;
 }
 
 } // end namespace fleet

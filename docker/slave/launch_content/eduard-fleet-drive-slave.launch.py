@@ -14,7 +14,6 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     # Launch File Arguments
     robot_namespace = EnvironmentVariable('EDU_ROBOT_NAMESPACE', default_value="eduard")
-    parameter_file_name = LaunchConfiguration('parameter_file_name')
     use_pose_controller = LaunchConfiguration('use_pose_controller', default=True)
 
     robot_namespace_arg = DeclareLaunchArgument(
@@ -33,9 +32,8 @@ def generate_launch_description():
     # Pose Controller Node
     # robot_namespace = str('eduard/green')
     parameter_file = PathJoinSubstitution([
-      FindPackageShare('edu_swarm'),
-      'parameter',
-      parameter_file_name
+      './',
+      'eduard-fleet-drive-slave.yaml'
     ])
 
     pose_controller = Node(
