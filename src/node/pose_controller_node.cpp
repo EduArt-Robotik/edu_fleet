@@ -10,6 +10,7 @@
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <memory>
+#include <rclcpp/logging.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <rclcpp/executors.hpp>
 
@@ -124,6 +125,7 @@ static AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q)
 
 void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
 {
+  RCLCPP_INFO(get_logger(), "current set point: x = %f, y = %f, yaw = %f", _parameter.set_point.x, _parameter.set_point.y, _parameter.set_point.yaw);  
   // Bring pose in robot coordinate system.
   geometry_msgs::msg::PoseStamped pose_in_base_link;
 
@@ -132,22 +134,22 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   }
   catch (const tf2::TransformException & ex) {
     RCLCPP_ERROR(
-      get_logger(), "Could not transform %s to %s: %s", (getRobotName() + '/' + _parameter.frame_robot).c_str(), 
+      get_logger(), "could not transform %s to %s: %s", (getRobotName() + '/' + _parameter.frame_robot).c_str(), 
       pose_msg->header.frame_id.c_str(), ex.what()
     );
     return;
   }
 
   // For Debugging
-  // geometry_msgs::msg::TransformStamped qr_code_transform;
-  // qr_code_transform.header.frame_id = _parameter.frame_robot;
-  // qr_code_transform.header.stamp = get_clock()->now();
-  // qr_code_transform.child_frame_id = "eduard_red";
-  // qr_code_transform.transform.translation.x = pose_in_base_link.pose.position.x;
-  // qr_code_transform.transform.translation.y = pose_in_base_link.pose.position.y;
-  // qr_code_transform.transform.translation.z = pose_in_base_link.pose.position.z;
-  // qr_code_transform.transform.rotation = pose_in_base_link.pose.orientation;
-  // _tf_broadcaster->sendTransform(qr_code_transform);
+  geometry_msgs::msg::TransformStamped qr_code_transform;
+  qr_code_transform.header.frame_id = getRobotName() + '/' + _parameter.frame_robot;
+  qr_code_transform.header.stamp = get_clock()->now();
+  qr_code_transform.child_frame_id =  getRobotName() + '/' + "pose";
+  qr_code_transform.transform.translation.x = pose_in_base_link.pose.position.x;
+  qr_code_transform.transform.translation.y = pose_in_base_link.pose.position.y;
+  qr_code_transform.transform.translation.z = pose_in_base_link.pose.position.z;
+  qr_code_transform.transform.rotation = pose_in_base_link.pose.orientation;
+  _tf_broadcaster->sendTransform(qr_code_transform);
 
   // Process pose controller on each dimension.
   const Eigen::Vector2f position_in_base_link(pose_in_base_link.pose.position.x, pose_in_base_link.pose.position.y);
@@ -184,6 +186,7 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
 
 void PoseController::getTransform()
 {
+  RCLCPP_INFO(get_logger(), __PRETTY_FUNCTION__);
   using ResponseFuture = rclcpp::Client<edu_swarm::srv::GetTransform>::SharedFutureWithRequest;
 
   auto request = std::make_shared<edu_swarm::srv::GetTransform::Request>();
@@ -196,13 +199,15 @@ void PoseController::getTransform()
     const auto t = response.second->t;
 
     if (t.cols != 3 || t.rows != 3) {
-      RCLCPP_ERROR(get_logger(), "Received transform is null");
+      RCLCPP_ERROR(get_logger(), "received transform is null");
       return;
     }
 
     _parameter.set_point.x = t.data[0 * t.cols + 2];
     _parameter.set_point.y = t.data[1 * t.cols + 2];
     _parameter.set_point.yaw = std::asin(t.data[1 * t.cols + 0]);
+
+    RCLCPP_INFO(get_logger(), "received new set point: x = %f, y = %f, yaw = %f", _parameter.set_point.x, _parameter.set_point.y, _parameter.set_point.yaw);
   });
 }
 
