@@ -175,9 +175,9 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::ms
   _controller_output->linear.y = _controller[1](0.0f, -target_point.y(), dt); 
 
   // \todo replace hack with proper implementation
-  if (std::abs(_controller_output->linear.x) < 0.02) _controller_output->linear.x = 0.0;
-  if (std::abs(_controller_output->linear.y) < 0.02) _controller_output->linear.y = 0.0;
-  if (std::abs(_controller_output->angular.z) < 0.02) _controller_output->angular.z = 0.0;
+  if (std::abs(_controller_output->linear.x) < 0.01) _controller_output->linear.x = 0.0;
+  if (std::abs(_controller_output->linear.y) < 0.01) _controller_output->linear.y = 0.0;
+  if (std::abs(_controller_output->angular.z) < 0.01) _controller_output->angular.z = 0.0;
 
   // Publishing Result
   _pub_twist->publish(*_controller_output);
