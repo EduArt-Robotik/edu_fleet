@@ -103,7 +103,7 @@ FleetControlNode::FleetControlNode()
     std::bind(&FleetControlNode::callbackTwistFleet, this, std::placeholders::_1)
   );
   _srv_server_get_transform = create_service<edu_swarm::srv::GetTransform>(
-    "get_transform",
+    "/get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
   );
 }

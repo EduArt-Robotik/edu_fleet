@@ -23,7 +23,6 @@ def generate_launch_description():
     ]),
     launch_arguments={
       'parameter_file_name': 'eduard-green-fleet-drive-slave.yaml',
-      'robot_namespace': 'eduard/green',
       'use_pose_controller': use_pose_controller
     }.items()
   )

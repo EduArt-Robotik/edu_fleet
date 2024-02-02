@@ -100,7 +100,7 @@ def generate_launch_description():
       remappings=[
         ('twist/input_0', 'fleet_control/cmd_vel'),
         ('twist/input_1', 'pose_controller/cmd_vel'),
-        ('twist/output', 'fleet/cmd_vel')
+        ('twist/output', 'autonomous/cmd_vel')
       ],
       # prefix=['gdbserver localhost:3000'],
       output='screen'
