@@ -34,7 +34,7 @@ def generate_launch_description():
       parameters=[parameter_file],
       remappings=[
         ('/cmd_vel'       , 'eduard/blue/cmd_vel'), # use joy stick input from Eduard red
-        ('robot_0/cmd_vel', 'eduard/blue/fleet/cmd_vel'), # no twist accumulator, connect directly to robot twist input
+        ('robot_0/cmd_vel', 'eduard/blue/autonomous/cmd_vel'), # no twist accumulator, connect directly to robot twist input
         ('robot_0/kinematic_description', 'eduard/blue/robot_kinematic_description'),
         ('robot_1/cmd_vel', 'eduard/green/fleet_control/cmd_vel'),
         ('robot_1/kinematic_description', 'eduard/green/robot_kinematic_description'),
