@@ -7,7 +7,7 @@
 
 #include <edu_swarm/srv/get_transform.hpp>
 
-#include <edu_robot/rotation_per_minute.hpp>
+#include <edu_robot/rpm.hpp>
 #include <edu_robot/msg/robot_kinematic_description.hpp>
 
 #include <rclcpp/node.hpp>
