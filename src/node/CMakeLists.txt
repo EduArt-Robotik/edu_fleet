@@ -14,6 +14,8 @@ ament_target_dependencies(pose_controller
   "tf2"
   "tf2_ros"
   "tf2_geometry_msgs"
+  "aruco_opencv_msgs"
+  "edu_robot"
 )
 rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 

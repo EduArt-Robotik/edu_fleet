@@ -46,7 +46,8 @@ def generate_launch_description():
       parameters=[parameter_file],
       remappings=[
         ('pose_feedback', 'object/pose'),
-        ('twist_output', 'pose_controller/cmd_vel')
+        ('twist_output', 'pose_controller/cmd_vel'),
+        ('marker_detection', 'aruco_detections')
       ],
       condition=IfCondition(use_pose_controller),
       # prefix=['gdbserver localhost:3000'],
@@ -114,9 +115,9 @@ def generate_launch_description():
       use_pose_controller_arg,
       pose_controller,
       # tf_publisher_cam_front,
-      tf_publisher_cam_left,
-      tf_publisher_cam_right,
-      tf_publisher_cam_rear,
+      # tf_publisher_cam_left,
+      # tf_publisher_cam_right,
+      # tf_publisher_cam_rear,
       twist_accumulator
     ])
     

@@ -50,7 +50,9 @@ def generate_launch_description():
       package='tf2_ros',
       executable='static_transform_publisher',
       arguments=[
-        '-0.17', '0', '0', '4.71238898', '0', '-1.570796327',
+#        '-0.17', '0', '0', '1.570796327', '3.141592654', '-1.570796327',
+        '-0.17', '0', '0', '1.570796327', '1.570796327', '0',
+        # '--x -0.17', '--y 0', '--z 0', '--roll -1.570796327', '--pitch 0', '--yaw 1.570796327',
         PathJoinSubstitution(['eduard/blue', 'base_link']),
         PathJoinSubstitution(['eduard/blue', 'qr_code', 'rear'])
       ]

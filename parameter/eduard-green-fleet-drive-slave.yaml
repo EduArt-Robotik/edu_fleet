@@ -3,6 +3,8 @@
     use_sim_time: false
     frame_robot: 'base_link'
     reference_robot_name: 'eduard/blue'
+    reference_robot_frame: 'eduard/blue/base_link'
+    marker_frame: 'eduard/blue/qr_code/rear'
 
     pid:
       angular:
