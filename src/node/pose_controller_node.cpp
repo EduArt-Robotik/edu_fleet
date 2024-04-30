@@ -160,7 +160,11 @@ void PoseController::callbackMarkerDetection(std::shared_ptr<const aruco_opencv_
         pose.pose.orientation.x = orientation.x();
         pose.pose.orientation.y = orientation.y();
         pose.pose.orientation.z = orientation.z();
-        pose.pose.position.x += 0.17;
+
+        Eigen::Vector3d translation = orientation * Eigen::Vector3d(0.17, 0.0, 0.0);
+        pose.pose.position.x += translation.x();
+        pose.pose.position.y += translation.y();
+        pose.pose.position.z += translation.z();                
       }
       catch(const tf2::TransformException & ex) {
         // no transform available --> do nothing

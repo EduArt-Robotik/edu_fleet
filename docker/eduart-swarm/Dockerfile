@@ -3,6 +3,17 @@ FROM eduartrobotik/eduart-robot:0.4.0
 ENV USER user
 ENV DEBIAN_FRONTEND=noninteractive
 
+USER root
+
+# Install Dependencies for Perception Package
+RUN apt-get update \
+    && apt-get install -y \
+    ros-$ROS_DISTRO-geometry-msgs \
+    ros-$ROS_DISTRO-cv-bridge \
+    ros-$ROS_DISTRO-aruco-opencv \
+    ros-$ROS_DISTRO-aruco-opencv-msgs \
+    && apt-get clean
+
 # work with user user
 USER $USER
 
