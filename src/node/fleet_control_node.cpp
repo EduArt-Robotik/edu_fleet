@@ -212,7 +212,7 @@ void FleetControlNode::callbackTwistDriftCompensation(
 
     _pub_set_lighting[robot_index]->publish(lighting_msg);
   }
-  else if (_lost_fleet_formation[robot_index] == true) {
+  else if (_lost_fleet_formation[robot_index] == true && twist_cmd.squaredNorm() < 0.02) {
     RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
     // Fleet formation is fine.
     _lost_fleet_formation[robot_index] = false;
