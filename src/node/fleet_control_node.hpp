@@ -41,7 +41,7 @@ public:
     };
     std::vector<Pose2D> robot_pose;
     std::vector<std::string> robot_name;
-    double drift_limit = 0.05;
+    double drift_limit = 0.1;
   };
 
   FleetControlNode();
@@ -66,7 +66,7 @@ private:
 
   std::vector<Eigen::MatrixXd> _kinematic_matrix;
   std::vector<std::vector<eduart::robot::Rpm>> _robot_rpm_limit;
-  std::vector<bool> _lost_fleet_formation;
+  std::vector<std::uint8_t> _lost_fleet_formation; //> value != 0 indicates fleet formation is lost
   std::vector<std::uint8_t> _current_robot_mode;
   std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot_velocity;
   std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot_transform;

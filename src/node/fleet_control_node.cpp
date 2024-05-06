@@ -115,7 +115,7 @@ FleetControlNode::FleetControlNode()
     ));    
     _kinematic_matrix.emplace_back(Eigen::Matrix3d::Identity());
     _robot_rpm_limit.emplace_back();
-    _lost_fleet_formation.push_back(false);
+    _lost_fleet_formation.push_back(0);
     _current_robot_mode.push_back(edu_robot::msg::Mode::INACTIVE);
   }
 
@@ -152,8 +152,11 @@ static geometry_msgs::msg::Twist to_twist_message(const Eigen::Vector3d& velocit
 
 void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg)
 {
+  // Calculate each robot's velocity.
   const Eigen::Vector3d velocity(twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
   std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> velocity_robot(_parameter.number_of_robots);
+
+  // Keep robot's wheel speed below physical limits.
   float reduce_factor = 1.0;
 
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
@@ -171,11 +174,9 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
       );
     }
   }
-  // If fleet formation is lost stop fleet movement using reduce factor.
+  // If fleet formation is lost stop fleet movement using reduce factor to get back formation.
   for (const auto lost_formation : _lost_fleet_formation) {
-    if (lost_formation) {
-      reduce_factor = 0.0f;
-    }
+    reduce_factor = std::min(1.0f - static_cast<float>(lost_formation) / 100.0f, reduce_factor);
   }
   std::cout << "reduce factor = " << reduce_factor << std::endl;
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
@@ -191,13 +192,12 @@ void FleetControlNode::callbackTwistDriftCompensation(
   }
 
   const Eigen::Vector2d twist_cmd(twist_msg->linear.x, twist_msg->linear.y);
+  const double velocity = twist_cmd.norm();
 
-  // _lost_fleet_formation[robot_index] = twist_cmd.squaredNorm() >= _parameter.drift_limit * _parameter.drift_limit;
-
-  if (_lost_fleet_formation[robot_index] == false && twist_cmd.squaredNorm() >= _parameter.drift_limit * _parameter.drift_limit) {
+  if (_lost_fleet_formation[robot_index] == 0 && velocity >= _parameter.drift_limit) {
     RCLCPP_INFO(get_logger(), "Robot %lu lost fleet formation.", robot_index);
     // Lost fleet formation!
-    _lost_fleet_formation[robot_index] = true;
+    _lost_fleet_formation[robot_index] = 100; // == 100%
 
     // Indicate lost by flashing red lighting.
     edu_robot::msg::SetLightingColor lighting_msg;
@@ -212,10 +212,10 @@ void FleetControlNode::callbackTwistDriftCompensation(
 
     _pub_set_lighting[robot_index]->publish(lighting_msg);
   }
-  else if (_lost_fleet_formation[robot_index] == true && twist_cmd.squaredNorm() < 0.02) {
+  else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
     RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
     // Fleet formation is fine.
-    _lost_fleet_formation[robot_index] = false;
+    _lost_fleet_formation[robot_index] = 0; // == 0%
 
     // Indicate normal operation by flashing white lighting.
     edu_robot::msg::SetLightingColor lighting_msg;
@@ -229,6 +229,11 @@ void FleetControlNode::callbackTwistDriftCompensation(
     lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
 
     _pub_set_lighting[robot_index]->publish(lighting_msg);    
+  }
+  else if (_lost_fleet_formation[robot_index] != 0) {
+    // Calculate new formation lost indicator value.
+    _lost_fleet_formation[robot_index] = static_cast<std::uint8_t>((velocity / _parameter.drift_limit) * 100.0);
+    _lost_fleet_formation[robot_index] = std::min<std::uint8_t>(_lost_fleet_formation[robot_index], 100);
   }
 }
 
