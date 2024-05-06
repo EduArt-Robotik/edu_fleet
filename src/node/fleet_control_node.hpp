@@ -41,7 +41,7 @@ public:
     };
     std::vector<Pose2D> robot_pose;
     std::vector<std::string> robot_name;
-    double drift_limit = 0.1;
+    double drift_limit = 0.05;
   };
 
   FleetControlNode();
