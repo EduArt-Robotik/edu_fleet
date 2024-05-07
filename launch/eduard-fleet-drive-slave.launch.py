@@ -46,22 +46,25 @@ def generate_launch_description():
       parameters=[parameter_file],
       remappings=[
         ('pose_feedback', 'object/pose'),
-        ('twist_output', 'pose_controller/cmd_vel')
+        ('twist_output', 'pose_controller/cmd_vel'),
+        ('marker_detection', 'aruco_detections')
       ],
       condition=IfCondition(use_pose_controller),
       # prefix=['gdbserver localhost:3000'],
       output='screen'
     )
 
-    tf_publisher_cam_front = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      arguments=[
-        '0.17', '0.04', '0.05', '0', '0', '0',
-        PathJoinSubstitution([robot_namespace, 'base_link']),
-        PathJoinSubstitution([robot_namespace, 'object_sensor', 'front'])
-      ]
-    )
+    # tf_publisher_cam_front = Node(
+    #   package='tf2_ros',
+    #   executable='static_transform_publisher',
+    #   arguments=[
+    #     # '0.135', '0.04', '0.05', '-0.135', '0', '0',
+    #     # '0.19', '0.06', '0.05', '-0.0', '0', '0',       # green
+    #     '0.105', '0.04', '0.05', '0', '0', '0', # red
+    #     PathJoinSubstitution([robot_namespace, 'base_link']),
+    #     PathJoinSubstitution([robot_namespace, 'object_sensor', 'front'])
+    #   ]
+    # )
     tf_publisher_cam_left = Node(
       package='tf2_ros',
       executable='static_transform_publisher',
@@ -111,10 +114,10 @@ def generate_launch_description():
       parameter_file_name_arg,
       use_pose_controller_arg,
       pose_controller,
-      tf_publisher_cam_front,
-      tf_publisher_cam_left,
-      tf_publisher_cam_right,
-      tf_publisher_cam_rear,
+      # tf_publisher_cam_front,
+      # tf_publisher_cam_left,
+      # tf_publisher_cam_right,
+      # tf_publisher_cam_rear,
       twist_accumulator
     ])
     
