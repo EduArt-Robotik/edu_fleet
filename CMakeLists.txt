@@ -21,6 +21,7 @@ find_package(edu_robot REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(diagnostic_updater REQUIRED)
+find_package(aruco_opencv_msgs REQUIRED)
 
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}

@@ -2,8 +2,8 @@ version: "2.4"
 
 services:
   eduart-swarm-master:
-    image: eduartrobotik/eduart-swarm:0.2.0
-    container_name: eduart-swarm-slave-0.2.0
+    image: eduartrobotik/eduart-swarm:0.2.1
+    container_name: eduart-swarm-slave-0.2.1
     user: user
     restart: always
     privileged: true

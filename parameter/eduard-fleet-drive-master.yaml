@@ -6,21 +6,18 @@
 
     robot_0:
       name: 'eduard/blue'
-      x: 0.3
+      x: 0.4
       y: 0.0
       yaw: 0.0
 
     robot_1:
       name: 'eduard/green'
-      x: -0.3
-      # y: 0.35
-      # yaw: -0.523598776 # -30°
-      y: 0.0
-      yaw: 0.0 # 0°
-
+      x: -0.30
+      y:  0.34
+      yaw: -0.671951762 #
 
     robot_2:
       name: 'eduard/red'
-      x: -0.3
-      y:  -0.35
-      yaw: 0.523598776 # 30°
+      x: -0.30
+      y:  -0.34
+      yaw: 0.671951762 # 30°

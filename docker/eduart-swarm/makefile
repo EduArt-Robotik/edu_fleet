@@ -1,4 +1,4 @@
-image_name = eduart-swarm:0.2.0
+image_name = eduart-swarm:0.2.1
 
 download-sources:
 	git clone --branch 0.2.0 git@github.com:EduArt-Robotik/edu_swarm.git
