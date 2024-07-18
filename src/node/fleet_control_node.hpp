@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <edu_swarm/srv/get_transform.hpp>
+#include <edu_fleet/srv/get_transform.hpp>
 
 #include <edu_robot/rpm.hpp>
 #include <edu_robot/msg/robot_kinematic_description.hpp>
@@ -54,8 +54,8 @@ private:
   void callbackTwistDriftCompensation(
     std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index);  
   void callbackServiceGetTransform(
-    const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request,
-    std::shared_ptr<edu_swarm::srv::GetTransform::Response> response);
+    const std::shared_ptr<edu_fleet::srv::GetTransform::Request> request,
+    std::shared_ptr<edu_fleet::srv::GetTransform::Response> response);
   void callbackRobotStatusReport(
     std::shared_ptr<const edu_robot::msg::RobotStatusReport> report,
     const std::size_t robot_index);
@@ -77,7 +77,7 @@ private:
   std::vector<std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotKinematicDescription>>> _sub_kinematic_description;
   std::vector<std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>>> _pub_twist_robot;
   std::vector<std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>>> _pub_set_lighting;
-  std::shared_ptr<rclcpp::Service<edu_swarm::srv::GetTransform>> _srv_server_get_transform;
+  std::shared_ptr<rclcpp::Service<edu_fleet::srv::GetTransform>> _srv_server_get_transform;
 };
 
 } // end namespace fleet

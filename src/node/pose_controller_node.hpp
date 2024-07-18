@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <edu_swarm/srv/get_transform.hpp>
+#include <edu_fleet/srv/get_transform.hpp>
 
 #include <edu_robot/angle.hpp>
 
@@ -73,7 +73,7 @@ private:
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> _sub_current_pose;
   std::shared_ptr<rclcpp::Subscription<aruco_opencv_msgs::msg::ArucoDetection>> _sub_aruco_marker_detection;
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
-  std::shared_ptr<rclcpp::Client<edu_swarm::srv::GetTransform>> _srv_client_get_transform;
+  std::shared_ptr<rclcpp::Client<edu_fleet::srv::GetTransform>> _srv_client_get_transform;
   std::shared_ptr<rclcpp::TimerBase> _timer_get_transform;
 
   std::shared_ptr<tf2_ros::TransformListener> _tf_listener;

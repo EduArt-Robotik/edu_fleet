@@ -108,7 +108,7 @@ PoseController::PoseController()
   _pub_twist = create_publisher<geometry_msgs::msg::Twist>(
     "twist_output", rclcpp::QoS(1).reliable()
   );
-  _srv_client_get_transform = create_client<edu_swarm::srv::GetTransform>("/get_transform");
+  _srv_client_get_transform = create_client<edu_fleet::srv::GetTransform>("/get_transform");
   _tf_buffer = std::make_unique<tf2_ros::Buffer>(get_clock());
   _tf_listener = std::make_shared<tf2_ros::TransformListener>(*_tf_buffer);
 
@@ -251,9 +251,9 @@ void PoseController::process(const geometry_msgs::msg::PoseStamped& pose)
 void PoseController::getTransform()
 {
   RCLCPP_INFO(get_logger(), __PRETTY_FUNCTION__);
-  using ResponseFuture = rclcpp::Client<edu_swarm::srv::GetTransform>::SharedFutureWithRequest;
+  using ResponseFuture = rclcpp::Client<edu_fleet::srv::GetTransform>::SharedFutureWithRequest;
 
-  auto request = std::make_shared<edu_swarm::srv::GetTransform::Request>();
+  auto request = std::make_shared<edu_fleet::srv::GetTransform::Request>();
   // request->from_robot = _parameter.robot_name;
   request->from_robot = getRobotName();
   request->to_robot = _parameter.reference_robot_name;

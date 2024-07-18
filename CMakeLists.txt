@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(edu_swarm)
+project(edu_fleet)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -std=c++1z)# -O2)
@@ -9,6 +9,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
+find_package(ament_cmake_gtest REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
@@ -31,16 +32,18 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES
   "edu_robot"
 )
-## Line below needed for ROS distro humble and newer. TODO: handle this somehow!
-# rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+# Create a target that can be used by all buildiung targets when the custom message are required for them.
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+## Building Library and Nodes
+add_subdirectory(src/lib)
 add_subdirectory(src/node)
 
 ## Installing of Content
-# install(
-#   DIRECTORY include/
-#   DESTINATION include
-# )
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 install(
   DIRECTORY
     launch
@@ -64,6 +67,8 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  add_subdirectory(src/test)
 endif()
 
 ament_package()

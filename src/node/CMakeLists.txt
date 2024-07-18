@@ -17,7 +17,6 @@ ament_target_dependencies(pose_controller
   "aruco_opencv_msgs"
   "edu_robot"
 )
-rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ### Twist Accumulator
 add_executable(twist_accumulator
@@ -30,7 +29,6 @@ ament_target_dependencies(twist_accumulator
   "rclcpp"
   "geometry_msgs"
 )
-# rosidl_target_interfaces(twist_accumulator ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ### Control Node
 add_executable(fleet_control_node
@@ -45,4 +43,3 @@ ament_target_dependencies(fleet_control_node
   "geometry_msgs"
   "edu_robot"
 )
-rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")

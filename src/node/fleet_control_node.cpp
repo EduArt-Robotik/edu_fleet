@@ -124,7 +124,7 @@ FleetControlNode::FleetControlNode()
     rclcpp::QoS(1).best_effort(),
     std::bind(&FleetControlNode::callbackTwistFleet, this, std::placeholders::_1)
   );
-  _srv_server_get_transform = create_service<edu_swarm::srv::GetTransform>(
+  _srv_server_get_transform = create_service<edu_fleet::srv::GetTransform>(
     "/get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
   );
@@ -244,8 +244,8 @@ void FleetControlNode::callbackRobotStatusReport(
 }
 
 void FleetControlNode::callbackServiceGetTransform(
-  const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request, 
-  std::shared_ptr<edu_swarm::srv::GetTransform::Response> response)
+  const std::shared_ptr<edu_fleet::srv::GetTransform::Request> request, 
+  std::shared_ptr<edu_fleet::srv::GetTransform::Response> response)
 {
   const auto search_from = std::find(
     _parameter.robot_name.begin(), _parameter.robot_name.end(), request->from_robot);
