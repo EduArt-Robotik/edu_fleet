@@ -1,5 +1,6 @@
 add_library(eduart-fleet-kalman-filter
   observation_matrix_handler.cpp
+  kalman_filter.cpp
 )
 target_link_libraries(eduart-fleet-kalman-filter
   Eigen3::Eigen
@@ -9,6 +10,6 @@ target_include_directories(eduart-fleet-kalman-filter PUBLIC
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-# ament_target_dependencies(eduart-fleet-kalman-filter
-#   "rclcpp"
-# )
+ament_target_dependencies(eduart-fleet-kalman-filter
+  "rclcpp"
+)

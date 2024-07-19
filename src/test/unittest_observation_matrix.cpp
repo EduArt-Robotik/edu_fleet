@@ -1,7 +1,7 @@
-#include "edu_fleet/kalman_filter/attribute.hpp"
-#include "edu_fleet/kalman_filter/attribute_pack.hpp"
 #include <gtest/gtest.h>
 
+#include <edu_fleet/kalman_filter/attribute.hpp>
+#include <edu_fleet/kalman_filter/attribute_pack.hpp>
 #include <edu_fleet/kalman_filter/observation_matrix_handler.hpp>
 
 using eduart::fleet::kalman_filter::Attribute;
@@ -58,8 +58,8 @@ TEST(unittest_observation_matrix, getting_matrix_invalid)
   EXPECT_EQ(matrix(1, 3), 0);
 }
 
-int main(int argc, char** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+// int main(int argc, char** argv)
+// {
+//   testing::InitGoogleTest(&argc, argv);
+//   return RUN_ALL_TESTS();
+// }
