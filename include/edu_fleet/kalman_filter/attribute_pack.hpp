@@ -31,6 +31,23 @@ public:
     return {{ Attributes... }};
   }
 
+  // attribute handling methods
+  template <Attribute AttributeValue>
+  inline static constexpr std::size_t index() {
+    static_assert(count<AttributeValue>() == 1, "given attribute only must be contained once");
+
+    std::size_t index = 0, counter = 0;
+    ((AttributeValue == Attributes ? index = counter : ++counter), ...);
+    return index;
+  }
+
+  template <Attribute AttributeValue>
+  inline static constexpr std::size_t count() {
+    std::size_t counter = 0;
+    ((AttributeValue == Attributes ? ++counter : 0), ...);
+    return counter;
+  }
+
 private:
   std::size_t id() const override {
     return typeid(AttributePack<Attributes...>).hash_code();

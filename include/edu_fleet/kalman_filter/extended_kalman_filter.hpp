@@ -28,6 +28,8 @@ public:
     Data max_dt = 10.0;
   };
 
+  virtual ~ExtendedKalmanFilterBase() = default;
+
 protected:
   ExtendedKalmanFilterBase(
     std::unique_ptr<FilterModelInterface> model, std::unique_ptr<AttributeVectorInterface> state_vector);
@@ -66,6 +68,7 @@ public:
   ExtendedKalmanFilter(std::unique_ptr<FilterModelInterface> model)
     : ExtendedKalmanFilterBase(std::move(model), std::make_unique<AttributeVector<Attributes...>>())
   { }
+  ~ExtendedKalmanFilter() override = default;
 
   const AttributeVector<Attributes...>& state() const {
     // pointer type is well known so use static cast instead of dynamic cast
