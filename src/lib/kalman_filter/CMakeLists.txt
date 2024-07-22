@@ -1,6 +1,6 @@
 add_library(eduart-fleet-kalman-filter
   observation_matrix_handler.cpp
-  kalman_filter.cpp
+  extended_kalman_filter.cpp
 )
 target_link_libraries(eduart-fleet-kalman-filter
   Eigen3::Eigen
