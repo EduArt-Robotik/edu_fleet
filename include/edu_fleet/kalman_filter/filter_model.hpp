@@ -8,6 +8,7 @@
 #include "edu_fleet/kalman_filter/attribute_vector.hpp"
 
 #include <Eigen/Core>
+
 #include <cstddef>
 
 namespace eduart {

@@ -1,0 +1,69 @@
+\documentclass{article}
+% General document formatting
+\usepackage[margin=0.7in]{geometry}
+\usepackage[parfill]{parskip}
+\usepackage[utf8]{inputenc}
+\usepackage{pdflscape}
+
+% Related to math
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+
+\begin{document}
+
+This document defines the formulas required for a Kalman filter that is used to localize the EduArt robots globally.
+
+\section{Prediction Model for Eduard with Mecanum}
+
+\subsection{Acceleration}
+\begin{align}
+  \textbf{a}_{t-1} &= \left(\begin{matrix}a_{x_{t-1}}\\a_{y_{t-1}}\end{matrix}\right) \\
+  \textbf{a}_t &= \left(\begin{matrix}a_{x_{t-1}}\\a_{y_{t-1}}\end{matrix}\right)
+\end{align}
+
+\subsection{Velocity}
+\begin{align}
+  \textbf{v}_{t-1} &= \left(\begin{matrix}v_{x_{t-1}}\\v_{y_{t-1}}\end{matrix}\right) \\
+  \textbf{v}_t &= \left(\begin{matrix}a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\end{matrix}\right)
+\end{align}
+
+\subsection{Yaw}
+\begin{align}
+  \phi_{z_t} &= \phi_{z_{t-1}} + \phi_{z_{t-1}}\frac{d}{dt} dt \\
+  \phi_{z_t}\frac{d}{dt} &= \phi_{z_{t-1}}\frac{d}{dt}
+\end{align}
+
+\subsection{Position}
+\begin{align}
+  \textbf{R}_{t-1} &= \left(\begin{matrix}\cos{\left(\phi_{z_{t-1}} \right)} & - \sin{\left(\phi_{z_{t-1}} \right)}\\\sin{\left(\phi_{z_{t-1}} \right)} & \cos{\left(\phi_{z_{t-1}} \right)}\end{matrix}\right) \\
+  \textbf{p}_{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right) \\
+  \textbf{p}_t &= \textbf{p}_{t-1} + \textbf{R}_{t-1}\textbf{v}_{t-1} + \frac{1}{2}\textbf{R}_{t-1}\textbf{a}^2 \\
+  &= \left(\begin{matrix}dt \left(0.5 a_{x_{t-1}}^{2} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + p_{x (t-1)}\\dt \left(0.5 a_{x_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a_{y_{t-1}}^{2} \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + p_{y (t-1)}\end{matrix}\right)
+\end{align}
+
+\newpage
+\begin{landscape}
+\subsection{Model}
+\tiny
+
+\begin{align}
+ \textbf{F}_{t} &=
+ \left(\begin{matrix}
+  p_{x_t} \\
+  p_{y_t} \\
+  v_{x_t} \\
+  v_{y_t} \\
+  a_{x_t} \\
+  a_{y_t} \\
+  \phi_t \\
+  \phi\frac{d}{dt}
+ \end{matrix}\right)
+ = \left(\begin{matrix}dt \left(0.5 a_{x_{t-1}}^{2} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + p_{x (t-1)}\\dt \left(0.5 a_{x_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a_{y_{t-1}}^{2}  \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + p_{y (t-1)}\\a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\\a_{x_{t-1}}\\a_{y_{t-1}}\\\phi_{z_{t-1}} + \phi_{z_{t-1}}\frac{d}{dt} dt\\\phi_{z_{t-1}}\frac{d}{dt}
+\end{matrix}\right) \\
+  \textbf{J}_t &= 
+  \textbf{F}\left(\begin{matrix}
+    \frac{\partial}{\partial p_x} & \frac{\partial}{\partial p_y} & \frac{\partial}{\partial v_x} & \frac{\partial}{\partial v_y} & \frac{\partial}{\partial a_x} & \frac{\partial}{\partial a_y} & \frac{\partial}{\partial \phi}\frac{\partial^2}{\partial^2 \phi}
+  \end{matrix}\right) \\
+  &= \left(\begin{matrix}1 & 0 & dt \cos{\left(\phi_{z_{t-1}} \right)} & - dt \sin{\left(\phi_{z_{t-1}} \right)} & a_{x_{t-1}} dt \cos{\left(\phi_{z_{t-1}} \right)} & - a_{y_{t-1}} dt \sin{\left(\phi_{z_{t-1}} \right)} & dt \left(- 0.5 a_{x_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}}^{2} \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(- v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) & 0\\0 & 1 & dt \sin{\left(\phi_{z_{t-1}} \right)} & dt \cos{\left(\phi_{z_{t-1}} \right)} & a_{x_{t-1}} dt \sin{\left(\phi_{z_{t-1}} \right)} & a_{y_{t-1}} dt \cos{\left(\phi_{z_{t-1}} \right)} & dt \left(0.5 a_{x_{t-1}}^{2} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}}^{2} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) & 0\\0 & 0 & 1 & 0 & dt & 0 & 0 & 0\\0 & 0 & 0 & 1 & 0 & dt & 0 & 0\\0 & 0 & 0 & 0 & 1 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 1 & dt\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 1\end{matrix}\right)
+\end{align}
+\end{landscape}
+\end{document}
