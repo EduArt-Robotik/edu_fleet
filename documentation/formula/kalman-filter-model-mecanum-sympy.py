@@ -88,8 +88,13 @@ def do_system_noise_model() -> str:
 
   # system noise equations
   dt = Symbol('dt')
+  yaw_t1 = Symbol('\\phi_{z_{t-1}}')
   jerk_noise_variance = Symbol('\\sigma^2_\\textbf{j}')
-  
+  R = Matrix([
+    [cos(yaw_t1), -sin(yaw_t1)],
+    [sin(yaw_t1),  cos(yaw_t1)]
+  ])
+
   ## jerk noise part
   ### jerk
   j_x = Symbol('j_x')
@@ -109,7 +114,7 @@ def do_system_noise_model() -> str:
   latex_export_string += export('\\textbf{v}', v)
 
   ### position
-  p = v * dt
+  p = R * v * dt
 
   latex_export_string += export('\\textbf{p}', p)
 

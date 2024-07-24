@@ -76,7 +76,7 @@ The system noise is partly determined by the jerk that the robot can experience.
   \textbf{j} &= \left(\begin{matrix}j_{x}\\j_{y}\end{matrix}\right) \\
   \textbf{a} &= \left(\begin{matrix}dt j_{x}\\dt j_{y}\end{matrix}\right) \\
   \textbf{v} &= \left(\begin{matrix}dt^{2} j_{x}\\dt^{2} j_{y}\end{matrix}\right) \\
-  \textbf{p} &= \left(\begin{matrix}dt^{3} j_{x}\\dt^{3} j_{y}\end{matrix}\right) \\
+  \textbf{p} &= \left(\begin{matrix}dt \left(dt^{2} j_{x} \cos{\left(\phi_{z_{t-1}} \right)} - dt^{2} j_{y} \sin{\left(\phi_{z_{t-1}} \right)}\right)\\dt \left(dt^{2} j_{x} \sin{\left(\phi_{z_{t-1}} \right)} + dt^{2} j_{y} \cos{\left(\phi_{z_{t-1}} \right)}\right)\end{matrix}\right) \\
   \textbf{j}_{\textrm{noise}} &= \left(\begin{matrix}dt^{3} j_{x}\\dt^{3} j_{y}\\dt^{2} j_{x}\\dt^{2} j_{y}\\dt j_{x}\\dt j_{y}\\0\\0\end{matrix}\right)
   = \left(\begin{matrix}
     \textbf{p} \\
@@ -88,8 +88,7 @@ The system noise is partly determined by the jerk that the robot can experience.
 \end{align}
 
 \begin{align}
-  \textbf{Q}_{\textbf{j}} &= \sigma^2_{\textbf{j}} \cdot \textbf{j}_{\textrm{noise}} \cdot \textbf{j}_{\textrm{noise}}^T =
-  \left(\begin{matrix}dt^{6} j_{x}^{2} & dt^{6} j_{x} j_{y} & dt^{5} j_{x}^{2} & dt^{5} j_{x} j_{y} & dt^{4} j_{x}^{2} & dt^{4} j_{x} j_{y} & 0 & 0\\dt^{6} j_{x} j_{y} & dt^{6} j_{y}^{2} & dt^{5} j_{x} j_{y} & dt^{5} j_{y}^{2} & dt^{4} j_{x} j_{y} & dt^{4} j_{y}^{2} & 0 & 0\\dt^{5} j_{x}^{2} & dt^{5} j_{x} j_{y} & dt^{4} j_{x}^{2} & dt^{4} j_{x} j_{y} & dt^{3} j_{x}^{2} & dt^{3} j_{x} j_{y} & 0 & 0\\dt^{5} j_{x} j_{y} & dt^{5} j_{y}^{2} & dt^{4} j_{x} j_{y} & dt^{4} j_{y}^{2} & dt^{3} j_{x} j_{y} & dt^{3} j_{y}^{2} & 0 & 0\\dt^{4} j_{x}^{2} & dt^{4} j_{x} j_{y} & dt^{3} j_{x}^{2} & dt^{3} j_{x} j_{y} & dt^{2} j_{x}^{2} & dt^{2} j_{x} j_{y} & 0 & 0\\dt^{4} j_{x} j_{y} & dt^{4} j_{y}^{2} & dt^{3} j_{x} j_{y} & dt^{3} j_{y}^{2} & dt^{2} j_{x} j_{y} & dt^{2} j_{y}^{2} & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\end{matrix}\right)
+  \textbf{Q}_{\textbf{j}} &= \sigma^2_{\textbf{j}} \cdot \textbf{j}_{\textrm{noise}} \cdot \textbf{j}_{\textrm{noise}}^T
 \end{align}
 
 
@@ -104,15 +103,13 @@ The system noise is partly determined by the yaw acceleration that the robot can
 \end{align}
 
 \begin{align}
-  \textbf{Q}_{\textrm{yaw}} &= \sigma^2_{\textrm{yaw}} \cdot \frac{d^2}{dt^2}\phi_{z_\textrm{noise}} \cdot \frac{d^2}{dt^2}\phi_{z_\textrm{noise}}^T =
-\left(\begin{matrix}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{4} & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{3}\\0 & 0 & 0 & 0 & 0 & 0 & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{3} & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{2}\end{matrix}\right)
+  \textbf{Q}_{\textrm{yaw}} &= \sigma^2_{\textrm{yaw}} \cdot \frac{d^2}{dt^2}\phi_{z_\textrm{noise}} \cdot \frac{d^2}{dt^2} \phi_{z_\textrm{noise}}^T
 \end{align}
 
 \subsection{Final System Noise Matrix}
 
 \begin{align}
-  \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}} \\
-&= \left(\begin{matrix}\sigma^2_\textbf{j} dt^{6} j_{x}^{2} & \sigma^2_\textbf{j} dt^{6} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{5} j_{x}^{2} & \sigma^2_\textbf{j} dt^{5} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{4} j_{x}^{2} & \sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & 0 & 0\\\sigma^2_\textbf{j} dt^{6} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{6} j_{y}^{2} & \sigma^2_\textbf{j} dt^{5} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{5} j_{y}^{2} & \sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{4} j_{y}^{2} & 0 & 0\\\sigma^2_\textbf{j} dt^{5} j_{x}^{2} & \sigma^2_\textbf{j} dt^{5} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{4} j_{x}^{2} & \sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{3} j_{x}^{2} & \sigma^2_\textbf{j} dt^{3} j_{x} j_{y} & 0 & 0\\\sigma^2_\textbf{j} dt^{5} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{5} j_{y}^{2} & \sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{4} j_{y}^{2} & \sigma^2_\textbf{j} dt^{3} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{3} j_{y}^{2} & 0 & 0\\\sigma^2_\textbf{j} dt^{4} j_{x}^{2} & \sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{3} j_{x}^{2} & \sigma^2_\textbf{j} dt^{3} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{2} j_{x}^{2} & \sigma^2_\textbf{j} dt^{2} j_{x} j_{y} & 0 & 0\\\sigma^2_\textbf{j} dt^{4} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{4} j_{y}^{2} & \sigma^2_\textbf{j} dt^{3} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{3} j_{y}^{2} & \sigma^2_\textbf{j} dt^{2} j_{x} j_{y} & \sigma^2_\textbf{j} dt^{2} j_{y}^{2} & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{4} & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{3}\\0 & 0 & 0 & 0 & 0 & 0 & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{3} & \left(\frac{d^2}{dt^2}\phi_z\right)^{2} \sigma^2_{\textrm{yaw}} dt^{2}\end{matrix}\right)
+  \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}}
 \end{align}
 
 \end{document}
