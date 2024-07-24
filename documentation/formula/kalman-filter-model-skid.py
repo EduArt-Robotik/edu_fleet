@@ -12,24 +12,20 @@ def do_formula() -> str:
 
   ## acceleration of robot is constant
   ## in robot coordinate system
-  a_x_t1 = Symbol('a_{x_{t-1}}')
-  a_y_t1 = Symbol('a_{y_{t-1}}')
-  a_t1 = Matrix([[a_x_t1], [a_y_t1]])
+  a_t1 = Symbol('a_{t-1}')
   a_t = a_t1
 
-  latex_export_string += export('\\textbf{a}_{t-1}', a_t1)
-  latex_export_string += export('\\textbf{a}_t', a_t)
+  latex_export_string += export('a_{t-1}', a_t1)
+  latex_export_string += export('a_t', a_t)
 
   ## velocity
   ## in robot coordinate system
-  v_x_t1 = Symbol('v_{x_{t-1}}')
-  v_y_t1 = Symbol('v_{y_{t-1}}')
+  v_t1 = Symbol('v_{t-1}')
 
-  v_t1 = Matrix([[v_x_t1], [v_y_t1]])
   v_t = v_t1 + a_t1 * dt
 
-  latex_export_string += export('\\textbf{v}_{t-1}', v_t1)
-  latex_export_string += export('\\textbf{v}_t', v_t)
+  latex_export_string += export('v_{t-1}', v_t1)
+  latex_export_string += export('v_t', v_t)
 
   ## yaw
   ## in world coordinate system
@@ -51,15 +47,16 @@ def do_formula() -> str:
   p_x_t1 = Symbol('p_x_(t-1)')
   p_y_t1 = Symbol('p_y_(t-1)')
   p_t1 = Matrix([[p_x_t1], [p_y_t1]])
+  e_x = Matrix([[1], [0]])
   
-  p_t = p_t1 + R_t1 * v_t1 * dt + 1.0/2.0 * R_t1 * a_t1 * dt**2
+  p_t = p_t1 + R_t1 * e_x * v_t1 * dt + 1.0/2.0 * R_t1 * e_x * a_t1 * dt**2
 
   latex_export_string += export('\\textbf{R}_{t-1}', R_t1)
   latex_export_string += export('\\textbf{p}_{t-1}', p_t1)
   latex_export_string += export('\\textbf{p}_t', p_t)
 
   ## prediction model
-  coefficient = [p_x_t1, p_y_t1, v_x_t1, v_y_t1, a_x_t1, a_y_t1, yaw_t1, yaw_rate_t1]
+  coefficient = [p_x_t1, p_y_t1, v_t1, a_t1, yaw_t1, yaw_rate_t1]
   F = Matrix([
     [p_t],
     [v_t],
