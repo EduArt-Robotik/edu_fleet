@@ -8,7 +8,7 @@ using eduart::fleet::kalman_filter::AttributeVector;
 
 TEST(attribute_vector, element_access)
 {
-  AttributeVector<Attribute::POS_X, Attribute::POS_Y, Attribute::VEL_X, Attribute::VEL_Y> vector;
+  AttributeVector<Attribute::W_POS_X, Attribute::W_POS_Y, Attribute::VEL_X, Attribute::VEL_Y> vector;
 
   vector.x() = 1.0;
   vector.y() = 2.0;

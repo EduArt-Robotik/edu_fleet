@@ -1,6 +1,7 @@
 add_library(eduart-fleet-kalman-filter
   observation_matrix_handler.cpp
   extended_kalman_filter.cpp
+  filter_model_mecanum.cpp
 )
 target_link_libraries(eduart-fleet-kalman-filter
   Eigen3::Eigen

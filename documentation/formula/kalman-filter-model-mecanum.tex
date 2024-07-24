@@ -77,14 +77,15 @@ The system noise is partly determined by the jerk that the robot can experience.
   \textbf{a} &= \left(\begin{matrix}dt j_{x}\\dt j_{y}\end{matrix}\right) \\
   \textbf{v} &= \left(\begin{matrix}dt^{2} j_{x}\\dt^{2} j_{y}\end{matrix}\right) \\
   \textbf{p} &= \left(\begin{matrix}dt \left(dt^{2} j_{x} \cos{\left(\phi_{z_{t-1}} \right)} - dt^{2} j_{y} \sin{\left(\phi_{z_{t-1}} \right)}\right)\\dt \left(dt^{2} j_{x} \sin{\left(\phi_{z_{t-1}} \right)} + dt^{2} j_{y} \cos{\left(\phi_{z_{t-1}} \right)}\right)\end{matrix}\right) \\
-  \textbf{j}_{\textrm{noise}} &= \left(\begin{matrix}dt^{3} j_{x}\\dt^{3} j_{y}\\dt^{2} j_{x}\\dt^{2} j_{y}\\dt j_{x}\\dt j_{y}\\0\\0\end{matrix}\right)
-  = \left(\begin{matrix}
+  \textbf{j}_{\textrm{noise}} =
+  \left(\begin{matrix}
     \textbf{p} \\
     \textbf{v} \\
     \textbf{a} \\
     0 \\
     0
-  \end{matrix}\right)
+  \end{matrix}\right) 
+&=\left(\begin{matrix}dt \left(dt^{2} j_{x} \cos{\left(\phi_{z_{t-1}} \right)} - dt^{2} j_{y} \sin{\left(\phi_{z_{t-1}} \right)}\right)\\dt \left(dt^{2} j_{x} \sin{\left(\phi_{z_{t-1}} \right)} + dt^{2} j_{y} \cos{\left(\phi_{z_{t-1}} \right)}\right)\\dt^{2} j_{x}\\dt^{2} j_{y}\\dt j_{x}\\dt j_{y}\\0\\0\end{matrix}\right)
 \end{align}
 
 \begin{align}

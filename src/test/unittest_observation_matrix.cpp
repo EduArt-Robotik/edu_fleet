@@ -10,7 +10,7 @@ using eduart::fleet::kalman_filter::ObservationMatrixHandler;
 
 TEST(unittest_observation_matrix, getting_matrix)
 {
-  const AttributePack<Attribute::POS_X, Attribute::POS_Y, Attribute::VEL_X, Attribute::VEL_Y> pack_full_set;
+  const AttributePack<Attribute::W_POS_X, Attribute::W_POS_Y, Attribute::VEL_X, Attribute::VEL_Y> pack_full_set;
   const AttributePack<Attribute::VEL_X, Attribute::VEL_Y> pack_velocity;
 
   const auto matrix = ObservationMatrixHandler::instance().matrix(
@@ -35,7 +35,7 @@ TEST(unittest_observation_matrix, getting_matrix)
 
 TEST(unittest_observation_matrix, getting_matrix_invalid)
 {
-  const AttributePack<Attribute::POS_X, Attribute::POS_Y, Attribute::VEL_X, Attribute::VEL_Y> pack_full_set;
+  const AttributePack<Attribute::W_POS_X, Attribute::W_POS_Y, Attribute::VEL_X, Attribute::VEL_Y> pack_full_set;
   const AttributePack<Attribute::ACC_X, Attribute::ACC_Y> pack_acceleration;
 
   const auto matrix = ObservationMatrixHandler::instance().matrix(

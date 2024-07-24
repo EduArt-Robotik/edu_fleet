@@ -29,20 +29,20 @@ constexpr Data keep_in_range_orientation(const Data value) {
 } // end namespace impl
 
 enum class Attribute : std::uint8_t {
-  POS_X,
-  POS_Y,
-  VEL,
-  VEL_X,
-  VEL_Y,
-  ACC,
-  ACC_X,
-  ACC_Y,
-  ROLL,
-  PITCH,
-  YAW,
-  ROLL_RATE,
-  PITCH_RATE,
-  YAW_RATE,
+  W_POS_X,      //> position x in world coordinate system
+  W_POS_Y,      //> position y in world coordinate system
+  VEL,          //> absolute velocity in vehicle coordinate system
+  VEL_X,        //> velocity x in vehicle coordinate system
+  VEL_Y,        //> velocity y in vehicle coordinate system
+  ACC,          //> absolute acceleration in vehicle coordinate system
+  ACC_X,        //> acceleration x in vehicle coordinate system
+  ACC_Y,        //> acceleration y in vehicle coordinate system
+  W_ROLL,       //> roll angle in world coordinate system
+  W_PITCH,      //> pitch angel in world coordinate system
+  W_YAW,        //> yaw angle in world coordinate system
+  ROLL_RATE,    //> roll rate in vehicle coordinate system
+  PITCH_RATE,   //> pitch rate in vehicle coordinate system
+  YAW_RATE,     //> yaw rate in vehicle coordinate system
 };
 
 template <Attribute>
@@ -51,21 +51,21 @@ struct perform_post_processing {
 };
 
 template <>
-struct perform_post_processing<Attribute::ROLL> {
+struct perform_post_processing<Attribute::W_ROLL> {
   inline constexpr Data operator()(const Data value) {
     // keep angle in range of ]-pi, pi]
     return impl::keep_in_range_orientation(value);
   }
 };
 template <>
-struct perform_post_processing<Attribute::PITCH> {
+struct perform_post_processing<Attribute::W_PITCH> {
   inline constexpr Data operator()(const Data value) {
     // keep angle in range of ]-pi, pi]
     return impl::keep_in_range_orientation(value);
   }
 };
 template <>
-struct perform_post_processing<Attribute::YAW> {
+struct perform_post_processing<Attribute::W_YAW> {
   inline constexpr Data operator()(const Data value) {
     // keep angle in range of ]-pi, pi]
     return impl::keep_in_range_orientation(value);
