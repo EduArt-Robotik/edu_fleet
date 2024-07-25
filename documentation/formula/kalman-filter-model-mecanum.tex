@@ -68,49 +68,53 @@ This document defines the formulas required for a Kalman filter that is used to 
 
 \newpage
 \section{System Noise Model}
-\subsection{Via Jerk}
+\subsection{Via Acceleration}
 
-The system noise is partly determined by the jerk that the robot can experience. The jerk is not directly observed and is well suited for describing the disturbance.
+The system noise is partly determined by the acceleration that the robot can experience.
 
 \begin{align}
-  \textbf{j} &= \left(\begin{matrix}j_{x}\\j_{y}\end{matrix}\right) \\
-  \textbf{a} &= \left(\begin{matrix}dt j_{x}\\dt j_{y}\end{matrix}\right) \\
-  \textbf{v} &= \left(\begin{matrix}dt^{2} j_{x}\\dt^{2} j_{y}\end{matrix}\right) \\
-  \textbf{p} &= \left(\begin{matrix}dt \left(dt^{2} j_{x} \cos{\left(\phi_{z_{t-1}} \right)} - dt^{2} j_{y} \sin{\left(\phi_{z_{t-1}} \right)}\right)\\dt \left(dt^{2} j_{x} \sin{\left(\phi_{z_{t-1}} \right)} + dt^{2} j_{y} \cos{\left(\phi_{z_{t-1}} \right)}\right)\end{matrix}\right) \\
-  \textbf{j}_{\textrm{noise}} =
+  a &= a_x = a_y \\
+  \textbf{a} &= \left(\begin{matrix}a\\a\end{matrix}\right) \\
+  \textbf{v} &= \left(\begin{matrix}a \cdot dt\\a \cdot dt\end{matrix}\right) \\
+  \textbf{p} &= \frac{1}{2}\textbf{R}_{t-1}\textbf{a} \cdot dt^2 \\ 
+  &= \left(\begin{matrix}dt^{2} \left(- 0.5 a \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a \cos{\left(\phi_{z_{t-1}} \right)}\right)\\dt^{2} \left(0.5 a \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a \cos{\left(\phi_{z_{t-1}} \right)}\right)\end{matrix}\right) \\
+  \textbf{a}_{\textrm{noise}} =
   \left(\begin{matrix}
     \textbf{p} \\
     \textbf{v} \\
     \textbf{a} \\
     0 \\
     0
-  \end{matrix}\right) 
-&=\left(\begin{matrix}dt \left(dt^{2} j_{x} \cos{\left(\phi_{z_{t-1}} \right)} - dt^{2} j_{y} \sin{\left(\phi_{z_{t-1}} \right)}\right)\\dt \left(dt^{2} j_{x} \sin{\left(\phi_{z_{t-1}} \right)} + dt^{2} j_{y} \cos{\left(\phi_{z_{t-1}} \right)}\right)\\dt^{2} j_{x}\\dt^{2} j_{y}\\dt j_{x}\\dt j_{y}\\0\\0\end{matrix}\right)
+  \end{matrix}\right)
+&=\left(\begin{matrix}0.5 \sqrt{2} dt^{2} \cos{\left(\phi_{z_{t-1}} + \frac{\pi}{4} \right)}\\0.5 \sqrt{2} dt^{2} \sin{\left(\phi_{z_{t-1}} + \frac{\pi}{4} \right)}\\dt\\dt\\1\\1\\0\\0\end{matrix}\right) a
+\end{align}
+
+\begin{equation}
+  \textbf{Q}_{\textbf{a}} = \sigma^2_{\textbf{a}} \cdot \textbf{a}_{\textrm{noise}} \cdot \textbf{a}_{\textrm{noise}}^T \\
+  = \sigma^2_{\textbf{a}} \left(\begin{matrix}\frac{p_{x}^{2}}{a^{2}} & \frac{p_{x} p_{y}}{a^{2}} & \frac{dt p_{x}}{a} & \frac{dt p_{x}}{a} & \frac{p_{x}}{a} & \frac{p_{x}}{a} & 0 & 0\\\frac{p_{x} p_{y}}{a^{2}} & \frac{p_{y}^{2}}{a^{2}} & \frac{dt p_{y}}{a} & \frac{dt p_{y}}{a} & \frac{p_{y}}{a} & \frac{p_{y}}{a} & 0 & 0\\\frac{dt p_{x}}{a} & \frac{dt p_{y}}{a} & dt^{2} & dt^{2} & dt & dt & 0 & 0\\\frac{dt p_{x}}{a} & \frac{dt p_{y}}{a} & dt^{2} & dt^{2} & dt & dt & 0 & 0\\\frac{p_{x}}{a} & \frac{p_{y}}{a} & dt & dt & 1 & 1 & 0 & 0\\\frac{p_{x}}{a} & \frac{p_{y}}{a} & dt & dt & 1 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\end{matrix}\right)
+\end{equation}
+
+
+\subsection{Via Yaw Rate}
+
+The system noise is partly determined by the yaw rate that the robot can experience.
+
+\begin{align}
+  \phi_z &= \dot{\phi_{z}} dt \\
+  \dot{\phi}_{z_\textrm{noise}} &= \left(\begin{matrix}0\\0\\0\\0\\0\\0\\\phi_z\\\dot{\phi_z}\end{matrix}\right) =
+  \left(\begin{matrix}0\\0\\0\\0\\0\\0\\dt\\1\end{matrix}\right) \dot{\phi_z}
 \end{align}
 
 \begin{align}
-  \textbf{Q}_{\textbf{j}} &= \sigma^2_{\textbf{j}} \cdot \textbf{j}_{\textrm{noise}} \cdot \textbf{j}_{\textrm{noise}}^T
-\end{align}
-
-
-\subsection{Via Yaw Acceleration}
-
-The system noise is partly determined by the yaw acceleration that the robot can experience. The yaw acceleration is not directly observed and is well suited for describing the disturbance.
-
-\begin{align}
-  \frac{d}{dt}\phi_z &= \frac{d^2}{dt^2}\phi_z dt \\
-  \phi_z &= \frac{d^2}{dt^2}\phi_z dt^{2} \\
-  \frac{d^2}{dt^2}\phi_{z_\textrm{noise}} &= \left(\begin{matrix}0\\0\\0\\0\\0\\0\\\frac{d^2}{dt^2}\phi_z dt^{2}\\\frac{d^2}{dt^2}\phi_z dt\end{matrix}\right) \\
-\end{align}
-
-\begin{align}
-  \textbf{Q}_{\textrm{yaw}} &= \sigma^2_{\textrm{yaw}} \cdot \frac{d^2}{dt^2}\phi_{z_\textrm{noise}} \cdot \frac{d^2}{dt^2} \phi_{z_\textrm{noise}}^T
+  \textbf{Q}_{\textrm{yaw}} &= \sigma^2_{\textrm{yaw}} \cdot \dot{\phi}_{z_\textrm{noise}} \cdot \dot{\phi}_{z_\textrm{noise}}^T
+  = \sigma^2_{\textrm{yaw}} \left(\begin{matrix}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & dt^{2} & dt\\0 & 0 & 0 & 0 & 0 & 0 & dt & 1\end{matrix}\right)
 \end{align}
 
 \subsection{Final System Noise Matrix}
 
 \begin{align}
   \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}}
+  = \left(\begin{matrix}\frac{\sigma^2_\textbf{a} p_{x}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{y}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt^{2} & \sigma_{\dot{\phi_z}}^2 dt\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt & \sigma_{\dot{\phi_z}}^2\end{matrix}\right)
 \end{align}
 
 \end{document}

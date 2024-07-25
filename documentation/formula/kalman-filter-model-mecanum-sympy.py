@@ -89,23 +89,19 @@ def do_system_noise_model() -> str:
   # system noise equations
   dt = Symbol('dt')
   yaw_t1 = Symbol('\\phi_{z_{t-1}}')
-  jerk_noise_variance = Symbol('\\sigma^2_\\textbf{j}')
+  acceleration_noise_variance = Symbol('\\sigma^2_\\textbf{a}')
   R = Matrix([
     [cos(yaw_t1), -sin(yaw_t1)],
     [sin(yaw_t1),  cos(yaw_t1)]
   ])
 
-  ## jerk noise part
-  ### jerk
-  j_x = Symbol('j_x')
-  j_y = Symbol('j_y')
-  j = Matrix([[j_x], [j_y]])
-  
-  latex_export_string += export('\\textbf{j}', j)
+  ## acceleration noise part
+  ## The acceleration can experience a change. Here a equation system is used to calculate the impact on other dimensions.
 
   ### acceleration
-  a = j * dt
-
+  a_scalar = Symbol('a')
+  a = Matrix([[a_scalar], [a_scalar]])
+  
   latex_export_string += export('\\textbf{a}', a)
 
   ### velocity
@@ -114,36 +110,48 @@ def do_system_noise_model() -> str:
   latex_export_string += export('\\textbf{v}', v)
 
   ### position
-  p = R * v * dt
+  p = 0.5 * R * a * dt**2
 
   latex_export_string += export('\\textbf{p}', p)
 
   ### building vector
-  jerk_noise = Matrix([
-    [p[0, 0]],
-    [p[1, 0]],
-    [v[0, 0]],
-    [v[1, 0]],
-    [a[0, 0]],
-    [a[1, 0]],
+  acceleration_noise = Matrix([
+    [p[0, 0] / a_scalar],
+    [p[1, 0] / a_scalar],
+    [v[0, 0] / a_scalar],
+    [v[1, 0] / a_scalar],
+    [a[0, 0] / a_scalar],
+    [a[1, 0] / a_scalar],
     [0], # yaw
     [0]  # yaw rate
   ])
-  Q_jerk = jerk_noise_variance * jerk_noise * jerk_noise.transpose()
+  Q_a = acceleration_noise_variance * acceleration_noise * acceleration_noise.transpose()
+  latex_export_string += export('\\textbf{a}_{\\textrm{noise}}', simplify(acceleration_noise))
 
-  latex_export_string += export('\\textbf{j}_{\\textrm{noise}}', jerk_noise)
-  latex_export_string += export('\\textbf{Q}_{\\textbf{j}}', Q_jerk)
+  ### Q_a
+  symbol_a = Symbol('a')
+  q_a_helper = Matrix([
+    [Symbol('p_x') / a_scalar],
+    [Symbol('p_y') / a_scalar],
+    [dt],
+    [dt],
+    [1],
+    [1],
+    [0],
+    [0]
+  ])
+
+  Q_a = simplify(acceleration_noise_variance * q_a_helper * q_a_helper.transpose())
+  latex_export_string += export('\\textbf{Q}_{\\textbf{a}}', simplify(Q_a / acceleration_noise_variance))
 
 
-  ## yaw acceleration part
-  ### yaw acceleration
-  yaw_acceleration = Symbol('\\frac{d^2}{dt^2}\\phi_z')
-  yaw_acceleration_variance = Symbol('\\sigma^2_{\\textrm{yaw}}')
+  ## yaw rate part
+  yaw_rate_variance = Symbol('\\sigma_{\\dot{\\phi_z}}^2')
 
   ### yaw rate
-  yaw_rate = yaw_acceleration * dt
+  yaw_rate = Symbol('\\dot{\\phi_{z}}')
 
-  latex_export_string += export('\\frac{d}{dt}\\phi_z', yaw_rate)
+  latex_export_string += export('\\dot{\\phi_{z}}', yaw_rate)
 
   ### yaw
   yaw = yaw_rate * dt
@@ -158,17 +166,17 @@ def do_system_noise_model() -> str:
     [0], # vel y
     [0], # acc x
     [0], # acc y
-    [yaw],
-    [yaw_rate]
+    [yaw / yaw_rate],
+    [yaw_rate / yaw_rate]
   ])
-  Q_yaw = yaw_acceleration_variance * yaw_noise * yaw_noise.transpose()
+  Q_yaw = yaw_rate_variance * yaw_noise * yaw_noise.transpose()
 
-  latex_export_string += export('\\frac{d^2}{dt^2}\\phi_{z_\\textrm{noise}}', yaw_noise)
-  latex_export_string += export('\\textbf{Q}_{\\textrm{yaw}}', Q_yaw)
+  latex_export_string += export('\\dot{\\phi}_{z_\\textrm{noise}}', yaw_noise)
+  latex_export_string += export('\\textbf{Q}_{\\textrm{yaw}}', Q_yaw / yaw_rate_variance)
 
 
   ## final system noise matrix
-  Q = Q_jerk + Q_yaw
+  Q = Q_a + Q_yaw
 
   latex_export_string += export('\\textbf{Q}', Q)
 
