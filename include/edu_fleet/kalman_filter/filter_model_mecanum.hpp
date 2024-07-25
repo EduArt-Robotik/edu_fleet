@@ -25,7 +25,7 @@ class FilterModelMecanum : public FilterModel<AttributePack<Attribute::W_POS_X,
 public:
   struct Parameter {
     struct {
-      Data jerk = 0.5 * 0.5;
+      Data acceleration = 0.5 * 0.5;
       Data yaw_rate = 12.566370614 * 12.566370614; // 720° stddev
     } noise;
   };

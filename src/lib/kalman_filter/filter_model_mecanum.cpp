@@ -1,6 +1,8 @@
 #include "edu_fleet/kalman_filter/filter_model_mecanum.hpp"
 #include "edu_fleet/kalman_filter/attribute.hpp"
 #include <cstddef>
+#include <iomanip>
+#include <iostream>
 #include <stdexcept>
 
 namespace eduart {
@@ -13,7 +15,7 @@ static constexpr std::size_t W_POS_Y  = FilterModelMecanum::attribute_pack::inde
 static constexpr std::size_t VEL_X    = FilterModelMecanum::attribute_pack::index<Attribute::VEL_X>();
 static constexpr std::size_t VEL_Y    = FilterModelMecanum::attribute_pack::index<Attribute::VEL_Y>();
 static constexpr std::size_t ACC_X    = FilterModelMecanum::attribute_pack::index<Attribute::ACC_X>();
-static constexpr std::size_t ACC_Y    = FilterModelMecanum::attribute_pack::index<Attribute::ACC_X>();
+static constexpr std::size_t ACC_Y    = FilterModelMecanum::attribute_pack::index<Attribute::ACC_Y>();
 static constexpr std::size_t W_YAW    = FilterModelMecanum::attribute_pack::index<Attribute::W_YAW>();
 static constexpr std::size_t YAW_RATE = FilterModelMecanum::attribute_pack::index<Attribute::YAW_RATE>();
 
@@ -44,10 +46,11 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   // ... acceleration
   _prediction_matrix(W_POS_X, ACC_X) =  0.5 * dt * dt * cos_phi;
   _prediction_matrix(W_POS_X, ACC_Y) = -0.5 * dt * dt * sin_phi;
+
   // ... yaw
-  _prediction_matrix(W_POS_X, W_YAW) =
-    dt * dt * (-0.5 * state->acceleration_x() * sin_phi - 0.5 * state->acceleration_y() * cos_phi) +
-    dt * (-state->velocity_x() * sin_phi - state->velocity_y() * cos_phi);
+  // _prediction_matrix(W_POS_X, W_YAW) =
+  //   dt * dt * (-0.5 * state->acceleration_x() * sin_phi - 0.5 * state->acceleration_y() * cos_phi) +
+  //   dt * (-state->velocity_x() * sin_phi - state->velocity_y() * cos_phi);
   // ... yaw rate
   _prediction_matrix(W_POS_X, YAW_RATE) = 0.0;
 
@@ -61,9 +64,9 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   _prediction_matrix(W_POS_Y, ACC_X) = 0.5 * dt * dt * sin_phi;
   _prediction_matrix(W_POS_Y, ACC_Y) = 0.5 * dt * dt * cos_phi;
   // ... yaw
-  _prediction_matrix(W_POS_Y, W_YAW) =
-    dt * dt * (0.5 * state->acceleration_x() * cos_phi - 0.5 * state->acceleration_y() * sin_phi) +
-    dt * (state->velocity_x() * cos_phi - state->velocity_y() * sin_phi);
+  // _prediction_matrix(W_POS_Y, W_YAW) =
+  //   dt * dt * (0.5 * state->acceleration_x() * cos_phi - 0.5 * state->acceleration_y() * sin_phi) +
+  //   dt * (state->velocity_x() * cos_phi - state->velocity_y() * sin_phi);
   // ... yaw rate
   _prediction_matrix(W_POS_Y, YAW_RATE) = 0.0;
 
@@ -99,6 +102,14 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   // ... yaw rate
   _prediction_matrix(ACC_X, YAW_RATE) = 0.0;
 
+  // from a_y to ...
+  // ... acceleration
+  _prediction_matrix(ACC_Y, ACC_Y) = 1.0;
+  // ... yaw
+  _prediction_matrix(ACC_Y, W_YAW) = 0.0;
+  // ... yaw rate
+  _prediction_matrix(ACC_Y, YAW_RATE) = 0.0;  
+
   // from yaw to ...
   // ... yaw
   _prediction_matrix(W_YAW, W_YAW) = 1.0;
@@ -127,27 +138,27 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getSystemNoiseMatrix(
   // clear system noise matrix before add noise parts
   _system_noise_matrix.setConstant(0.0);
 
-  // add jerk system noise
+  // add acceleration system noise
   {
     Eigen::Vector<Data, attribute_vector::size()> noise_vector = Eigen::Vector<Data, attribute_vector::size()>::Zero();
 
-    noise_vector[W_POS_X] = dt * dt * dt * (cos_phi - sin_phi);
-    noise_vector[W_POS_Y] = dt * dt * dt * (sin_phi + cos_phi);
+    noise_vector[W_POS_X] = 0.5 * dt * dt * (cos_phi - sin_phi);
+    noise_vector[W_POS_Y] = 0.5 * dt * dt * (sin_phi + cos_phi);
 
-    noise_vector[VEL_X] = dt * dt;
-    noise_vector[VEL_Y] = dt * dt;
-    noise_vector[ACC_X] = dt;
-    noise_vector[ACC_Y] = dt;
+    noise_vector[VEL_X] = dt;
+    noise_vector[VEL_Y] = dt;
+    noise_vector[ACC_X] = 1.0;
+    noise_vector[ACC_Y] = 1.0;
 
-    _system_noise_matrix += _parameter.noise.jerk * noise_vector * noise_vector.transpose();
+    _system_noise_matrix += _parameter.noise.acceleration * noise_vector * noise_vector.transpose();
   }
 
-  // yaw acceleration part
+  // add yaw rate system noise
   {
     Eigen::Vector<Data, attribute_vector::size()> noise_vector = Eigen::Vector<Data, attribute_vector::size()>::Zero();
 
-    noise_vector[W_YAW] = dt * dt;
-    noise_vector[YAW_RATE] = dt;
+    noise_vector[W_YAW] = dt;
+    noise_vector[YAW_RATE] = 1.0;
 
     _system_noise_matrix += _parameter.noise.yaw_rate * noise_vector * noise_vector.transpose();    
   }
