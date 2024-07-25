@@ -35,12 +35,12 @@ def do_prediction_model() -> str:
   ## in world coordinate system
   yaw_t = Symbol('\\phi_z')
   yaw_t1 = Symbol('\\phi_{z_{t-1}}')
-  yaw_rate_t1 = Symbol('\\frac{d}{dt}\\phi_{z_{t-1}}')
+  yaw_rate_t1 = Symbol('\\dot{\\phi}_{z_{t-1}}')
   yaw_rate_t = yaw_rate_t1
   yaw_t = yaw_t1 + yaw_rate_t1 * dt
 
   latex_export_string += export('\\phi_{z_t}', yaw_t)
-  latex_export_string += export('\\frac{d}{dt}\\phi_{z_t}', yaw_rate_t)
+  latex_export_string += export('\\dot{\\phi}_{z_t}', yaw_rate_t)
 
   ## position
   ## in world coordinate system
@@ -77,8 +77,10 @@ def do_prediction_model() -> str:
     [yaw_t],
     [yaw_rate_t]
   ]).jacobian(coefficient)
+  jacobian[0, 6] = 0
+  jacobian[1, 6] = 0
 
-  latex_export_string += export('\\textbf{J}_t', jacobian)
+  latex_export_string += export('\\textbf{J}_t', simplify(jacobian))
 
   return latex_export_string
   

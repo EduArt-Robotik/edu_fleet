@@ -34,16 +34,15 @@ This document defines the formulas required for a Kalman filter that is used to 
 
 \subsection{Position}
 \begin{align}
-  \textbf{R}_{t-1} &= \left(\begin{matrix}\cos{\left(\phi_{z_{t-1}} \right)} & - \sin{\left(\phi_{z_{t-1}} \right)}\\\sin{\left(\phi_{z_{t-1}} \right)} & \cos{\left(\phi_{z_{t-1}} \right)}\end{matrix}\right) \\
+  \textrm{cos}_\phi &= \cos{\left(\phi_{z_{t-1}} \right)} \\
+  \textrm{sin}_\phi &= \sin{\left(\phi_{z_{t-1}} \right)} \\
+  \textbf{R}_{t-1} &= \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\
   \textbf{p}_{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right) \\
   \textbf{p}_t &= \textbf{p}_{t-1} + \textbf{R}_{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\textbf{R}_{t-1}\textbf{a}_{t-1}dt^2 \\
-  &= \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + p_{y (t-1)}\end{matrix}\right)
+  &= \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\end{matrix}\right)
 \end{align}
 
-\newpage
-\begin{landscape}
 \subsection{Model}
-\tiny
 
 \begin{align}
  \textbf{F}_{t} &=
@@ -55,18 +54,16 @@ This document defines the formulas required for a Kalman filter that is used to 
   a_{x_t} \\
   a_{y_t} \\
   \phi_t \\
-  \frac{d}{dt}\phi
+  \dot{\phi_t}
  \end{matrix}\right)
- = \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} + v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + p_{y (t-1)}\\a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\\a_{x_{t-1}}\\a_{y_{t-1}}\\\phi_{z_{t-1}} + \frac{d}{dt}\phi_{z_{t-1}} dt\\\frac{d}{dt}\phi_{z_{t-1}}\end{matrix}\right) \\
+ = \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\\a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\\a_{x_{t-1}}\\a_{y_{t-1}}\\\dot{\phi}_{z_{t-1}} dt + \phi_{z_{t-1}}\\\dot{\phi}_{z_{t-1}}\end{matrix}\right) \\
   \textbf{J}_t &= 
   \textbf{F}\left(\begin{matrix}
-    \frac{\partial}{\partial p_x} & \frac{\partial}{\partial p_y} & \frac{\partial}{\partial v_x} & \frac{\partial}{\partial v_y} & \frac{\partial}{\partial a_x} & \frac{\partial}{\partial a_y} & \frac{\partial}{\partial \phi}\frac{\partial^2}{\partial^2 \phi}
+    \frac{\partial}{\partial p_x} & \frac{\partial}{\partial p_y} & \frac{\partial}{\partial v_x} & \frac{\partial}{\partial v_y} & \frac{\partial}{\partial a_x} & \frac{\partial}{\partial a_y} & 0 & \frac{\partial}{\partial \dot{\phi}}
   \end{matrix}\right) \\
-  &= \left(\begin{matrix}1 & 0 & dt \cos{\left(\phi_{z_{t-1}} \right)} & - dt \sin{\left(\phi_{z_{t-1}} \right)} & 0.5 dt^{2} \cos{\left(\phi_{z_{t-1}} \right)} & - 0.5 dt^{2} \sin{\left(\phi_{z_{t-1}} \right)} & dt^{2} \left(- 0.5 a_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(- v_{x_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)}\right) & 0\\0 & 1 & dt \sin{\left(\phi_{z_{t-1}} \right)} & dt \cos{\left(\phi_{z_{t-1}} \right)} & 0.5 dt^{2} \sin{\left(\phi_{z_{t-1}} \right)} & 0.5 dt^{2} \cos{\left(\phi_{z_{t-1}} \right)} & dt^{2} \left(0.5 a_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - 0.5 a_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) + dt \left(v_{x_{t-1}} \cos{\left(\phi_{z_{t-1}} \right)} - v_{y_{t-1}} \sin{\left(\phi_{z_{t-1}} \right)}\right) & 0\\0 & 0 & 1 & 0 & dt & 0 & 0 & 0\\0 & 0 & 0 & 1 & 0 & dt & 0 & 0\\0 & 0 & 0 & 0 & 1 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 1 & dt\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 1\end{matrix}\right)
+  &= \left(\begin{matrix}1 & 0 & dt \textrm{cos}_\phi & - dt \textrm{sin}_\phi & 0.5 dt^{2} \textrm{cos}_\phi & - 0.5 dt^{2} \textrm{sin}_\phi & 0 & 0\\0 & 1 & dt \textrm{sin}_\phi & dt \textrm{cos}_\phi & 0.5 dt^{2} \textrm{sin}_\phi & 0.5 dt^{2} \textrm{cos}_\phi & 0 & 0\\0 & 0 & 1 & 0 & dt & 0 & 0 & 0\\0 & 0 & 0 & 1 & 0 & dt & 0 & 0\\0 & 0 & 0 & 0 & 1 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 1 & dt\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 1\end{matrix}\right)
 \end{align}
-\end{landscape}
 
-\newpage
 \section{System Noise Model}
 \subsection{Via Acceleration}
 
@@ -77,7 +74,7 @@ The system noise is partly determined by the acceleration that the robot can exp
   \textbf{a} &= \left(\begin{matrix}a\\a\end{matrix}\right) \\
   \textbf{v} &= \left(\begin{matrix}a \cdot dt\\a \cdot dt\end{matrix}\right) \\
   \textbf{p} &= \frac{1}{2}\textbf{R}_{t-1}\textbf{a} \cdot dt^2 \\ 
-  &= \left(\begin{matrix}dt^{2} \left(- 0.5 a \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a \cos{\left(\phi_{z_{t-1}} \right)}\right)\\dt^{2} \left(0.5 a \sin{\left(\phi_{z_{t-1}} \right)} + 0.5 a \cos{\left(\phi_{z_{t-1}} \right)}\right)\end{matrix}\right) \\
+  &= \left(\begin{matrix}dt^{2} \left(- 0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\\dt^{2} \left(0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\end{matrix}\right) \\
   \textbf{a}_{\textrm{noise}} =
   \left(\begin{matrix}
     \textbf{p} \\

@@ -33,8 +33,8 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   // calculate prediction based on current state and dt
   // NOTE: predication matrix was initialized with an I matrix at beginning
   // NOTE: all lower the diagonal is zero!
-  const Data cos_phi = std::cos(state->yaw());
-  const Data sin_phi = std::sin(state->yaw());
+  const Data cos_phi = std::cos(state->yaw());// + state->yaw_rate() * dt);
+  const Data sin_phi = std::sin(state->yaw());// + state->yaw_rate() * dt);
 
   // from p_x to ...
   // ... position
@@ -48,10 +48,13 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   _prediction_matrix(W_POS_X, ACC_Y) = -0.5 * dt * dt * sin_phi;
 
   // ... yaw
-  // _prediction_matrix(W_POS_X, W_YAW) =
+  _prediction_matrix(W_POS_X, W_YAW) = 0.0;
   //   dt * dt * (-0.5 * state->acceleration_x() * sin_phi - 0.5 * state->acceleration_y() * cos_phi) +
   //   dt * (-state->velocity_x() * sin_phi - state->velocity_y() * cos_phi);
   // ... yaw rate
+  // _prediction_matrix(W_POS_X, YAW_RATE) = 
+  //   -dt * dt * (0.5 * dt * (state->acceleration_x() * sin_phi + state->acceleration_y() * cos_phi) +
+  //               state->velocity_x() * sin_phi + state->velocity_y() * cos_phi);
   _prediction_matrix(W_POS_X, YAW_RATE) = 0.0;
 
   // from p_y to ...
@@ -64,10 +67,13 @@ const Eigen::MatrixX<Data>& FilterModelMecanum::getPredictionMatrix(
   _prediction_matrix(W_POS_Y, ACC_X) = 0.5 * dt * dt * sin_phi;
   _prediction_matrix(W_POS_Y, ACC_Y) = 0.5 * dt * dt * cos_phi;
   // ... yaw
-  // _prediction_matrix(W_POS_Y, W_YAW) =
+  _prediction_matrix(W_POS_Y, W_YAW) = 0.0;
   //   dt * dt * (0.5 * state->acceleration_x() * cos_phi - 0.5 * state->acceleration_y() * sin_phi) +
   //   dt * (state->velocity_x() * cos_phi - state->velocity_y() * sin_phi);
   // ... yaw rate
+  // _prediction_matrix(W_POS_Y, YAW_RATE) =
+  //   dt * dt * (0.5 * dt * (state->acceleration_x() * cos_phi - state->acceleration_y() * sin_phi) +
+  //              state->velocity_x() * cos_phi - state->velocity_y() * sin_phi);
   _prediction_matrix(W_POS_Y, YAW_RATE) = 0.0;
 
   // from v_x to ...
