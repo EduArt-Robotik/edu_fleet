@@ -4,45 +4,79 @@
 \usepackage[parfill]{parskip}
 \usepackage[utf8]{inputenc}
 \usepackage{pdflscape}
+\usepackage{tikz}
 
 % Related to math
 \usepackage{amsmath,amssymb,amsfonts,amsthm}
 
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{calc}
+
+% notations
+\newcommand{\Transform}[2]{^{#1}\textbf{T}_{#2}}
+\newcommand{\Pose}[2]{^{#1}\textbf{P}_{#2}}
+\newcommand{\Translation}[1]{\textbf{t}_{#1}}
+\newcommand{\Rotation}[2]{^{#1}\textbf{R}_{#2}}
+\newcommand{\Position}[2]{^{#1}\textbf{p}_{#2}}
+\newcommand{\Yaw}[1]{^W\phi_{z_{#1}}}
+% \newcommand{\Or}
+
+% use custom tkiz drawings
+\input{img/draw_robot.tex}
+
 \begin{document}
 
-This document defines the formulas required for a Kalman filter that is used to localize the EduArt robots globally.
+\section{Kalman Filter Models for Mecanum Drive Kinematic}
 
-\section{Prediction Model for Eduard with Mecanum}
+This document defines the formulas required for a Kalman filter that is used to localize the EduArt robots globally.Several models are defined, each of which has its advantages and disadvantages. 
 
-\subsection{Acceleration}
+Basically, the movement in the model is linearized, even if an extended Kalman filter is used. This liberalizes around the current state. As a result, a circular path cannot be followed exactly. Instead, an under- or over-tracking occurs.
+
+\begin{figure}
+  \center
+  \input{img/fleet_coordinate_systems.tex}
+  \caption{General Overview}
+  \label{fig:general_overview}
+\end{figure}
+
+\section{Model Push and Rotate}
+
+\input{img/push_and_rotate.tex}
+
+The model defined here first travels a distance based on the velocity and acceleration vectors. The robot is then rotated. We call this Push and Rotate.
+
+\subsection{Prediction Model for Eduard with Mecanum}
+
+\subsubsection{Acceleration}
 \begin{align}
   \textbf{a}_{t-1} &= \left(\begin{matrix}a_{x_{t-1}}\\a_{y_{t-1}}\end{matrix}\right) \\
-  \textbf{a}_t &= \left(\begin{matrix}a_{x_{t-1}}\\a_{y_{t-1}}\end{matrix}\right)
+  \textbf{a}_t &= \textbf{a}_{t-1}
 \end{align}
 
-\subsection{Velocity}
+\subsubsection{Velocity}
 \begin{align}
   \textbf{v}_{t-1} &= \left(\begin{matrix}v_{x_{t-1}}\\v_{y_{t-1}}\end{matrix}\right) \\
-  \textbf{v}_t &= \left(\begin{matrix}a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\end{matrix}\right)
+  \textbf{v}_t &= \textbf{v}_{t-1} + \textbf{a}_{t-1} dt = 
+  \left(\begin{matrix}a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\end{matrix}\right)
 \end{align}
 
-\subsection{Yaw}
+\subsubsection{Yaw}
 \begin{align}
-  \phi_{z_t} &= \phi_{z_{t-1}} + \frac{d}{dt}\phi_{z_{t-1}} dt \\
-  \frac{d}{dt}\phi_{z_t} &= \frac{d}{dt}\phi_{z_{t-1}}
+  \Yaw{t} &= \Yaw{t-1} + \dot{\phi}_{z_{t-1}} dt \\
+  \dot{\phi}_{z_t} &= \dot{\phi}_{z_{t-1}}
 \end{align}
 
-\subsection{Position}
+\subsubsection{Position}
 \begin{align}
-  \textrm{cos}_\phi &= \cos{\left(\phi_{z_{t-1}} \right)} \\
-  \textrm{sin}_\phi &= \sin{\left(\phi_{z_{t-1}} \right)} \\
-  \textbf{R}_{t-1} &= \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\
-  \textbf{p}_{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right) \\
-  \textbf{p}_t &= \textbf{p}_{t-1} + \textbf{R}_{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\textbf{R}_{t-1}\textbf{a}_{t-1}dt^2 \\
+  \textrm{cos}_\phi &= \cos{\left(\Yaw{t-1}\right)} \\
+  \textrm{sin}_\phi &= \sin{\left(\Yaw{t-1}\right)} \\
+  \Rotation{W}{t-1} &= \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\
+  \Position{W}{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right) \\
+  \Position{W}{t} &= \Position{W}{t-1} + \Rotation{W}{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\Rotation{W}{t-1}\textbf{a}_{t-1}dt^2 \\
   &= \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\end{matrix}\right)
 \end{align}
 
-\subsection{Model}
+\subsubsection{Model}
 
 \begin{align}
  \textbf{F}_{t} &=
@@ -65,7 +99,7 @@ This document defines the formulas required for a Kalman filter that is used to 
 \end{align}
 
 \section{System Noise Model}
-\subsection{Via Acceleration}
+\subsubsection{Via Acceleration}
 
 The system noise is partly determined by the acceleration that the robot can experience.
 
@@ -92,7 +126,7 @@ The system noise is partly determined by the acceleration that the robot can exp
 \end{equation}
 
 
-\subsection{Via Yaw Rate}
+\subsubsection{Via Yaw Rate}
 
 The system noise is partly determined by the yaw rate that the robot can experience.
 
@@ -107,7 +141,7 @@ The system noise is partly determined by the yaw rate that the robot can experie
   = \sigma^2_{\textrm{yaw}} \left(\begin{matrix}0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & dt^{2} & dt\\0 & 0 & 0 & 0 & 0 & 0 & dt & 1\end{matrix}\right)
 \end{align}
 
-\subsection{Final System Noise Matrix}
+\subsubsection{Final System Noise Matrix}
 
 \begin{align}
   \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}}

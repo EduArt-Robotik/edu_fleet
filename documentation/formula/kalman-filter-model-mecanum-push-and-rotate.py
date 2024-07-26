@@ -33,13 +33,13 @@ def do_prediction_model() -> str:
 
   ## yaw
   ## in world coordinate system
-  yaw_t = Symbol('\\phi_z')
-  yaw_t1 = Symbol('\\phi_{z_{t-1}}')
+  yaw_t = Symbol('\\Yaw{t}')
+  yaw_t1 = Symbol('\\Yaw{t-1}')
   yaw_rate_t1 = Symbol('\\dot{\\phi}_{z_{t-1}}')
   yaw_rate_t = yaw_rate_t1
   yaw_t = yaw_t1 + yaw_rate_t1 * dt
 
-  latex_export_string += export('\\phi_{z_t}', yaw_t)
+  latex_export_string += export('\\Yaw{t}', yaw_t)
   latex_export_string += export('\\dot{\\phi}_{z_t}', yaw_rate_t)
 
   ## position
@@ -54,9 +54,9 @@ def do_prediction_model() -> str:
   
   p_t = p_t1 + R_t1 * v_t1 * dt + 1.0/2.0 * R_t1 * a_t1 * dt**2
 
-  latex_export_string += export('\\textbf{R}_{t-1}', R_t1)
-  latex_export_string += export('\\textbf{p}_{t-1}', p_t1)
-  latex_export_string += export('\\textbf{p}_t', p_t)
+  latex_export_string += export('\\Rotation{W}{t-1}', R_t1)
+  latex_export_string += export('\\Position{W}{t-1}', p_t1)
+  latex_export_string += export('\\Position{t}', p_t)
 
   ## prediction model
   coefficient = [p_x_t1, p_y_t1, v_x_t1, v_y_t1, a_x_t1, a_y_t1, yaw_t1, yaw_rate_t1]
