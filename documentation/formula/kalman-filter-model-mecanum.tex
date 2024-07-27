@@ -39,7 +39,8 @@ Basically, the movement in the model is linearized, even if an extended Kalman f
   \label{fig:general_overview}
 \end{figure}
 
-\section{Model Push and Rotate}
+\clearpage
+\section{Model: Push and Rotate}
 
 \input{img/push_and_rotate.tex}
 
@@ -147,5 +148,13 @@ The system noise is partly determined by the yaw rate that the robot can experie
   \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}}
   = \left(\begin{matrix}\frac{\sigma^2_\textbf{a} p_{x}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{y}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt^{2} & \sigma_{\dot{\phi_z}}^2 dt\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt & \sigma_{\dot{\phi_z}}^2\end{matrix}\right)
 \end{align}
+\clearpage
+
+
+
+\section{Model: Rotate and Push}
+
+\input{img/rotate_and_push}
+
 
 \end{document}

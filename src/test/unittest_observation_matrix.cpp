@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <gtest/gtest.h>
 
 #include <edu_fleet/kalman_filter/attribute.hpp>
@@ -17,8 +18,8 @@ TEST(unittest_observation_matrix, getting_matrix)
     pack_full_set, pack_velocity
   );
 
-  ASSERT_EQ(matrix.rows(), pack_velocity.size());
-  ASSERT_EQ(matrix.cols(), pack_full_set.size());
+  ASSERT_EQ(static_cast<std::size_t>(matrix.rows()), pack_velocity.size());
+  ASSERT_EQ(static_cast<std::size_t>(matrix.cols()), pack_full_set.size());
 
   // row 0
   EXPECT_EQ(matrix(0, 0), 0);
@@ -42,8 +43,8 @@ TEST(unittest_observation_matrix, getting_matrix_invalid)
     pack_full_set, pack_acceleration
   );
 
-  ASSERT_EQ(matrix.rows(), pack_acceleration.size());
-  ASSERT_EQ(matrix.cols(), pack_full_set.size());
+  ASSERT_EQ(static_cast<std::size_t>(matrix.rows()), pack_acceleration.size());
+  ASSERT_EQ(static_cast<std::size_t>(matrix.cols()), pack_full_set.size());
 
   // row 0
   EXPECT_EQ(matrix(0, 0), 0);
