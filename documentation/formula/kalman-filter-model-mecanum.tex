@@ -8,6 +8,7 @@
 
 % Related to math
 \usepackage{amsmath,amssymb,amsfonts,amsthm}
+\allowdisplaybreaks
 
 \usetikzlibrary{arrows.meta}
 \usetikzlibrary{calc}
@@ -16,7 +17,7 @@
 \newcommand{\Transform}[2]{^{#1}\textbf{T}_{#2}}
 \newcommand{\Pose}[2]{^{#1}\textbf{P}_{#2}}
 \newcommand{\Translation}[1]{\textbf{t}_{#1}}
-\newcommand{\Rotation}[2]{^{#1}\textbf{R}_{#2}}
+\newcommand{\Rotation}[3]{^{#1}\textbf{R}^{#2}_{#3}}
 \newcommand{\Position}[2]{^{#1}\textbf{p}_{#2}}
 \newcommand{\Yaw}[1]{^W\phi_{z_{#1}}}
 % \newcommand{\Or}
@@ -41,12 +42,13 @@ Basically, the movement in the model is linearized, even if an extended Kalman f
 
 \clearpage
 \section{Model: Push and Rotate}
-
 \input{img/push_and_rotate.tex}
 
 The model defined here first travels a distance based on the velocity and acceleration vectors. The robot is then rotated. We call this Push and Rotate.
 
 \subsection{Prediction Model for Eduard with Mecanum}
+
+The notation W and V represent the respective coordinate systems. W stands for world and V for vehicle. In the following, all kinematic variables without superscript are in the vehicle coordinate system.
 
 \subsubsection{Acceleration}
 \begin{align}
@@ -71,9 +73,9 @@ The model defined here first travels a distance based on the velocity and accele
 \begin{align}
   \textrm{cos}_\phi &= \cos{\left(\Yaw{t-1}\right)} \\
   \textrm{sin}_\phi &= \sin{\left(\Yaw{t-1}\right)} \\
-  \Rotation{W}{t-1} &= \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\
+  \Rotation{V}{W}{t-1} &= \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\
   \Position{W}{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right) \\
-  \Position{W}{t} &= \Position{W}{t-1} + \Rotation{W}{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\Rotation{W}{t-1}\textbf{a}_{t-1}dt^2 \\
+  \Position{W}{t} &= \Position{W}{t-1} + \Rotation{V}{W}{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\ \Rotation{V}{W}{t-1}\textbf{a}_{t-1}dt^2 \\
   &= \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\end{matrix}\right)
 \end{align}
 
@@ -108,8 +110,10 @@ The system noise is partly determined by the acceleration that the robot can exp
   a &= a_x = a_y \\
   \textbf{a} &= \left(\begin{matrix}a\\a\end{matrix}\right) \\
   \textbf{v} &= \left(\begin{matrix}a \cdot dt\\a \cdot dt\end{matrix}\right) \\
-  \textbf{p} &= \frac{1}{2}\textbf{R}_{t-1}\textbf{a} \cdot dt^2 \\ 
-  &= \left(\begin{matrix}dt^{2} \left(- 0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\\dt^{2} \left(0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\end{matrix}\right) \\
+  \Position{W}{} &= \frac{1}{2}\ \Rotation{V}{W}{t-1}\textbf{a} \cdot dt^2 \\ 
+  &= \left(\begin{matrix}dt^{2} \left(- 0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\\dt^{2} \left(0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\end{matrix}\right)
+\end{align}
+\begin{align}
   \textbf{a}_{\textrm{noise}} =
   \left(\begin{matrix}
     \textbf{p} \\
@@ -156,5 +160,123 @@ The system noise is partly determined by the yaw rate that the robot can experie
 
 \input{img/rotate_and_push}
 
+The model defined here first rotates the robot first. Then the robot travels a distance based on the velocity and acceleration  that are rotated, too first. We call Rotate and Push.
+
+\subsection{Prediction Model for Eduard with Mecanum}
+
+The notation W and V represent the respective coordinate systems. W stands for world and V for vehicle. In the following, all kinematic variables without superscript are in the vehicle coordinate system.
+
+\subsubsection{Acceleration}
+\begin{align}
+  \textbf{a}_{t-1} &= \left(\begin{matrix}a_{x_{t-1}}\\a_{y_{t-1}}\end{matrix}\right) \\
+  \textbf{a}_t &= \textbf{a}_{t-1}
+\end{align}
+
+\subsubsection{Velocity}
+\begin{align}
+  \textbf{v}_{t-1} &= \left(\begin{matrix}v_{x_{t-1}}\\v_{y_{t-1}}\end{matrix}\right) \\
+  \textbf{v}_t &= \textbf{v}_{t-1} + \textbf{a}_{t-1} dt = 
+  \left(\begin{matrix}a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\end{matrix}\right)
+\end{align}
+
+\subsubsection{Yaw}
+\begin{align}
+  \Yaw{t} &= \Yaw{t-1} + \dot{\phi}_{z_{t-1}} dt \\
+  \dot{\phi}_{z_t} &= \dot{\phi}_{z_{t-1}}
+\end{align}
+
+\subsubsection{Position}
+
+The $\dot{\phi}_{z_{t-1}} dt$ term is added to the $\phi_{z_{t-1}}$ before the position $\Position{W}{t}$ is being calculated.
+
+\begin{align}
+  \textrm{cos}_\phi &= \cos{\left(\dot{\phi}_{z_{t-1}} dt + \phi_{z_{t-1}} \right)} \\
+  \textrm{sin}_\phi &= \sin{\left(\dot{\phi}_{z_{t-1}} dt + \phi_{z_{t-1}} \right)} \\
+  \Rotation{V}{W}{t-1} &= 
+  \left(\begin{matrix}\textrm{cos}_\phi & - \textrm{sin}_\phi\\\textrm{sin}_\phi & \textrm{cos}_\phi\end{matrix}\right) \\  
+  \Position{W}{t-1} &= \left(\begin{matrix}p_{x (t-1)}\\p_{y (t-1)}\end{matrix}\right)
+\end{align}
+\begin{align}
+  \Position{W}{t} &= \Position{W}{t-1} + \Rotation{V}{W}{t-1}\textbf{v}_{t-1}dt + \frac{1}{2}\ \Rotation{V}{W}{t-1}\textbf{a}_{t-1}dt^2 \\
+  &= \left(\begin{matrix}dt^{2} \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\end{matrix}\right)
+\end{align}
+
+\subsubsection{Model}
+
+\begin{align}
+ \textbf{F}_{t} &=
+ \left(\begin{matrix}
+  p_{x_t} \\
+  p_{y_t} \\
+  v_{x_t} \\
+  v_{y_t} \\
+  a_{x_t} \\
+  a_{y_t} \\
+  \phi_t \\
+  \dot{\phi_t}
+ \end{matrix}\right)
+ = \left(\begin{matrix}dt^{2} \cdot \left(0.5 a_{x_{t-1}} \textrm{cos}_\phi - 0.5 a_{y_{t-1}} \textrm{sin}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right) + p_{x (t-1)}\\dt^{2} \cdot \left(0.5 a_{x_{t-1}} \textrm{sin}_\phi + 0.5 a_{y_{t-1}} \textrm{cos}_\phi\right) + dt \left(v_{x_{t-1}} \textrm{sin}_\phi + v_{y_{t-1}} \textrm{cos}_\phi\right) + p_{y (t-1)}\\a_{x_{t-1}} dt + v_{x_{t-1}}\\a_{y_{t-1}} dt + v_{y_{t-1}}\\a_{x_{t-1}}\\a_{y_{t-1}}\\\dot{\phi}_{z_{t-1}} dt + \phi_{z_{t-1}}\\\dot{\phi}_{z_{t-1}}\end{matrix}\right) \\
+  \textbf{J}_t &= 
+  \textbf{F}\left(\begin{matrix}
+    \frac{\partial}{\partial p_x} & \frac{\partial}{\partial p_y} & \frac{\partial}{\partial v_x} & \frac{\partial}{\partial v_y} & \frac{\partial}{\partial a_x} & \frac{\partial}{\partial a_y} & 0 & \frac{\partial}{\partial \dot{\phi}}
+  \end{matrix}\right) \\
+  &= \left(\begin{matrix}1 & 0 & dt \textrm{cos}_\phi & - dt \textrm{sin}_\phi & 0.5 dt^{2} \textrm{cos}_\phi & - 0.5 dt^{2} \textrm{sin}_\phi & 0 & dt^{2} \left(- 0.5 dt \left(a_{x_{t-1}} \textrm{sin}_\phi + a_{y_{t-1}} \textrm{cos}_\phi\right) - v_{x_{t-1}} \textrm{sin}_\phi - v_{y_{t-1}} \textrm{cos}_\phi\right)\\0 & 1 & dt \textrm{sin}_\phi & dt \textrm{cos}_\phi & 0.5 dt^{2} \textrm{sin}_\phi & 0.5 dt^{2} \textrm{cos}_\phi & 0 & dt^{2} \cdot \left(0.5 dt \left(a_{x_{t-1}} \textrm{cos}_\phi - a_{y_{t-1}} \textrm{sin}_\phi\right) + v_{x_{t-1}} \textrm{cos}_\phi - v_{y_{t-1}} \textrm{sin}_\phi\right)\\0 & 0 & 1 & 0 & dt & 0 & 0 & 0\\0 & 0 & 0 & 1 & 0 & dt & 0 & 0\\0 & 0 & 0 & 0 & 1 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 1 & dt\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 1\end{matrix}\right)
+\end{align}
+
+\section{System Noise Model}
+\subsubsection{Via Acceleration}
+
+The system noise is partly determined by the acceleration that the robot can experience.
+
+\begin{align}
+  a &= a_x = a_y \\
+  \textbf{a} &= \left(\begin{matrix}a\\a\end{matrix}\right) \\
+  \textbf{v} &= \left(\begin{matrix}a \cdot dt\\a \cdot dt\end{matrix}\right) \\
+  \Position{W}{} &= \frac{1}{2}\ \Rotation{V}{W}{t-1}\textbf{a} \cdot dt^2 \\ 
+  &= \left(\begin{matrix}dt^{2} \left(- 0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\\dt^{2} \left(0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)\end{matrix}\right)
+\end{align}
+\begin{align}
+  \textbf{a}_{\textrm{noise}} =
+  \left(\begin{matrix}
+    \textbf{p} \\
+    \textbf{v} \\
+    \textbf{a} \\
+    0 \\
+    0
+  \end{matrix}\right)
+&= \left(\begin{matrix}\frac{dt^{2} \left(- 0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)}{a}\\\frac{dt^{2} \cdot \left(0.5 \cdot a \cdot \textrm{sin}_\phi + 0.5 \cdot a \cdot \textrm{cos}_\phi\right)}{a}\\dt\\dt\\1\\1\\0\\0\end{matrix}\right) a
+\end{align}
+
+\begin{equation}
+  \textbf{Q}_{\textbf{a}} = \sigma^2_{\textbf{a}} \cdot \textbf{a}_{\textrm{noise}} \cdot \textbf{a}_{\textrm{noise}}^T \\
+  = \sigma^2_{\textbf{a}} \left(\begin{matrix}\frac{p_{x}^{2}}{a^{2}} & \frac{p_{x} p_{y}}{a^{2}} & \frac{dt p_{x}}{a} & \frac{dt p_{x}}{a} & \frac{p_{x}}{a} & \frac{p_{x}}{a} & 0 & 0\\\frac{p_{x} p_{y}}{a^{2}} & \frac{p_{y}^{2}}{a^{2}} & \frac{dt p_{y}}{a} & \frac{dt p_{y}}{a} & \frac{p_{y}}{a} & \frac{p_{y}}{a} & 0 & 0\\\frac{dt p_{x}}{a} & \frac{dt p_{y}}{a} & dt^{2} & dt^{2} & dt & dt & 0 & 0\\\frac{dt p_{x}}{a} & \frac{dt p_{y}}{a} & dt^{2} & dt^{2} & dt & dt & 0 & 0\\\frac{p_{x}}{a} & \frac{p_{y}}{a} & dt & dt & 1 & 1 & 0 & 0\\\frac{p_{x}}{a} & \frac{p_{y}}{a} & dt & dt & 1 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\end{matrix}\right)
+\end{equation}
+
+\begin{landscape}
+\subsubsection{Via Yaw Rate}
+
+{\color{red} needs to be redone! Velocity is missing in equations!}
+
+The system noise is partly determined by the yaw rate that the robot can experience.
+
+\begin{align}
+  \phi_z &= \dot{\phi_{z}} dt \\
+  \dot{\phi}_{z_\textrm{noise}} &= \left[\begin{matrix}dt^{2} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right)\\dt^{2} \cdot \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right)\\0\\0\\0\\0\\dt\\1\end{matrix}\right]
+\end{align}
+
+{
+\tiny
+\begin{align}
+  \textbf{Q}_{\textrm{yaw}} &= \sigma^2_{\textrm{yaw}} \cdot \dot{\phi}_{z_\textrm{noise}} \cdot \dot{\phi}_{z_\textrm{noise}}^T \\
+  &= \sigma^2_{\textrm{yaw}} \left(\begin{matrix}0.25 dt^{4} \left(- a \textrm{sin}_\phi + a \textrm{cos}_\phi\right)^{2} & dt^{4} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & 0 & 0 & 0 & 0 & dt^{3} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & dt^{2} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right)\\dt^{4} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & 0.25 dt^{4} \left(a \textrm{sin}_\phi + a \textrm{cos}_\phi\right)^{2} & 0 & 0 & 0 & 0 & dt^{3} \cdot \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & dt^{2} \cdot \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right)\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\dt^{3} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & dt^{3} \cdot \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & 0 & 0 & 0 & 0 & dt^{2} & dt\\dt^{2} \left(- 0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & dt^{2} \cdot \left(0.5 a \textrm{sin}_\phi + 0.5 a \textrm{cos}_\phi\right) & 0 & 0 & 0 & 0 & dt & 1\end{matrix}\right)
+\end{align}
+}
+\subsubsection{Final System Noise Matrix}
+
+\begin{align}
+  \textbf{Q} &= \textbf{Q}_{\textbf{j}} + \textbf{Q}_{\textrm{yaw}}
+  %= \left(\begin{matrix}\frac{\sigma^2_\textbf{a} p_{x}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{x}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x} p_{y}}{a^{2}} & \frac{\sigma^2_\textbf{a} p_{y}^{2}}{a^{2}} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} dt p_{x}}{a} & \frac{\sigma^2_\textbf{a} dt p_{y}}{a} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt^{2} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\\frac{\sigma^2_\textbf{a} p_{x}}{a} & \frac{\sigma^2_\textbf{a} p_{y}}{a} & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} dt & \sigma^2_\textbf{a} & \sigma^2_\textbf{a} & 0 & 0\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt^{2} & \sigma_{\dot{\phi_z}}^2 dt\\0 & 0 & 0 & 0 & 0 & 0 & \sigma_{\dot{\phi_z}}^2 dt & \sigma_{\dot{\phi_z}}^2\end{matrix}\right)
+\end{align}
+\end{landscape}
 
 \end{document}

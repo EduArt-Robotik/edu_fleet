@@ -45,8 +45,8 @@ def do_prediction_model() -> str:
   ## position
   ## in world coordinate system
   R_t1 = Matrix([
-    [cos(yaw_t), -sin(yaw_t)],
-    [sin(yaw_t),  cos(yaw_t)]
+    [cos(yaw_t1 + yaw_rate_t1 * dt), -sin(yaw_t1 + yaw_rate_t1 * dt)],
+    [sin(yaw_t1 + yaw_rate_t1 * dt),  cos(yaw_t1 + yaw_rate_t1 * dt)]
   ])
   p_x_t1 = Symbol('p_x_(t-1)')
   p_y_t1 = Symbol('p_y_(t-1)')
@@ -54,9 +54,9 @@ def do_prediction_model() -> str:
   
   p_t = p_t1 + R_t1 * v_t1 * dt + 1.0/2.0 * R_t1 * a_t1 * dt**2
 
-  latex_export_string += export('\\textbf{R}_{t-1}', R_t1)
-  latex_export_string += export('\\textbf{p}_{t-1}', p_t1)
-  latex_export_string += export('\\textbf{p}_t', p_t)
+  latex_export_string += export('\\Rotation{V}{W}{t-1}', R_t1)
+  latex_export_string += export('\\Position{W}{t-1}', p_t1)
+  latex_export_string += export('\\Position{W}{t}', p_t)
 
   ## prediction model
   coefficient = [p_x_t1, p_y_t1, v_x_t1, v_y_t1, a_x_t1, a_y_t1, yaw_t1, yaw_rate_t1]
@@ -91,10 +91,11 @@ def do_system_noise_model() -> str:
   # system noise equations
   dt = Symbol('dt')
   yaw_t1 = Symbol('\\phi_{z_{t-1}}')
+  yaw_rate_t1 = Symbol('\\dot{\\phi}_{z_{t-1}}')
   acceleration_noise_variance = Symbol('\\sigma^2_\\textbf{a}')
   R = Matrix([
-    [cos(yaw_t1), -sin(yaw_t1)],
-    [sin(yaw_t1),  cos(yaw_t1)]
+    [cos(yaw_t1 + yaw_rate_t1 * dt), -sin(yaw_t1 + yaw_rate_t1 * dt)],
+    [sin(yaw_t1 + yaw_rate_t1 * dt),  cos(yaw_t1 + yaw_rate_t1 * dt)]
   ])
 
   ## acceleration noise part
@@ -128,7 +129,7 @@ def do_system_noise_model() -> str:
     [0]  # yaw rate
   ])
   Q_a = acceleration_noise_variance * acceleration_noise * acceleration_noise.transpose()
-  latex_export_string += export('\\textbf{a}_{\\textrm{noise}}', simplify(acceleration_noise))
+  latex_export_string += export('\\textbf{a}_{\\textrm{noise}}', acceleration_noise)
 
   ### Q_a
   symbol_a = Symbol('a')
@@ -162,8 +163,8 @@ def do_system_noise_model() -> str:
 
   ### building vector
   yaw_noise = Matrix([
-    [0], # pos x
-    [0], # pos y
+    [p[0, 0]],
+    [p[1, 0]],
     [0], # vel x
     [0], # vel y
     [0], # acc x
