@@ -40,15 +40,15 @@ public:
   void printState(const AttributeVector<Attributes...>& state, const Data stamp) {
     const auto& vector = state.get();
 
-    _file << stamp << "; ";
-    ((_file << vector[state.template index<Attributes>()] << "; "), ...);
+    _file << stamp << ";";
+    ((_file << vector[state.template index<Attributes>()] << ";"), ...);
     _file << std::endl;
   }
 
 private:
   void printHeader() {
-    _file << "stamp (s); ";
-    ((_file << attribute_name<Attributes>() << "; "), ...);
+    _file << "stamp (s);";
+    ((_file << attribute_name<Attributes>() << ";"), ...);
     _file << std::endl;
   }
 

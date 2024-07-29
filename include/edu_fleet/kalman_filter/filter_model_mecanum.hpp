@@ -24,6 +24,11 @@ class FilterModelMecanum : public FilterModel<AttributePack<Attribute::W_POS_X,
 {
 public:
   struct Parameter {
+    enum class ModelType {
+      PUSH_AND_ROTATE,
+      ROTATE_AND_PUSH
+    };
+    ModelType mode_type = ModelType::PUSH_AND_ROTATE;
     struct {
       Data acceleration = 0.5 * 0.5;
       Data yaw_rate = 12.566370614 * 12.566370614; // 720° stddev
@@ -38,6 +43,11 @@ public:
     const AttributeVectorInterface& current_state, const Data dt) override;
 
 private:
+  void calculatePredictionMatrixPushAndRotate(const AttributeVectorInterface& current_state, const Data dt);
+  void calculatePredictionMatrixRotateAndPush(const AttributeVectorInterface& current_state, const Data dt);
+  void calculateSystemNoiseMatrixPushAndRotate(const AttributeVectorInterface& current_state, const Data dt);
+  void calculateSystemNoiseMatrixRotateAndPush(const AttributeVectorInterface& current_state, const Data dt);
+
   const Parameter _parameter;
 };
 
