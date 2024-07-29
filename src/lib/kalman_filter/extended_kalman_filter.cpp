@@ -6,6 +6,8 @@
 #include <rclcpp/logging.hpp>
 
 #include <stdexcept>
+#include <cstddef>
+#include <iostream>
 
 namespace eduart {
 namespace fleet {
@@ -18,7 +20,7 @@ ExtendedKalmanFilterBase::ExtendedKalmanFilterBase(
   , _covariance(Eigen::MatrixX<Data>::Zero(_state->get().size(), _state->get().size()))
 {
   // guarantee model fits to state vector
-  if (static_cast<std::size_t>(_state->get().rows()) != _model->rows() || static_cast<std::size_t>(_state->get().cols()) != _model->cols()) {
+  if (static_cast<std::size_t>(_state->get().size()) != _model->rows() || static_cast<std::size_t>(_state->get().size()) != _model->cols()) {
     throw std::invalid_argument("KalmanFilterBase: model doesn't fit to state vector.");
   }
 
@@ -27,6 +29,18 @@ ExtendedKalmanFilterBase::ExtendedKalmanFilterBase(
   _state->set(Eigen::VectorX<Data>::Zero(_state->get().rows(), _state->get().cols()));
   // covariance hight so filter will fast accept first measurements
   _covariance = Eigen::MatrixX<Data>::Identity(_covariance.rows(), _covariance.cols()) * 1000.0;
+}
+
+void ExtendedKalmanFilterBase::initialize(const Eigen::VectorX<Data>& state, const Eigen::MatrixX<Data>& covariance)
+{
+  if (static_cast<std::size_t>(state.size()) != _model->rows() ||
+      static_cast<std::size_t>(covariance.rows()) != _model->rows() ||
+      static_cast<std::size_t>(covariance.cols()) != _model->cols()) {
+    throw std::invalid_argument("KalmanFilterBase: given initial values doe not have the correct size.");
+  }
+
+  _state->set(state);
+  _covariance = covariance;
 }
 
 void ExtendedKalmanFilterBase::process(
@@ -42,6 +56,18 @@ void ExtendedKalmanFilterBase::process(
     _predicted_state,
     _predicted_covariance
   );
+}
+
+void ExtendedKalmanFilterBase::predictToTimeAndKeep(const rclcpp::Time& stamp)
+{
+  predictToTime(_predicted_state, _predicted_covariance, stamp);
+  _state->set(_predicted_state);
+  _covariance = _predicted_covariance;
+
+  // only get stamp if in future
+  if (stamp > _state_time_stamp) {
+    _state_time_stamp = stamp;
+  }
 }
 
 void ExtendedKalmanFilterBase::predictToTime(
@@ -76,7 +102,6 @@ void ExtendedKalmanFilterBase::update(
     const Eigen::VectorX<Data>& predicted_state, const Eigen::MatrixX<Data>& predicted_covariance)
 {
   // \todo check if this method could work using fixed size vectors and matrices to avoid allocation
-
   // transform state space to measurement space
   const Eigen::VectorX<Data> predicted_state_sensor_space = observation_matrix * predicted_state;
   const Eigen::MatrixX<Data> predicated_covariance_sensor_space =
@@ -88,10 +113,9 @@ void ExtendedKalmanFilterBase::update(
 
   // calculate Kalman gain
   const auto kalman_gain = predicted_covariance * observation_matrix.transpose() * innovation_covariance.inverse();
-
   // update states and covariance using Kalman gain
   _state->set(predicted_state + kalman_gain * innovation);
-  const Eigen::VectorX<Data> I = Eigen::VectorX<Data>::Identity(_covariance.rows(), _covariance.cols());
+  const Eigen::MatrixX<Data> I = Eigen::MatrixX<Data>::Identity(_covariance.rows(), _covariance.cols());
   _covariance = (I - kalman_gain * observation_matrix) * predicted_covariance;
 }
 

@@ -35,9 +35,11 @@ protected:
     std::unique_ptr<FilterModelInterface> model, std::unique_ptr<AttributeVectorInterface> state_vector);
 
 public:
+  void initialize(const Eigen::VectorX<Data>& state, const Eigen::MatrixX<Data>& covariance);
   void process(
     const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance,
     const Eigen::MatrixX<Data>& observation_matrix, const rclcpp::Time& stamp);
+  void predictToTimeAndKeep(const rclcpp::Time& stamp);
   void predictToTime(
     Eigen::VectorX<Data>& predicted_state, Eigen::MatrixX<Data>& predicted_covariance, const rclcpp::Time& stamp);
   void update(
@@ -72,9 +74,9 @@ public:
 
   const AttributeVector<Attributes...>& state() const {
     // pointer type is well known so use static cast instead of dynamic cast
-    return std::static_pointer_cast<AttributeVector<Attributes...>>(_state);
+    return *std::static_pointer_cast<AttributeVector<Attributes...>>(_state);
   }
-  const Eigen::MatrixX<Data> covariance() const {
+  const Eigen::MatrixX<Data>& covariance() const {
     return _covariance;
   }
 };

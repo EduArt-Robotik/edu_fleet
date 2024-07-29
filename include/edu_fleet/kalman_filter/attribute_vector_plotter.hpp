@@ -9,7 +9,6 @@
 #include "edu_fleet/kalman_filter/attribute_vector.hpp"
 
 #include <fstream>
-#include <ios>
 #include <stdexcept>
 
 namespace eduart {
@@ -40,15 +39,33 @@ public:
   void printState(const AttributeVector<Attributes...>& state, const Data stamp) {
     const auto& vector = state.get();
 
-    _file << stamp << ";";
-    ((_file << vector[state.template index<Attributes>()] << ";"), ...);
+    _file << stamp << ',';
+    ((_file << vector[state.template index<Attributes>()] << ','), ...);
     _file << std::endl;
+  }
+  void printVarianceDiagonal(const Eigen::MatrixX<Data>& covariance_matrix, const Data stamp) {
+    _file << stamp << ',';
+    // go over the diagonal vector of the covariance matrix
+    ((_file << covariance_matrix(
+      AttributeVector<Attributes...>::template index<Attributes>(),
+      AttributeVector<Attributes...>::template index<Attributes>()
+    ) << ','), ...);
+    _file << std::endl;
+  }
+  void printCovariance(const Eigen::MatrixX<Data>& covariance_matrix) {
+    _file << "row;col;value" << std::endl;
+
+    for (Eigen::Index row = 0; row < covariance_matrix.rows(); ++row) {
+      for (Eigen::Index col = 0; col < covariance_matrix.cols(); ++col) {
+        _file << row << ';' << col << ';' << covariance_matrix(row, col) << std::endl;
+      }
+    }
   }
 
 private:
   void printHeader() {
     _file << "stamp (s);";
-    ((_file << attribute_name<Attributes>() << ";"), ...);
+    ((_file << attribute_name<Attributes>() << ','), ...);
     _file << std::endl;
   }
 

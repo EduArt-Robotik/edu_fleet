@@ -6,6 +6,7 @@
 #pragma once
 
 #include "edu_fleet/kalman_filter/attribute.hpp"
+#include "edu_fleet/kalman_filter/attribute_pack.hpp"
 
 #include <Eigen/Core>
 
@@ -83,6 +84,7 @@ public:
 template <Attribute... Attributes>
 class AttributeVector : public AttributeVectorInterface
                       , public impl::AttributeVectorAccessor<0, Attributes...>
+                      , public AttributePack<Attributes...>
 {
 protected:
   using impl::AttributeVectorAccessor<0, Attributes...>::_data;
