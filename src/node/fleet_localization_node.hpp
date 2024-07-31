@@ -27,6 +27,7 @@ class FleetLocalization : public rclcpp::Node
 public:
   struct Parameter {
     std::vector<std::string> robot_name;
+    std::vector<kalman_filter::FilterModelMecanum::Parameter> filter_parameter;
 
     inline std::size_t number_of_robots() const { return robot_name.size(); }
   };
