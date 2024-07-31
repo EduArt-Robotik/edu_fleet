@@ -20,13 +20,17 @@ namespace sensor_model {
 
 using kalman_filter::Data;
 
-class SensorModelBase
+class SensorModelBase : public kalman_filter::AttributePackInterface
 {
 protected:
   SensorModelBase(const std::size_t dimension);
 
 public:
   virtual ~SensorModelBase();
+
+  inline const Eigen::VectorX<Data>& measurement() const { return _measurement; }
+  inline const Eigen::MatrixX<Data>& covariance() const { return _measurement_covariance; }
+  inline const rclcpp::Time& stamp() const { return _stamp; }
 
 protected:
   Eigen::VectorX<Data> _measurement;
@@ -39,11 +43,17 @@ class SensorModel;
 
 template <kalman_filter::Attribute... Attributes>
 class SensorModel<kalman_filter::AttributePack<Attributes...>> : public SensorModelBase
-                                                               , public kalman_filter::AttributePack<Attributes...>
 {
 public:
   SensorModel() : SensorModelBase(kalman_filter::AttributePack<Attributes...>::size()) { }
   ~SensorModel() override = default;
+
+  std::vector<kalman_filter::Attribute> attributes() const override {
+    return kalman_filter::AttributePack<Attributes...>().attributes();
+  }
+  std::size_t attributes_id() const override {
+    return kalman_filter::AttributePack<Attributes...>().attributes_id();
+  }
 };
 
 } // end namespace sensor_model

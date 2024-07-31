@@ -19,7 +19,7 @@ class AttributePackInterface
 {
 public:
   virtual std::vector<Attribute> attributes() const = 0;
-  virtual std::size_t id() const = 0;
+  virtual std::size_t attributes_id() const = 0;
 };
 
 template <Attribute... Attributes>
@@ -48,8 +48,7 @@ public:
     return counter;
   }
 
-private:
-  std::size_t id() const override {
+  std::size_t attributes_id() const override {
     return typeid(AttributePack<Attributes...>).hash_code();
   }
 };

@@ -36,6 +36,9 @@ FleetLocalization::Parameter FleetLocalization::get_parameter(
 FleetLocalization::FleetLocalization(const Parameter& parameter)
   : rclcpp::Node("fleet_localization")
   , _parameter(parameter)
+  , _sensor_model_imu(std::make_shared<SensorModelImu>("sensor_model_imu"))
+  , _sensor_model_odometry(std::make_shared<SensorModelOdometry>("sensor_model_odometry"))
+  , _sensor_model_pose(std::make_shared<SensorModelPose>("sensor_model_pose"))
 {
   _robot.resize(_parameter.number_of_robots());
 
@@ -80,18 +83,24 @@ void FleetLocalization::callbackImu(
   std::shared_ptr<const sensor_msgs::msg::Imu> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
+  _sensor_model_imu->process(msg);
+  _robot[robot_index].kalman_filter->process(_sensor_model_imu);
 }
 
 void FleetLocalization::callbackOdometry(
   std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
+  _sensor_model_odometry->process(msg);
+  _robot[robot_index].kalman_filter->process(_sensor_model_odometry);
 }
 
 void FleetLocalization::callbackPose(
   std::shared_ptr<const geometry_msgs::msg::PoseStamped> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
+  _sensor_model_pose->process(msg);
+  _robot[robot_index].kalman_filter->process(_sensor_model_pose);
 }
 
 } // end namespace fleet

@@ -16,26 +16,26 @@ const Eigen::MatrixX<Data>& ObservationMatrixHandler::matrix(
   const AttributePackInterface& full_set, const AttributePackInterface& sub_set)
 {
   // full set
-  auto search_full_set = _matrix.find(full_set.id());
+  auto search_full_set = _matrix.find(full_set.attributes_id());
 
   if (search_full_set == _matrix.end()) {
     // no entry --> create matrix
     std::map<std::size_t, Eigen::MatrixX<Data>> entry;
     entry.insert(
-      std::pair(sub_set.id(), createMatrix(full_set.attributes(), sub_set.attributes()))
+      std::pair(sub_set.attributes_id(), createMatrix(full_set.attributes(), sub_set.attributes()))
     );
-    _matrix[full_set.id()] = entry;
+    _matrix[full_set.attributes_id()] = entry;
 
-    return _matrix[full_set.id()][sub_set.id()];
+    return _matrix[full_set.attributes_id()][sub_set.attributes_id()];
   }
 
   // sub set
-  auto search_sub_set = search_full_set->second.find(sub_set.id());
+  auto search_sub_set = search_full_set->second.find(sub_set.attributes_id());
 
   if (search_sub_set == search_full_set->second.end()) {
     // no entry --> create matrix
-    search_full_set->second[sub_set.id()] = createMatrix(full_set.attributes(), sub_set.attributes());
-    return search_full_set->second[sub_set.id()];
+    search_full_set->second[sub_set.attributes_id()] = createMatrix(full_set.attributes(), sub_set.attributes());
+    return search_full_set->second[sub_set.attributes_id()];
   }
 
   return search_sub_set->second;

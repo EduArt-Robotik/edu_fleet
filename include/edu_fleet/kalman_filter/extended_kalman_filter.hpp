@@ -12,13 +12,18 @@
 
 #include <Eigen/Core>
 
-#include <Eigen/src/Core/Matrix.h>
 #include <rclcpp/time.hpp>
 
 #include <memory>
 
 namespace eduart {
 namespace fleet {
+
+// forward declaration
+namespace sensor_model {
+class SensorModelBase;
+}
+
 namespace kalman_filter {
 
 class ExtendedKalmanFilterBase
@@ -39,6 +44,7 @@ public:
   void process(
     const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance,
     const Eigen::MatrixX<Data>& observation_matrix, const rclcpp::Time& stamp);
+  void process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model);
   void predictToTimeAndKeep(const rclcpp::Time& stamp);
   void predictToTime(
     Eigen::VectorX<Data>& predicted_state, Eigen::MatrixX<Data>& predicted_covariance, const rclcpp::Time& stamp);

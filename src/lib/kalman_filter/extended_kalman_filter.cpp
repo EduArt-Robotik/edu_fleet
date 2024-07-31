@@ -1,4 +1,7 @@
 #include "edu_fleet/kalman_filter/extended_kalman_filter.hpp"
+#include "edu_fleet/kalman_filter/observation_matrix_handler.hpp"
+
+#include <edu_fleet/sensor_model/sensor_model.hpp>
 
 #include <Eigen/Dense>
 
@@ -7,7 +10,6 @@
 
 #include <stdexcept>
 #include <cstddef>
-#include <iostream>
 
 namespace eduart {
 namespace fleet {
@@ -55,6 +57,16 @@ void ExtendedKalmanFilterBase::process(
     observation_matrix,
     _predicted_state,
     _predicted_covariance
+  );
+}
+
+void ExtendedKalmanFilterBase::process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model)
+{
+  process(
+    sensor_model->measurement(),
+    sensor_model->covariance(), 
+    ObservationMatrixHandler::instance().matrix(*_state, *sensor_model),
+    sensor_model->stamp()
   );
 }
 

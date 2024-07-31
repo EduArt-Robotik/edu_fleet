@@ -74,7 +74,7 @@ SPECIALIZE_ATTRIBUTE_ACCESS(yaw_rate, Attribute::YAW_RATE)
 
 } // end namespace
 
-class AttributeVectorInterface
+class AttributeVectorInterface : public AttributePackInterface
 {
 public:
   virtual void set(const Eigen::VectorX<Data>& vector) = 0;
@@ -84,7 +84,6 @@ public:
 template <Attribute... Attributes>
 class AttributeVector : public AttributeVectorInterface
                       , public impl::AttributeVectorAccessor<0, Attributes...>
-                      , public AttributePack<Attributes...>
 {
 protected:
   using impl::AttributeVectorAccessor<0, Attributes...>::_data;
@@ -116,6 +115,12 @@ public:
     std::size_t index = 0, counter = 0;
     ((AttributeValue == Attributes ? index = counter : ++counter), ...);
     return index;
+  }
+  std::vector<Attribute> attributes() const override {
+    return AttributePack<Attributes...>().attributes();
+  }
+  std::size_t attributes_id() const override {
+    return AttributePack<Attributes...>().attributes_id();
   }
 
 private:
