@@ -10,7 +10,6 @@
 
 #include <edu_robot/angle.hpp>
 
-#include <geometry_msgs/msg/detail/pose_with_covariance_stamped__struct.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>

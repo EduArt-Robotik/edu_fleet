@@ -51,7 +51,15 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 install(
-  TARGETS pose_controller fleet_control_node twist_accumulator
+  TARGETS
+    # nodes
+    pose_controller
+    fleet_control_node
+    twist_accumulator
+    fleet_localization_node
+    # libraries
+    eduart-fleet-sensor-model
+    eduart-fleet-kalman-filter
   EXPORT export_${PROJECT_NAME}
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

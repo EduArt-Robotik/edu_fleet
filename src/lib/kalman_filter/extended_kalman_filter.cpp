@@ -5,6 +5,7 @@
 
 #include <Eigen/Dense>
 
+#include <iostream>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
 
@@ -49,8 +50,16 @@ void ExtendedKalmanFilterBase::process(
   const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance,
   const Eigen::MatrixX<Data>& observation_matrix, const rclcpp::Time& stamp)
 {
+  // first time calling set model time stamp
+  if (_state_time_stamp.seconds() == 0.0) {
+    _state_time_stamp = stamp;
+    return;
+  }
+
+  // predict model without modifing it
   predictToTime(_predicted_state, _predicted_covariance, stamp);
 
+  // update model
   update(
     measurement,
     measurement_covariance,
@@ -58,6 +67,12 @@ void ExtendedKalmanFilterBase::process(
     _predicted_state,
     _predicted_covariance
   );
+  _state_time_stamp = stamp;
+
+  std::cout << "Debug Kalman Shit:" << std::endl;
+  std::cout << "state:\n" << _state->get() << std::endl;
+  std::cout << "H:\n" << observation_matrix << std::endl;
+  std::cout << "covariance matrix:\n" << _covariance << std::endl;
 }
 
 void ExtendedKalmanFilterBase::process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model)
@@ -129,6 +144,17 @@ void ExtendedKalmanFilterBase::update(
   _state->set(predicted_state + kalman_gain * innovation);
   const Eigen::MatrixX<Data> I = Eigen::MatrixX<Data>::Identity(_covariance.rows(), _covariance.cols());
   _covariance = (I - kalman_gain * observation_matrix) * predicted_covariance;
+
+  // keep covariances in range
+  for (Eigen::Index row = 0; row < _covariance.rows(); ++row) {
+    for (Eigen::Index col = 0; col < _covariance.cols(); ++col) {
+      _covariance(row, col) = std::min(_parameter.max_var, _covariance(row, col));
+    }
+  }
+
+  for (Eigen::Index i = 0; i < _covariance.rows(); ++i) {
+    _covariance(i, i) = std::max(_parameter.min_var, _covariance(i, i));
+  }
 }
 
 } // end namespace kalman_filter

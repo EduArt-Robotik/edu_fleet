@@ -18,6 +18,8 @@
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
 
+#include <tf2_ros/transform_broadcaster.h>
+
 #include <vector>
 #include <cstddef>
 #include <memory>
@@ -33,10 +35,18 @@ using sensor_model::SensorModelRos;
 
 class FleetLocalization : public rclcpp::Node
 {
+  struct Robot {
+    std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Imu>> sub_imu;
+    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> sub_odometry;
+    std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>> sub_pose;
+
+    std::unique_ptr<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>> kalman_filter;
+  };
+
 public:
   struct Parameter {
-    std::vector<std::string> robot_name;
-    std::vector<kalman_filter::FilterModelMecanum::Parameter> filter_parameter;
+    std::vector<std::string> robot_name = {"eduard"};
+    std::vector<kalman_filter::FilterModelMecanum::Parameter> filter_parameter = {{}};
 
     inline std::size_t number_of_robots() const { return robot_name.size(); }
   };
@@ -47,21 +57,17 @@ public:
   static Parameter get_parameter(const std::string& name, const Parameter& default_parameter, rclcpp::Node& ros_node);
 
 private:
+  // methods
   void callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu> msg, const std::size_t robot_index);
   void callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index);
-  void callbackPose(std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index);
-  
+  void callbackPose(
+    std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index);
+  void publishRobotState(const std::size_t robot_index);
+
+  // members
   const Parameter _parameter;
-
-  struct Robot {
-    std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Imu>> sub_imu;
-    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> sub_odometry;
-    std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>> sub_pose;
-
-    std::unique_ptr<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>> kalman_filter;
-  };
-
   std::vector<Robot> _robot;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
 
   // sensor models
   using SensorModelImu = SensorModelRos<AttributePack<Attribute::ACC_X, Attribute::ACC_Y, Attribute::YAW_RATE>, sensor_msgs::msg::Imu>;

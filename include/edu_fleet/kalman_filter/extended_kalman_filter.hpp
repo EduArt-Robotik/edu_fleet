@@ -31,6 +31,8 @@ class ExtendedKalmanFilterBase
 public:
   struct Parameter{
     Data max_dt = 10.0;
+    Data max_var = 100.0;
+    Data min_var = 1e-6;
   };
 
   virtual ~ExtendedKalmanFilterBase() = default;
@@ -52,6 +54,7 @@ public:
     const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance, 
     const Eigen::MatrixX<Data>& observation_matrix,
     const Eigen::VectorX<Data>& predicted_state, const Eigen::MatrixX<Data>& predicted_covariance);
+  inline rclcpp::Time stamp() const { return _state_time_stamp; }
 
 protected:
   const Parameter _parameter;

@@ -1,13 +1,16 @@
 #include "fleet_localization_node.hpp"
-#include "edu_fleet/kalman_filter/extended_kalman_filter.hpp"
-#include "edu_fleet/kalman_filter/filter_model_mecanum.hpp"
 
-#include <geometry_msgs/msg/detail/pose__struct.hpp>
-#include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
+#include <edu_fleet/kalman_filter/extended_kalman_filter.hpp>
+#include <edu_fleet/kalman_filter/filter_model_mecanum.hpp>
+
+#include <tf2/transform_storage.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <rclcpp/executors.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/qos.hpp>
+
+#include <Eigen/Geometry>
 
 #include <cstddef>
 #include <memory>
@@ -34,6 +37,7 @@ FleetLocalization::Parameter FleetLocalization::get_parameter(
 FleetLocalization::FleetLocalization(const Parameter& parameter)
   : rclcpp::Node("fleet_localization")
   , _parameter(parameter)
+  , _tf_broadcaster(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
   , _sensor_model_imu(std::make_shared<SensorModelImu>("sensor_model_imu"))
   , _sensor_model_odometry(std::make_shared<SensorModelOdometry>("sensor_model_odometry"))
   , _sensor_model_pose(std::make_shared<SensorModelPose>("sensor_model_pose"))
@@ -43,7 +47,7 @@ FleetLocalization::FleetLocalization(const Parameter& parameter)
   for (std::size_t i = 0; i < _robot.size(); ++i) {
     // instantiate ROS subscriptions
     // _robot[i].sub_imu = 
-    create_subscription<sensor_msgs::msg::Imu>(
+    _robot[i].sub_imu = create_subscription<sensor_msgs::msg::Imu>(
       _parameter.robot_name[i] + "/imu",
       rclcpp::QoS(5).best_effort(),
       [this, i](std::shared_ptr<const sensor_msgs::msg::Imu> msg) {
@@ -51,7 +55,7 @@ FleetLocalization::FleetLocalization(const Parameter& parameter)
       }
     );
     _robot[i].sub_odometry = create_subscription<nav_msgs::msg::Odometry>(
-      _parameter.robot_name[i] + "/odom",
+      _parameter.robot_name[i] + "/odometry",
       rclcpp::QoS(5).best_effort(),
       [this, i](std::shared_ptr<const nav_msgs::msg::Odometry> msg) {
         callbackOdometry(msg, i);
@@ -83,6 +87,7 @@ void FleetLocalization::callbackImu(
   // \todo check time stamp!
   _sensor_model_imu->process(msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_imu);
+  publishRobotState(robot_index);
 }
 
 void FleetLocalization::callbackOdometry(
@@ -91,6 +96,7 @@ void FleetLocalization::callbackOdometry(
   // \todo check time stamp!
   _sensor_model_odometry->process(msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_odometry);
+  publishRobotState(robot_index);
 }
 
 void FleetLocalization::callbackPose(
@@ -99,6 +105,33 @@ void FleetLocalization::callbackPose(
   // \todo check time stamp!
   _sensor_model_pose->process(msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_pose);
+  publishRobotState(robot_index);
+}
+
+void FleetLocalization::publishRobotState(const std::size_t robot_index)
+{
+  const auto& kalman_filter = _robot[robot_index].kalman_filter;
+  geometry_msgs::msg::TransformStamped transform;
+
+  transform.header.stamp = kalman_filter->stamp();
+  transform.header.frame_id = "map";
+  transform.child_frame_id = _parameter.robot_name[robot_index] + "/base_footprint";
+
+  // transform
+  const auto& state = kalman_filter->state();
+
+  // position
+  transform.transform.translation.x = state.x();
+  transform.transform.translation.y = state.y();
+
+  // orientation  
+  Eigen::Quaterniond orientation(Eigen::AngleAxisd(state.yaw(), Eigen::Vector3d::UnitZ()));
+  transform.transform.rotation.w = orientation.w();
+  transform.transform.rotation.x = orientation.x();
+  transform.transform.rotation.y = orientation.y();
+  transform.transform.rotation.z = orientation.z();
+
+  _tf_broadcaster->sendTransform(transform);
 }
 
 } // end namespace fleet
