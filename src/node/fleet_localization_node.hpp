@@ -14,6 +14,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <std_srvs/srv/trigger.hpp>
 
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
@@ -62,12 +63,16 @@ private:
   void callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index);
   void callbackPose(
     std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index);
+  void callbackReset(
+    std::shared_ptr<const std_srvs::srv::Trigger_Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger_Response> response);
   void publishRobotState(const std::size_t robot_index);
 
   // members
   const Parameter _parameter;
   std::vector<Robot> _robot;
   std::unique_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
+  std::shared_ptr<rclcpp::Service<std_srvs::srv::Trigger>> _srv_reset;
 
   // sensor models
   using SensorModelImu = SensorModelRos<AttributePack<Attribute::ACC_X, Attribute::ACC_Y, Attribute::YAW_RATE>, sensor_msgs::msg::Imu>;

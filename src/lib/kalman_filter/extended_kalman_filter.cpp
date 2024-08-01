@@ -5,12 +5,13 @@
 
 #include <Eigen/Dense>
 
-#include <iostream>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
+#include <rclcpp/time.hpp>
 
 #include <stdexcept>
 #include <cstddef>
+#include <iostream>
 
 namespace eduart {
 namespace fleet {
@@ -44,6 +45,7 @@ void ExtendedKalmanFilterBase::initialize(const Eigen::VectorX<Data>& state, con
 
   _state->set(state);
   _covariance = covariance;
+  _state_time_stamp = rclcpp::Time();
 }
 
 void ExtendedKalmanFilterBase::process(

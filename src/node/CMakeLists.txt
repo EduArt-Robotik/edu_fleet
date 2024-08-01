@@ -59,4 +59,5 @@ ament_target_dependencies(fleet_localization_node
   "geometry_msgs"
   "nav_msgs"
   "edu_robot"
+  "std_srvs"
 )

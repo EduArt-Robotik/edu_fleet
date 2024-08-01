@@ -69,6 +69,12 @@ FleetLocalization::FleetLocalization(const Parameter& parameter)
       }
     );
 
+    // bring up services
+    _srv_reset = create_service<std_srvs::srv::Trigger>(
+      "reset",
+      std::bind(&FleetLocalization::callbackReset, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
     // instantiate Kalman filter
     auto filter_model = std::make_unique<FilterModelMecanum>(_parameter.filter_parameter[i]);
     _robot[i].kalman_filter = std::make_unique<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>>(
@@ -106,6 +112,23 @@ void FleetLocalization::callbackPose(
   _sensor_model_pose->process(msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_pose);
   publishRobotState(robot_index);
+}
+
+void FleetLocalization::callbackReset(
+  std::shared_ptr<const std_srvs::srv::Trigger_Request> request, std::shared_ptr<std_srvs::srv::Trigger_Response> response)
+{
+  (void)request;
+  const std::size_t dimension = FilterModelMecanum::attribute_pack::size();
+
+  for (auto& robot : _robot) {
+    robot.kalman_filter->initialize(
+      Eigen::Vector<kalman_filter::Data, dimension>::Zero(),
+      Eigen::Matrix<kalman_filter::Data, dimension, dimension>::Identity() * 1000.0
+    );
+  }
+
+  response->success = true;
+  response->message = "fleet localization reset";
 }
 
 void FleetLocalization::publishRobotState(const std::size_t robot_index)
