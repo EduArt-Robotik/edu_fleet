@@ -13,7 +13,7 @@
 
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
@@ -49,14 +49,14 @@ public:
 private:
   void callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu> msg, const std::size_t robot_index);
   void callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index);
-  void callbackPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> msg, const std::size_t robot_index);
-
+  void callbackPose(std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index);
+  
   const Parameter _parameter;
 
   struct Robot {
     std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Imu>> sub_imu;
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> sub_odometry;
-    std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> sub_pose;
+    std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>> sub_pose;
 
     std::unique_ptr<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>> kalman_filter;
   };
@@ -65,8 +65,8 @@ private:
 
   // sensor models
   using SensorModelImu = SensorModelRos<AttributePack<Attribute::ACC_X, Attribute::ACC_Y, Attribute::YAW_RATE>, sensor_msgs::msg::Imu>;
-  using SensorModelOdometry = SensorModelRos<AttributePack<Attribute::VEL_X, Attribute::VEL_Y>, nav_msgs::msg::Odometry>;
-  using SensorModelPose = SensorModelRos<AttributePack<Attribute::W_POS_X, Attribute::W_POS_Y, Attribute::W_YAW>, geometry_msgs::msg::PoseStamped>;
+  using SensorModelOdometry = SensorModelRos<AttributePack<Attribute::VEL_X, Attribute::VEL_Y, Attribute::YAW_RATE>, nav_msgs::msg::Odometry>;
+  using SensorModelPose = SensorModelRos<AttributePack<Attribute::W_POS_X, Attribute::W_POS_Y, Attribute::W_YAW>, geometry_msgs::msg::PoseWithCovarianceStamped>;
 
   std::shared_ptr<SensorModelImu> _sensor_model_imu;
   std::shared_ptr<SensorModelOdometry> _sensor_model_odometry;

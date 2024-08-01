@@ -37,8 +37,8 @@ public:
 
   inline const std::string& name() const { return _name; }
   void process(std::shared_ptr<const RosMsg> msg) {
-    message_converting<AttributePack<Attributes...>>::to_measurement(msg, _measurement);
-    message_converting<AttributePack<Attributes...>>::to_covariance(msg, _measurement_covariance);
+    message_converting<AttributePack<Attributes...>>::to_measurement(*msg, _measurement);
+    message_converting<AttributePack<Attributes...>>::to_covariance(*msg, _measurement_covariance);
     _stamp = msg->header.stamp;
   }
 

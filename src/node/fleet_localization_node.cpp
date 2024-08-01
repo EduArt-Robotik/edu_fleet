@@ -4,15 +4,13 @@
 
 #include <geometry_msgs/msg/detail/pose__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
-#include <memory>
-#include <nav_msgs/msg/detail/odometry__struct.hpp>
-#include <sensor_msgs/msg/detail/imu__struct.hpp>
 
 #include <rclcpp/executors.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/qos.hpp>
 
 #include <cstddef>
+#include <memory>
 
 namespace eduart {
 namespace fleet {
@@ -59,10 +57,10 @@ FleetLocalization::FleetLocalization(const Parameter& parameter)
         callbackOdometry(msg, i);
       }
     );
-    _robot[i].sub_pose = create_subscription<geometry_msgs::msg::PoseStamped>(
+    _robot[i].sub_pose = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
       _parameter.robot_name[i] + "/pose",
       rclcpp::QoS(5).best_effort(),
-      [this, i](std::shared_ptr<const geometry_msgs::msg::PoseStamped> msg) {
+      [this, i](std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg) {
         callbackPose(msg, i);
       }
     );
@@ -96,7 +94,7 @@ void FleetLocalization::callbackOdometry(
 }
 
 void FleetLocalization::callbackPose(
-  std::shared_ptr<const geometry_msgs::msg::PoseStamped> msg, const std::size_t robot_index)
+  std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
   _sensor_model_pose->process(msg);

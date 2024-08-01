@@ -13,4 +13,7 @@ target_include_directories(eduart-fleet-sensor-model PUBLIC
 ament_target_dependencies(eduart-fleet-sensor-model
   "rclcpp"
   "sensor_msgs"
+  "nav_msgs"
+  "geometry_msgs"
+  "edu_robot"
 )
