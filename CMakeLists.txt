@@ -58,6 +58,7 @@ install(
     fleet_control_node
     twist_accumulator
     fleet_localization_node
+    robot_localization_node
     # libraries
     eduart-fleet-sensor-model
     eduart-fleet-kalman-filter

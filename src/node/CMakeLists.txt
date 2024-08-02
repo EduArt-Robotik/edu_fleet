@@ -61,3 +61,21 @@ ament_target_dependencies(fleet_localization_node
   "edu_robot"
   "std_srvs"
 )
+
+### Robot Localization
+add_executable(robot_localization_node
+  robot_localization_node.cpp
+)
+target_link_libraries(robot_localization_node
+  Eigen3::Eigen
+  eduart-fleet-kalman-filter
+  eduart-fleet-sensor-model
+  "${cpp_typesupport_target}"
+)
+ament_target_dependencies(robot_localization_node
+  "rclcpp"
+  "geometry_msgs"
+  "nav_msgs"
+  "edu_robot"
+  "std_srvs"
+)
