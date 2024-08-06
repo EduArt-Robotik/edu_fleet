@@ -70,6 +70,7 @@ target_link_libraries(robot_localization_node
   Eigen3::Eigen
   eduart-fleet-kalman-filter
   eduart-fleet-sensor-model
+  eduart-fleet-transform
   "${cpp_typesupport_target}"
 )
 ament_target_dependencies(robot_localization_node

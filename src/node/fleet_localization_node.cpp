@@ -91,7 +91,7 @@ void FleetLocalization::callbackImu(
   std::shared_ptr<const sensor_msgs::msg::Imu> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
-  _sensor_model_imu->process(msg);
+  _sensor_model_imu->process(*msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_imu);
   publishRobotState(robot_index);
 }
@@ -100,7 +100,7 @@ void FleetLocalization::callbackOdometry(
   std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
-  _sensor_model_odometry->process(msg);
+  _sensor_model_odometry->process(*msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_odometry);
   publishRobotState(robot_index);
 }
@@ -109,7 +109,7 @@ void FleetLocalization::callbackPose(
   std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg, const std::size_t robot_index)
 {
   // \todo check time stamp!
-  _sensor_model_pose->process(msg);
+  _sensor_model_pose->process(*msg);
   _robot[robot_index].kalman_filter->process(_sensor_model_pose);
   publishRobotState(robot_index);
 }
