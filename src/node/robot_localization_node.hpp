@@ -19,13 +19,12 @@
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
 #include <rclcpp/timer.hpp>
+#include <rclcpp/duration.hpp>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <vector>
-#include <cstddef>
 #include <memory>
 
 namespace eduart {
@@ -43,7 +42,9 @@ public:
   struct Parameter {
     std::string robot_name = "eduard/blue";
     kalman_filter::FilterModelMecanum::Parameter filter_parameter;
-};
+    rclcpp::Duration input_delay = rclcpp::Duration::from_seconds(0.150); // 150 ms
+    rclcpp::Duration output_interval = rclcpp::Duration::from_seconds(0.01); // 10 ms == 100 Hz
+  };
 
   RobotLocalization(const Parameter& parameter);
   ~RobotLocalization() override;

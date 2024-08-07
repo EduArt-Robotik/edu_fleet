@@ -54,6 +54,7 @@ void do_transform(
   twist_out.twist.linear.y = twist_transformed.y();
   twist_out.twist.linear.z = twist_transformed.z();
 
+  // transform covariances
   do_transform(twist_in.covariance, twist_out.covariance, transform);
 }
 
@@ -61,6 +62,11 @@ void do_transform(
   const sensor_msgs::msg::Imu& imu_in, sensor_msgs::msg::Imu& imu_out,
   const geometry_msgs::msg::TransformStamped& transform)
 {
+  // header
+  imu_out.header.stamp = imu_in.header.stamp;
+  imu_out.header.frame_id = transform.header.frame_id;
+
+  // data
   do_rotate(imu_in, imu_out, transform);
   do_translate(imu_out, imu_out, transform);
 }
@@ -145,22 +151,22 @@ void do_rotate(
     imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);
 
   // rotate linear acceleration
-  const Eigen::Vector3d omega_t = R * omega_m;
+  const Eigen::Vector3d a_t = R * a_m;
 
-  imu_out.linear_acceleration.x = omega_t.x();
-  imu_out.linear_acceleration.y = omega_t.y();
-  imu_out.linear_acceleration.z = omega_t.z();
+  imu_out.linear_acceleration.x = a_t.x();
+  imu_out.linear_acceleration.y = a_t.y();
+  imu_out.linear_acceleration.z = a_t.z();
 
   do_transform(
     imu_in.linear_acceleration_covariance, imu_out.linear_acceleration_covariance, transform
   );
 
   // rotate angular velocity
-  const Eigen::Vector3d a_t = R * a_m;
+  const Eigen::Vector3d omega_t = R * omega_m;
 
-  imu_out.angular_velocity.x = a_t.x();
-  imu_out.angular_velocity.y = a_t.y();
-  imu_out.angular_velocity.z = a_t.z();
+  imu_out.angular_velocity.x = omega_t.x();
+  imu_out.angular_velocity.y = omega_t.y();
+  imu_out.angular_velocity.z = omega_t.z();
 
   // rotate orientation
   const Eigen::Quaterniond orientation_t = R * orientation_m;

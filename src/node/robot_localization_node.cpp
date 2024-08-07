@@ -10,8 +10,8 @@
 #include <rclcpp/logging.hpp>
 #include <rclcpp/executors.hpp>
 #include <rclcpp/qos.hpp>
+#include <rclcpp/time.hpp>
 
-#include <tf2/LinearMath/Transform.h>
 #include <tf2/convert.h>
 #include <tf2/transform_datatypes.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
@@ -93,13 +93,23 @@ RobotLocalization::~RobotLocalization()
 
 void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu> msg)
 {
+  return;
   // \todo check time stamp!
   try {
     sensor_msgs::msg::Imu imu_transformed;
+    const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;    
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << "msg stamp = " << rclcpp::Time(msg->header.stamp).seconds() << std::endl;
+    std::cout << "stamp - delay = " << stamp.seconds() << std::endl;
     const auto transform = _tf_buffer->lookupTransform(
-      _parameter.robot_name + "/base_link", msg->header.frame_id, msg->header.stamp
+      _parameter.robot_name + "/base_link", msg->header.frame_id, stamp
     );
     do_transform(*msg, imu_transformed, transform);
+    std::cout << "frame id = " << transform.header.frame_id << std::endl;
+    std::cout << "child id = " << transform.child_frame_id << std::endl;
+    std::cout << "imu transformed:\n";
+    std::cout << "linear acceleration: x = " << imu_transformed.linear_acceleration.x << " y = " << imu_transformed.linear_acceleration.y << " z = " << imu_transformed.linear_acceleration.z << std::endl;
+    std::cout << "angular velocity: x = " << imu_transformed.angular_velocity.x << " y = " << imu_transformed.angular_velocity.y << " z = " << imu_transformed.angular_velocity.z << std::endl;
 
     _sensor_model_imu->process(imu_transformed);
     _kalman_filter->process(_sensor_model_imu);
@@ -112,13 +122,20 @@ void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu>
 
 void RobotLocalization::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg)
 {
+  return;
   // \todo check time stamp!
   try {
     nav_msgs::msg::Odometry odometry_transformed;
+    const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << "msg stamp = " << rclcpp::Time(msg->header.stamp).seconds() << std::endl;
+    std::cout << "stamp - delay = " << stamp.seconds() << std::endl;
     const auto transform = _tf_buffer->lookupTransform(
-      _parameter.robot_name + "/base_link", msg->child_frame_id, msg->header.stamp
+      _parameter.robot_name + "/base_link", msg->child_frame_id, stamp
     );
     do_transform(msg->twist, odometry_transformed.twist, transform);
+    std::cout << "frame id = " << transform.header.frame_id << std::endl;
+    std::cout << "child id = " << transform.child_frame_id << std::endl;
 
     _sensor_model_odometry->process(odometry_transformed);
     _kalman_filter->process(_sensor_model_odometry);
@@ -136,7 +153,11 @@ void RobotLocalization::callbackPose(std::shared_ptr<const geometry_msgs::msg::P
     const auto pose_transformed = _tf_buffer->transform(
       *msg, _parameter.robot_name + "/base_link");
 
+    std::cout << "pose transformed:\n";
+    std::cout << "x = " << pose_transformed.pose.pose.position.x << " y = " << pose_transformed.pose.pose.position.y << " z = " << pose_transformed.pose.pose.position.z << std::endl;
+    std::cout << "w = " << pose_transformed.pose.pose.orientation.w << " x = " << pose_transformed.pose.pose.orientation.x << " y = " << pose_transformed.pose.pose.orientation.y << " z = " << pose_transformed.pose.pose.orientation.z << std::endl;
     _sensor_model_pose->process(pose_transformed);
+    std::cout << "yaw = " << _sensor_model_pose->measurement()[2] << std::endl;
     _kalman_filter->process(_sensor_model_pose);
     publishRobotState();
   }
@@ -163,7 +184,8 @@ void RobotLocalization::callbackReset(
 void RobotLocalization::publishRobotState()
 {
   geometry_msgs::msg::TransformStamped transform;
-
+  std::cout << __PRETTY_FUNCTION__ << std::endl;
+  std::cout << "model stamp = " << _kalman_filter->stamp().seconds() << std::endl;
   transform.header.stamp = _kalman_filter->stamp();
   transform.header.frame_id = "map";
   transform.child_frame_id = _parameter.robot_name + "/base_footprint";
@@ -196,7 +218,7 @@ void RobotLocalization::checkIfStateShouldPredicted()
   // check last publishing stamp
   const auto stamp_now = get_clock()->now();
 
-  if ((stamp_now - _stamp_last_published) < rclcpp::Duration::from_seconds(0.01)) {
+  if ((stamp_now - _stamp_last_published) < _parameter.output_interval) {
     // last publishing had just been
     return;
   }

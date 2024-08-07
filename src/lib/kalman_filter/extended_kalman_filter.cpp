@@ -69,12 +69,18 @@ void ExtendedKalmanFilterBase::process(
     _predicted_state,
     _predicted_covariance
   );
-  _state_time_stamp = stamp;
+
+  // only get stamp if in future
+  // \todo handle stamp that are to far in future
+  if (stamp > _state_time_stamp) {
+    _state_time_stamp = stamp;
+  }
 
   std::cout << "Debug Kalman Shit:" << std::endl;
   std::cout << "state:\n" << _state->get() << std::endl;
   std::cout << "H:\n" << observation_matrix << std::endl;
   std::cout << "covariance matrix:\n" << _covariance << std::endl;
+  std::cout << "model stamp = " << _state_time_stamp.seconds() << std::endl;
 }
 
 void ExtendedKalmanFilterBase::process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model)
