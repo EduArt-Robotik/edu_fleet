@@ -11,4 +11,5 @@ target_include_directories(eduart-fleet-transform PUBLIC
 )
 ament_target_dependencies(eduart-fleet-transform
   "geometry_msgs"
+  "sensor_msgs"
 )

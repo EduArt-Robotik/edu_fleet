@@ -95,12 +95,15 @@ void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu>
 {
   // \todo check time stamp!
   try {
-    // sensor_msgs::msg::Imu imu_transformed = _tf_buffer->transform(
-    //   *msg, _parameter.robot_name + "/base_link");
+    sensor_msgs::msg::Imu imu_transformed;
+    const auto transform = _tf_buffer->lookupTransform(
+      _parameter.robot_name + "/base_link", msg->header.frame_id, msg->header.stamp
+    );
+    do_transform(*msg, imu_transformed, transform);
 
-    // _sensor_model_imu->process(imu_transformed);
-    // _kalman_filter->process(_sensor_model_imu);
-    // publishRobotState();
+    _sensor_model_imu->process(imu_transformed);
+    _kalman_filter->process(_sensor_model_imu);
+    publishRobotState();
   }
   catch (std::exception& ex) {
     RCLCPP_ERROR(get_logger(), "exception was thrown during processing. what = %s", ex.what());
@@ -115,7 +118,7 @@ void RobotLocalization::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Od
     const auto transform = _tf_buffer->lookupTransform(
       _parameter.robot_name + "/base_link", msg->child_frame_id, msg->header.stamp
     );
-    do_transform(msg->twist.twist, odometry_transformed.twist.twist, transform);
+    do_transform(msg->twist, odometry_transformed.twist, transform);
 
     _sensor_model_odometry->process(odometry_transformed);
     _kalman_filter->process(_sensor_model_odometry);
