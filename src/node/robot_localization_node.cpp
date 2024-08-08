@@ -96,22 +96,32 @@ void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu>
   return;
   // \todo check time stamp!
   try {
+    // transform message into robot frame
     sensor_msgs::msg::Imu imu_transformed;
     const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;    
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    std::cout << "msg stamp = " << rclcpp::Time(msg->header.stamp).seconds() << std::endl;
-    std::cout << "stamp - delay = " << stamp.seconds() << std::endl;
     const auto transform = _tf_buffer->lookupTransform(
       _parameter.robot_name + "/base_link", msg->header.frame_id, stamp
     );
     do_transform(*msg, imu_transformed, transform);
-    std::cout << "frame id = " << transform.header.frame_id << std::endl;
-    std::cout << "child id = " << transform.child_frame_id << std::endl;
-    std::cout << "imu transformed:\n";
-    std::cout << "linear acceleration: x = " << imu_transformed.linear_acceleration.x << " y = " << imu_transformed.linear_acceleration.y << " z = " << imu_transformed.linear_acceleration.z << std::endl;
-    std::cout << "angular velocity: x = " << imu_transformed.angular_velocity.x << " y = " << imu_transformed.angular_velocity.y << " z = " << imu_transformed.angular_velocity.z << std::endl;
 
+    // limit covariance
+    const double var_lin_min = _parameter.limit.std_dev.min.imu.linear * _parameter.limit.std_dev.min.imu.linear;
+    const double var_ang_min = _parameter.limit.std_dev.min.imu.angular * _parameter.limit.std_dev.min.imu.angular;
+
+    imu_transformed.linear_acceleration_covariance[0] = std::min(
+      imu_transformed.linear_acceleration_covariance[0], var_lin_min
+    );
+    imu_transformed.linear_acceleration_covariance[4] = std::min(
+      imu_transformed.linear_acceleration_covariance[4], var_lin_min
+    );
+    imu_transformed.angular_velocity_covariance[8] = std::min(
+      imu_transformed.angular_velocity_covariance[8], var_ang_min
+    );
+
+    // processing measurement data
     _sensor_model_imu->process(imu_transformed);
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << "measurement:\n" << _sensor_model_imu->measurement() << std::endl;
     _kalman_filter->process(_sensor_model_imu);
     publishRobotState();
   }
@@ -125,18 +135,28 @@ void RobotLocalization::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Od
   return;
   // \todo check time stamp!
   try {
+    // transform message into robot frame
     nav_msgs::msg::Odometry odometry_transformed;
     const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    std::cout << "msg stamp = " << rclcpp::Time(msg->header.stamp).seconds() << std::endl;
-    std::cout << "stamp - delay = " << stamp.seconds() << std::endl;
     const auto transform = _tf_buffer->lookupTransform(
       _parameter.robot_name + "/base_link", msg->child_frame_id, stamp
     );
     do_transform(msg->twist, odometry_transformed.twist, transform);
-    std::cout << "frame id = " << transform.header.frame_id << std::endl;
-    std::cout << "child id = " << transform.child_frame_id << std::endl;
 
+    // limit covariance
+    if (odometry_transformed.twist.covariance[0] == 0.0) {
+      // no covariance available --> set to minimum limit
+      const double var_lin = _parameter.limit.std_dev.min.odometry.linear * _parameter.limit.std_dev.min.odometry.linear;
+      const double var_ang = _parameter.limit.std_dev.min.odometry.angular * _parameter.limit.std_dev.min.odometry.angular;
+
+      odometry_transformed.twist.covariance[ 0] = var_lin;
+      odometry_transformed.twist.covariance[ 7] = var_lin;
+      odometry_transformed.twist.covariance[35] = var_ang;
+    }
+
+    // \todo check max limit!
+
+    // processing measurement data
     _sensor_model_odometry->process(odometry_transformed);
     _kalman_filter->process(_sensor_model_odometry);
     publishRobotState();

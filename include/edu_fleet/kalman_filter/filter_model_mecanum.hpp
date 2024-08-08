@@ -9,6 +9,8 @@
 #include "edu_fleet/kalman_filter/attribute_pack.hpp"
 #include "edu_fleet/kalman_filter/filter_model.hpp"
 
+#include <cmath>
+
 namespace eduart {
 namespace fleet {
 namespace kalman_filter {
@@ -31,7 +33,7 @@ public:
     ModelType mode_type = ModelType::PUSH_AND_ROTATE;
     struct {
       Data acceleration = 0.5 * 0.5;
-      Data yaw_rate = 12.566370614 * 12.566370614; // 720° stddev
+      Data yaw_rate = M_PI_4 * M_PI_4; // 45° stddev
     } noise;
   };
 

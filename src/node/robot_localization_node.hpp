@@ -44,6 +44,26 @@ public:
     kalman_filter::FilterModelMecanum::Parameter filter_parameter;
     rclcpp::Duration input_delay = rclcpp::Duration::from_seconds(0.150); // 150 ms
     rclcpp::Duration output_interval = rclcpp::Duration::from_seconds(0.01); // 10 ms == 100 Hz
+
+    struct {
+      struct {
+        struct {
+          // odometry
+          struct {
+            double linear = 0.5;
+            double angular = 0.124992371;
+          } odometry;
+          // imu
+          struct {
+            double linear = 0.2;
+            double angular = 5.0 * M_PI / 180.0; // 5°
+          } imu;
+        } min;
+        struct {
+          double odometry = 1.0;
+        } max;
+      } std_dev;
+    } limit;
   };
 
   RobotLocalization(const Parameter& parameter);
