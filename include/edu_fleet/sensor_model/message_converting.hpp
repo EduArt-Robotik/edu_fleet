@@ -36,14 +36,14 @@ struct message_converting<kalman_filter::AttributePack<Attributes...>> {
 
   // Helper
   static robot::AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q) {
-    const Eigen::Vector3d e_x = Eigen::Vector3d::UnitX();
-    const Eigen::Quaterniond R(q.w, q.x, q.y, q.z);
-    Eigen::Vector3d v = R * e_x;
-    v.z() = 0.0;
+    // const Eigen::Vector3d e_x = Eigen::Vector3d::UnitX();
+    // const Eigen::Quaterniond R(q.w, q.x, q.y, q.z);
+    // Eigen::Vector3d v = R * e_x;
+    // v.z() = 0.0;
 
-    return e_x.dot(v);
+    // return e_x.dot(v);
 
-    // return std::atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
+    return std::atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
   }
 
   // Imu

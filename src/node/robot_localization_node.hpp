@@ -51,11 +51,11 @@ public:
           // odometry
           struct {
             double linear = 0.5;
-            double angular = 0.124992371;
+            double angular = 25.0 * M_PI / 180.0; // 25°
           } odometry;
           // imu
           struct {
-            double linear = 0.2;
+            double linear = 0.1;
             double angular = 5.0 * M_PI / 180.0; // 5°
           } imu;
         } min;

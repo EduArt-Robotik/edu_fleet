@@ -5,6 +5,7 @@
 
 #include <edu_fleet/transform/geometry.hpp>
 
+#include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 #include <rclcpp/create_timer.hpp>
 #include <rclcpp/duration.hpp>
 #include <rclcpp/logging.hpp>
@@ -12,8 +13,11 @@
 #include <rclcpp/qos.hpp>
 #include <rclcpp/time.hpp>
 
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Transform.h>
 #include <tf2/convert.h>
 #include <tf2/transform_datatypes.h>
+#include <tf2/transform_storage.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
@@ -93,28 +97,27 @@ RobotLocalization::~RobotLocalization()
 
 void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu> msg)
 {
-  return;
   // \todo check time stamp!
   try {
     // transform message into robot frame
-    sensor_msgs::msg::Imu imu_transformed;
-    const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;    
-    const auto transform = _tf_buffer->lookupTransform(
-      _parameter.robot_name + "/base_link", msg->header.frame_id, stamp
-    );
-    do_transform(*msg, imu_transformed, transform);
+    sensor_msgs::msg::Imu imu_transformed = *msg;
+    // const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;    
+    // const auto transform = _tf_buffer->lookupTransform(
+    //   _parameter.robot_name + "/base_link", msg->header.frame_id, stamp
+    // );
+    // do_transform(*msg, imu_transformed, transform);
 
     // limit covariance
     const double var_lin_min = _parameter.limit.std_dev.min.imu.linear * _parameter.limit.std_dev.min.imu.linear;
     const double var_ang_min = _parameter.limit.std_dev.min.imu.angular * _parameter.limit.std_dev.min.imu.angular;
 
-    imu_transformed.linear_acceleration_covariance[0] = std::min(
+    imu_transformed.linear_acceleration_covariance[0] = std::max(
       imu_transformed.linear_acceleration_covariance[0], var_lin_min
     );
-    imu_transformed.linear_acceleration_covariance[4] = std::min(
+    imu_transformed.linear_acceleration_covariance[4] = std::max(
       imu_transformed.linear_acceleration_covariance[4], var_lin_min
     );
-    imu_transformed.angular_velocity_covariance[8] = std::min(
+    imu_transformed.angular_velocity_covariance[8] = std::max(
       imu_transformed.angular_velocity_covariance[8], var_ang_min
     );
 
@@ -132,29 +135,27 @@ void RobotLocalization::callbackImu(std::shared_ptr<const sensor_msgs::msg::Imu>
 
 void RobotLocalization::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg)
 {
-  return;
   // \todo check time stamp!
   try {
     // transform message into robot frame
-    nav_msgs::msg::Odometry odometry_transformed;
-    const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;
-    const auto transform = _tf_buffer->lookupTransform(
-      _parameter.robot_name + "/base_link", msg->child_frame_id, stamp
-    );
-    do_transform(msg->twist, odometry_transformed.twist, transform);
+    nav_msgs::msg::Odometry odometry_transformed = *msg;
+    // const auto stamp =  rclcpp::Time(msg->header.stamp) - _parameter.input_delay;
+    // const auto transform = _tf_buffer->lookupTransform(
+    //   _parameter.robot_name + "/base_link", msg->child_frame_id, stamp
+    // );
+    // do_transform(msg->twist, odometry_transformed.twist, transform);
 
     // limit covariance
-    if (odometry_transformed.twist.covariance[0] == 0.0) {
-      // no covariance available --> set to minimum limit
-      const double var_lin = _parameter.limit.std_dev.min.odometry.linear * _parameter.limit.std_dev.min.odometry.linear;
-      const double var_ang = _parameter.limit.std_dev.min.odometry.angular * _parameter.limit.std_dev.min.odometry.angular;
+    const double var_lin = _parameter.limit.std_dev.min.odometry.linear * _parameter.limit.std_dev.min.odometry.linear;
+    const double var_ang = _parameter.limit.std_dev.min.odometry.angular * _parameter.limit.std_dev.min.odometry.angular;
 
-      odometry_transformed.twist.covariance[ 0] = var_lin;
-      odometry_transformed.twist.covariance[ 7] = var_lin;
-      odometry_transformed.twist.covariance[35] = var_ang;
-    }
+    odometry_transformed.twist.covariance[ 0] = std::max(odometry_transformed.twist.covariance[ 0], var_lin);
+    odometry_transformed.twist.covariance[ 7] = std::max(odometry_transformed.twist.covariance[ 7], var_lin);
+    odometry_transformed.twist.covariance[35] = std::max(odometry_transformed.twist.covariance[35], var_ang);
 
-    // \todo check max limit!
+    std::cout << "odometry:\n";
+    std::cout << "v_x = " << odometry_transformed.twist.twist.linear.x << " v_y = " << odometry_transformed.twist.twist.linear.y << std::endl;
+    std::cout << "omega_z = " << odometry_transformed.twist.twist.angular.z << std::endl;
 
     // processing measurement data
     _sensor_model_odometry->process(odometry_transformed);
@@ -178,6 +179,21 @@ void RobotLocalization::callbackPose(std::shared_ptr<const geometry_msgs::msg::P
     std::cout << "w = " << pose_transformed.pose.pose.orientation.w << " x = " << pose_transformed.pose.pose.orientation.x << " y = " << pose_transformed.pose.pose.orientation.y << " z = " << pose_transformed.pose.pose.orientation.z << std::endl;
     _sensor_model_pose->process(pose_transformed);
     std::cout << "yaw = " << _sensor_model_pose->measurement()[2] << std::endl;
+
+    // debug via tf
+    geometry_msgs::msg::TransformStamped t_debug;
+    t_debug.header.stamp = msg->header.stamp;
+    t_debug.header.frame_id = _parameter.robot_name + "/base_link";
+    // t_debug.header.frame_id = msg->header.frame_id;
+    t_debug.child_frame_id = "pose_debug_out";
+
+    t_debug.transform.translation.x = pose_transformed.pose.pose.position.x;
+    t_debug.transform.translation.y = pose_transformed.pose.pose.position.y;
+    t_debug.transform.translation.z = pose_transformed.pose.pose.position.z;
+
+    t_debug.transform.rotation = pose_transformed.pose.pose.orientation;
+    _tf_broadcaster->sendTransform(t_debug);
+
     _kalman_filter->process(_sensor_model_pose);
     publishRobotState();
   }
