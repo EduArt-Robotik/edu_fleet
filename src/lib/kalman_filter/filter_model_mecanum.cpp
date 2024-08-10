@@ -2,6 +2,7 @@
 #include "edu_fleet/kalman_filter/attribute.hpp"
 
 #include <cstddef>
+#include <iostream>
 #include <stdexcept>
 
 namespace eduart {
@@ -270,15 +271,16 @@ void FilterModelMecanum::calculateSystemNoiseMatrixPushAndRotate(
   {
     Eigen::Vector<Data, attribute_vector::size()> noise_vector = Eigen::Vector<Data, attribute_vector::size()>::Zero();
 
-    noise_vector[W_POS_X] = 0.5 * dt * dt * (cos_phi - sin_phi);
-    noise_vector[W_POS_Y] = 0.5 * dt * dt * (sin_phi + cos_phi);
+    noise_vector[W_POS_X] = 0.5 * dt * dt * dt;// * (cos_phi - sin_phi);
+    noise_vector[W_POS_Y] = 0.5 * dt * dt * dt;// * (sin_phi + cos_phi);
 
-    noise_vector[VEL_X] = dt;
-    noise_vector[VEL_Y] = dt;
-    noise_vector[ACC_X] = 1.0;
-    noise_vector[ACC_Y] = 1.0;
+    noise_vector[VEL_X] = dt * dt;
+    noise_vector[VEL_Y] = dt * dt;
+    noise_vector[ACC_X] = 1.0 * dt;
+    noise_vector[ACC_Y] = 1.0 * dt;
 
     _system_noise_matrix += _parameter.noise.acceleration * noise_vector * noise_vector.transpose();
+    std::cout << "Q_a:\n" << _system_noise_matrix << std::endl;
   }
 
   // add yaw rate system noise

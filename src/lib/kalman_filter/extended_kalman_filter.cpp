@@ -48,50 +48,35 @@ void ExtendedKalmanFilterBase::initialize(const Eigen::VectorX<Data>& state, con
   _state_time_stamp = rclcpp::Time();
 }
 
-void ExtendedKalmanFilterBase::process(
-  const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance,
-  const Eigen::MatrixX<Data>& observation_matrix, const rclcpp::Time& stamp)
+void ExtendedKalmanFilterBase::process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model)
 {
   // first time calling set model time stamp
   if (_state_time_stamp.seconds() == 0.0) {
-    _state_time_stamp = stamp;
+    _state_time_stamp = sensor_model->stamp();
     return;
   }
 
   // predict model without modifing it
-  predictToTime(_predicted_state, _predicted_covariance, stamp);
+  predictToTime(
+    _predicted_state, _predicted_covariance, sensor_model->stamp()
+  );
 
   // update model
-  update(
-    measurement,
-    measurement_covariance,
-    observation_matrix,
-    _predicted_state,
-    _predicted_covariance
-  );
+  update(sensor_model, _predicted_state, _predicted_covariance);
 
   // only get stamp if in future
   // \todo handle stamp that are to far in future
-  if (stamp > _state_time_stamp) {
-    _state_time_stamp = stamp;
+  if (sensor_model->stamp() > _state_time_stamp) {
+    _state_time_stamp = sensor_model->stamp();
   }
 
   std::cout << "Debug Kalman Shit:" << std::endl;
   std::cout << "state:\n" << _state->get() << std::endl;
-  std::cout << "H:\n" << observation_matrix << std::endl;
+  std::cout << "H:\n" << ObservationMatrixHandler::instance().matrix(*_state, *sensor_model) << std::endl;
   std::cout << "covariance matrix:\n" << _covariance << std::endl;
   std::cout << "model stamp = " << _state_time_stamp.seconds() << std::endl;
 }
 
-void ExtendedKalmanFilterBase::process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model)
-{
-  process(
-    sensor_model->measurement(),
-    sensor_model->covariance(), 
-    ObservationMatrixHandler::instance().matrix(*_state, *sensor_model),
-    sensor_model->stamp()
-  );
-}
 
 void ExtendedKalmanFilterBase::predictToTimeAndKeep(const rclcpp::Time& stamp)
 {
@@ -110,6 +95,9 @@ void ExtendedKalmanFilterBase::predictToTime(
 {
   // calculate dt and check if it is valid
   Data dt = (stamp - _state_time_stamp).seconds();
+  std::cout << "stamp in = " << stamp.seconds() << std::endl;
+  std::cout << "state stamp = " << _state_time_stamp.seconds() << std::endl;
+  std::cout << "calculated dt = " << dt << std::endl;
 
   if (dt < 0.0) {
     // no prediction needed, filter is already before given stamp
@@ -132,19 +120,23 @@ void ExtendedKalmanFilterBase::predictToTime(
 }
 
 void ExtendedKalmanFilterBase::update(
-    const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance, 
-    const Eigen::MatrixX<Data>& observation_matrix,
-    const Eigen::VectorX<Data>& predicted_state, const Eigen::MatrixX<Data>& predicted_covariance)
+  std::shared_ptr<const sensor_model::SensorModelBase> sensor_model,
+  const Eigen::VectorX<Data>& predicted_state, const Eigen::MatrixX<Data>& predicted_covariance)
 {
   // \todo check if this method could work using fixed size vectors and matrices to avoid allocation
   // transform state space to measurement space
+  const auto& observation_matrix = ObservationMatrixHandler::instance().matrix(
+    *_state, *sensor_model);
   const Eigen::VectorX<Data> predicted_state_sensor_space = observation_matrix * predicted_state;
   const Eigen::MatrixX<Data> predicated_covariance_sensor_space =
     observation_matrix * predicted_covariance * observation_matrix.transpose();
 
   // calculate innovations
-  const Eigen::VectorX<Data> innovation = measurement - predicted_state_sensor_space;
-  const Eigen::MatrixX<Data> innovation_covariance = predicated_covariance_sensor_space + measurement_covariance;
+  Eigen::VectorX<Data> innovation = sensor_model->measurement() - predicted_state_sensor_space;
+  const Eigen::MatrixX<Data> innovation_covariance = predicated_covariance_sensor_space + sensor_model->covariance();
+
+  // post process innovation, for example to keep angles in range
+  sensor_model->processInnovation(innovation);
 
   // calculate Kalman gain
   const auto kalman_gain = predicted_covariance * observation_matrix.transpose() * innovation_covariance.inverse();

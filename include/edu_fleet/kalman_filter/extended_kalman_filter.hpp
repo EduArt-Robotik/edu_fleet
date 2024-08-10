@@ -32,7 +32,7 @@ public:
   struct Parameter{
     Data max_dt = 10.0;
     Data max_var = 100.0;
-    Data min_var = 1e-6;
+    Data min_var = 1e-2;
   };
 
   virtual ~ExtendedKalmanFilterBase() = default;
@@ -43,16 +43,12 @@ protected:
 
 public:
   void initialize(const Eigen::VectorX<Data>& state, const Eigen::MatrixX<Data>& covariance);
-  void process(
-    const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance,
-    const Eigen::MatrixX<Data>& observation_matrix, const rclcpp::Time& stamp);
   void process(std::shared_ptr<const sensor_model::SensorModelBase> sensor_model);
   void predictToTimeAndKeep(const rclcpp::Time& stamp);
   void predictToTime(
     Eigen::VectorX<Data>& predicted_state, Eigen::MatrixX<Data>& predicted_covariance, const rclcpp::Time& stamp);
   void update(
-    const Eigen::VectorX<Data>& measurement, const Eigen::MatrixX<Data>& measurement_covariance, 
-    const Eigen::MatrixX<Data>& observation_matrix,
+    std::shared_ptr<const sensor_model::SensorModelBase> sensor_model,
     const Eigen::VectorX<Data>& predicted_state, const Eigen::MatrixX<Data>& predicted_covariance);
   inline rclcpp::Time stamp() const { return _state_time_stamp; }
 

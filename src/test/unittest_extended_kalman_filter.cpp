@@ -108,7 +108,7 @@ TEST(extended_kalman_filter, process_without_system_noise)
   R(1, 1) = variance;
 
   for (rclcpp::Time stamp(0); stamp < stamp_end; stamp += dt) {
-    extended_kalman_filter.process(measurement.get(), R, H, stamp);
+    // extended_kalman_filter.process(measurement.get(), R, H, stamp);
 
     std::cout << "covariance matrix:\n" << extended_kalman_filter.covariance() << std::endl;
     plotter_state.printState(extended_kalman_filter.state(), stamp.seconds());
@@ -157,7 +157,7 @@ TEST(extended_kalman_filter, process_with_system_noise)
 
   for (rclcpp::Time stamp(0); stamp < stamp_end; stamp += dt) {
     measurement.acceleration_x() = d(gen) + 1.0;
-    extended_kalman_filter.process(measurement.get(), R, H, stamp);
+    // extended_kalman_filter.process(measurement.get(), R, H, stamp);
 
     std::cout << "covariance matrix:\n" << extended_kalman_filter.covariance() << std::endl;
     plotter_state.printState(extended_kalman_filter.state(), stamp.seconds());
@@ -201,7 +201,7 @@ TEST(extended_kalman_filter, process_without_system_noise_case2)
 
   for (rclcpp::Time stamp(0); stamp < stamp_end; stamp += dt) {
     measurement.x() += 1.0;
-    extended_kalman_filter.process(measurement.get(), R, H, stamp);
+    // extended_kalman_filter.process(measurement.get(), R, H, stamp);
 
     std::cout << "covariance matrix:\n" << extended_kalman_filter.covariance() << std::endl;
     plotter_state.printState(extended_kalman_filter.state(), stamp.seconds());

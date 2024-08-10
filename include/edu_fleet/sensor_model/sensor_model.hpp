@@ -31,6 +31,10 @@ public:
   inline const Eigen::VectorX<Data>& measurement() const { return _measurement; }
   inline const Eigen::MatrixX<Data>& covariance() const { return _measurement_covariance; }
   inline const rclcpp::Time& stamp() const { return _stamp; }
+  /**
+   * \brief Do some postprocessing on the given innovation. E. g. to keep angles in range.
+   */
+  virtual void processInnovation(Eigen::VectorX<Data>& innovation) const = 0;
 
 protected:
   Eigen::VectorX<Data> _measurement;
@@ -53,6 +57,16 @@ public:
   }
   std::size_t attributes_id() const override {
     return kalman_filter::AttributePack<Attributes...>().attributes_id();
+  }
+  void processInnovation(Eigen::VectorX<Data>& innovation) const override {
+    // grantee vector sizes match
+    if (innovation.size() != kalman_filter::AttributePack<Attributes...>::size()) {
+      throw std::invalid_argument("AttributeVector: given vector size doesn't fit to attribute vector.");
+    }
+
+    // perform post processing on each vector element
+    std::size_t index = 0;
+    ((innovation[index] = kalman_filter::perform_post_processing<Attributes>()(innovation[index]), ++index), ...);    
   }
 };
 
