@@ -83,11 +83,11 @@ RobotLocalization::RobotLocalization(const Parameter& parameter)
   _kalman_filter = std::make_unique<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>>(std::move(filter_model));
 
   // start timer for publishing state
-  _timer_publish_robot_state = rclcpp::create_timer(
-    get_node_base_interface(), get_node_timers_interface(), get_clock(),
-    rclcpp::Duration::from_seconds(0.01),
-    std::bind(&RobotLocalization::checkIfStateShouldPredicted, this)
-  );
+  // _timer_publish_robot_state = rclcpp::create_timer(
+  //   get_node_base_interface(), get_node_timers_interface(), get_clock(),
+  //   rclcpp::Duration::from_seconds(0.01),
+  //   std::bind(&RobotLocalization::checkIfStateShouldPredicted, this)
+  // );
 }
 
 RobotLocalization::~RobotLocalization()
@@ -159,6 +159,8 @@ void RobotLocalization::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Od
 
     // processing measurement data
     _sensor_model_odometry->process(odometry_transformed);
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << "measurement:\n" << _sensor_model_odometry->measurement() << std::endl;    
     _kalman_filter->process(_sensor_model_odometry);
     publishRobotState();
   }
@@ -171,8 +173,31 @@ void RobotLocalization::callbackPose(std::shared_ptr<const geometry_msgs::msg::P
 {
   // \todo check time stamp!
   try {
-    const auto pose_transformed = _tf_buffer->transform(
-      *msg, _parameter.robot_name + "/base_link");
+    // Pose is in world coordinate system! Transform transform into base_link in world coordinate first, before applying.
+    // const auto pose_transformed = _tf_buffer->transform(
+    //   *msg, _parameter.robot_name + "/base_link");
+
+    // Only uses translation! Maybe this doesn't cover all cases but anything lets go!
+    const auto transform = _tf_buffer->lookupTransform(
+      _parameter.robot_name + "/base_link",
+      msg->header.frame_id,
+      msg->header.stamp
+    );
+    const Eigen::Vector3d translation_r(
+      transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z);
+    const Eigen::Quaterniond rotation(
+      msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+      msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+    const Eigen::Vector3d translation_w = rotation * translation_r;
+
+    std::cout << "t_r:\n" << translation_r << std::endl;
+    std::cout << "t_w:\n" << translation_w << std::endl;
+
+    geometry_msgs::msg::PoseWithCovarianceStamped pose_transformed = *msg;
+
+    pose_transformed.pose.pose.position.x -= translation_w.x();
+    pose_transformed.pose.pose.position.y -= translation_w.y();
+    pose_transformed.pose.pose.position.z -= translation_w.z();
 
     std::cout << "pose transformed:\n";
     std::cout << "x = " << pose_transformed.pose.pose.position.x << " y = " << pose_transformed.pose.pose.position.y << " z = " << pose_transformed.pose.pose.position.z << std::endl;

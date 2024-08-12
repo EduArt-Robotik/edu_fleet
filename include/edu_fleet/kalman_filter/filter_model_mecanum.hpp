@@ -32,7 +32,7 @@ public:
     };
     ModelType mode_type = ModelType::PUSH_AND_ROTATE;
     struct {
-      Data acceleration = 0.5 * 0.5;
+      Data acceleration = 5.5 * 5.5;
       Data yaw_rate = M_PI_4 * M_PI_4; // 45° stddev
     } noise;
   };
