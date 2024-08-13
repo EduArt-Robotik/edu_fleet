@@ -34,20 +34,47 @@ using transform::do_transform;
 using kalman_filter::FilterModelMecanum;
 using kalman_filter::ExtendedKalmanFilter;
 
-RobotLocalization::Parameter RobotLocalization::get_parameter(
-  const std::string& name, const Parameter& default_parameter, rclcpp::Node& ros_node)
+RobotLocalization::Parameter RobotLocalization::get_parameter(const Parameter& default_parameter, rclcpp::Node& ros_node)
 {
-  (void)name;
-  (void)default_parameter;
-  (void)ros_node;
   Parameter parameter;
+
+  // general parameter
+  ros_node.declare_parameter<std::string>("robot_name", default_parameter.robot_name);
+  ros_node.declare_parameter<int>(
+    "input_delay_ms", default_parameter.input_delay.nanoseconds() / 1000000);
+  ros_node.declare_parameter<int>(
+    "output_interval_ms", default_parameter.output_interval.nanoseconds() / 1000000);
+
+  parameter.robot_name = ros_node.get_parameter("robot_name").as_string();
+  parameter.input_delay.from_nanoseconds(
+    ros_node.get_parameter("input_delay_ms").as_int() * 1000000);
+  parameter.output_interval.from_nanoseconds(
+    ros_node.get_parameter("output_interval_ms").as_int() * 1000000);
+
+  // odometry parameter
+  ros_node.declare_parameter<double>(
+    "odometry.std_dev.min.linear", default_parameter.limit.std_dev.min.odometry.linear);
+  ros_node.declare_parameter<double>(
+    "odometry.std_dev.min.angular", default_parameter.limit.std_dev.min.odometry.angular);
+
+  parameter.limit.std_dev.min.odometry.linear = ros_node.get_parameter("odometry.std_dev.min.linear").as_double();
+  parameter.limit.std_dev.min.odometry.angular = ros_node.get_parameter("odometry.std_dev.min.angular").as_double();
+
+  // imu parameter
+  ros_node.declare_parameter<double>(
+    "imu.std_dev.min.linear", default_parameter.limit.std_dev.min.imu.linear);
+  ros_node.declare_parameter<double>(
+    "imu.std_dev.min.angular", default_parameter.limit.std_dev.min.imu.angular);
+
+  parameter.limit.std_dev.min.imu.linear = ros_node.get_parameter("imu.std_dev.min.linear").as_double();
+  parameter.limit.std_dev.min.imu.angular = ros_node.get_parameter("imu.std_dev.min.angular").as_double();
 
   return parameter;
 }
 
-RobotLocalization::RobotLocalization(const Parameter& parameter)
+RobotLocalization::RobotLocalization()
   : rclcpp::Node("robot_localization")
-  , _parameter(parameter)
+  , _parameter(get_parameter(_parameter, *this))
   , _tf_broadcaster(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
   , _tf_buffer(std::make_unique<tf2_ros::Buffer>(this->get_clock()))
   , _tf_listener(std::make_unique<tf2_ros::TransformListener>(*_tf_buffer))
@@ -310,8 +337,8 @@ std::string RobotLocalization::getFrameIdPrefix() const
 
 int main(int argc, char** argv)
 {
-  rclcpp::init(argc, argv);  
-  rclcpp::spin(std::make_shared<eduart::fleet::RobotLocalization>(eduart::fleet::RobotLocalization::Parameter{}));
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<eduart::fleet::RobotLocalization>());
   rclcpp::shutdown();
 
   return 0;

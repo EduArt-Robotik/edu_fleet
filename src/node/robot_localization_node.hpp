@@ -50,12 +50,12 @@ public:
         struct {
           // odometry
           struct {
-            double linear = 0.5;
+            double linear = 0.2;
             double angular = 25.0 * M_PI / 180.0; // 25°
           } odometry;
           // imu
           struct {
-            double linear = 0.1;
+            double linear = 0.2;
             double angular = 5.0 * M_PI / 180.0; // 5°
           } imu;
         } min;
@@ -66,10 +66,10 @@ public:
     } limit;
   };
 
-  RobotLocalization(const Parameter& parameter);
+  RobotLocalization();
   ~RobotLocalization() override;
 
-  static Parameter get_parameter(const std::string& name, const Parameter& default_parameter, rclcpp::Node& ros_node);
+  static Parameter get_parameter(const Parameter& default_parameter, rclcpp::Node& ros_node);
 
 private:
   // methods
