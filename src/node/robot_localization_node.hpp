@@ -18,6 +18,7 @@
 
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
+#include <rclcpp/publisher.hpp>
 #include <rclcpp/timer.hpp>
 #include <rclcpp/duration.hpp>
 
@@ -81,10 +82,11 @@ private:
     std::shared_ptr<std_srvs::srv::Trigger_Response> response);
   void publishRobotState();
   void checkIfStateShouldPredicted();
-  std::string getFrameIdPrefix() const;  
+  std::string getFrameIdPrefix() const;
 
   // members
   const Parameter _parameter;
+
   std::unique_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
   std::unique_ptr<tf2_ros::Buffer> _tf_buffer;
   std::unique_ptr<tf2_ros::TransformListener> _tf_listener;
@@ -94,8 +96,10 @@ private:
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Imu>> _sub_imu;
   std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odometry;
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>> _sub_pose;
+  std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> _pub_odometry;
 
-  std::unique_ptr<ExtendedKalmanFilter<FilterModelMecanum::attribute_pack>> _kalman_filter;
+  using FilterModel = FilterModelMecanum;
+  std::unique_ptr<ExtendedKalmanFilter<FilterModel::attribute_pack>> _kalman_filter;
   rclcpp::Time _stamp_last_published;
 
   // sensor models

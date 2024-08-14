@@ -1,11 +1,11 @@
 #include "robot_localization_node.hpp"
+#include "edu_fleet/sensor_model/message_converting.hpp"
 
 #include <edu_fleet/kalman_filter/extended_kalman_filter.hpp>
 #include <edu_fleet/kalman_filter/filter_model_mecanum.hpp>
 
 #include <edu_fleet/transform/geometry.hpp>
 
-#include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 #include <rclcpp/create_timer.hpp>
 #include <rclcpp/duration.hpp>
 #include <rclcpp/logging.hpp>
@@ -82,7 +82,7 @@ RobotLocalization::RobotLocalization()
   , _sensor_model_odometry(std::make_shared<SensorModelOdometry>("sensor_model_odometry"))
   , _sensor_model_pose(std::make_shared<SensorModelPose>("sensor_model_pose"))
 {
-  // instantiate ROS subscriptions
+  // instantiate ROS subscriptions and publisher
   _sub_imu = create_subscription<sensor_msgs::msg::Imu>(
     "imu",
     rclcpp::QoS(5).best_effort(),
@@ -97,6 +97,9 @@ RobotLocalization::RobotLocalization()
     "pose",
     rclcpp::QoS(5).best_effort(),
     [this](std::shared_ptr<const geometry_msgs::msg::PoseWithCovarianceStamped> msg) { callbackPose(msg); }
+  );
+  _pub_odometry = create_publisher<nav_msgs::msg::Odometry>(
+    "localization", rclcpp::QoS(5).reliable()
   );
 
   // bring up services
@@ -278,6 +281,7 @@ void RobotLocalization::publishRobotState()
   transform.header.frame_id = "map";
   transform.child_frame_id = _parameter.robot_name + "/base_footprint";
 
+  // via tf
   // transform
   const auto& state = _kalman_filter->state();
 
@@ -293,6 +297,16 @@ void RobotLocalization::publishRobotState()
   transform.transform.rotation.z = orientation.z();
 
   _tf_broadcaster->sendTransform(transform);
+
+  // via odometry message
+  auto odometry_msg = sensor_model::message_converting<FilterModel::attribute_pack>::to_ros(
+    _kalman_filter->state().get(), _kalman_filter->covariance()
+  );
+  odometry_msg.header.frame_id = "map";
+  odometry_msg.header.stamp = _kalman_filter->stamp();
+  odometry_msg.child_frame_id = _parameter.robot_name + "/base_footprint";
+
+  _pub_odometry->publish(odometry_msg);
   _stamp_last_published = get_clock()->now();
 }
 

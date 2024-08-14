@@ -17,6 +17,7 @@
 #include <Eigen/Geometry>
 
 #include <cstddef>
+#include <stdexcept>
 
 namespace eduart {
 namespace fleet {
@@ -156,6 +157,56 @@ struct message_converting<kalman_filter::AttributePack<Attributes...>> {
 
     // orientation
     covariance(W_YAW, W_YAW) = pose.pose.covariance[35];
+  }
+
+
+  // to ros messages
+  static nav_msgs::msg::Odometry to_ros(const Eigen::VectorX<Data>& state, const Eigen::MatrixX<Data>& covariance) {
+    using kalman_filter::Attribute;
+
+    if (static_cast<std::size_t>(state.size()) != Pack::size()) {
+      throw std::invalid_argument("ro_ros(): attributes doesn't fit to given state vector.");
+    }    
+    if (static_cast<std::size_t>(covariance.rows()) != Pack::size() ||
+        static_cast<std::size_t>(covariance.cols()) != Pack::size()) {
+      throw std::invalid_argument("ro_ros(): attributes doesn't fit to given covariance matrix.");
+    }
+
+    constexpr std::size_t W_POS_X = Pack::template index<Attribute::W_POS_X>();
+    constexpr std::size_t W_POS_Y = Pack::template index<Attribute::W_POS_Y>();
+    constexpr std::size_t W_YAW = Pack::template index<Attribute::W_YAW>();    
+
+    constexpr std::size_t VEL_X = Pack::template index<Attribute::VEL_X>();
+    constexpr std::size_t VEL_Y = Pack::template index<Attribute::VEL_Y>();
+    constexpr std::size_t YAW_RATE = Pack::template index<Attribute::YAW_RATE>();
+
+    // converting data
+    nav_msgs::msg::Odometry msg;
+
+    // pose
+    msg.pose.pose.position.x = state[W_POS_X];
+    msg.pose.pose.position.y = state[W_POS_Y];
+
+    const Eigen::Quaterniond q(Eigen::AngleAxisd(state[W_YAW], Eigen::Vector3d::UnitZ()));
+    msg.pose.pose.orientation.w = q.w();
+    msg.pose.pose.orientation.x = q.x();
+    msg.pose.pose.orientation.y = q.y();
+    msg.pose.pose.orientation.z = q.z();
+    
+    msg.pose.covariance[ 0] = covariance(W_POS_X, W_POS_X);
+    msg.pose.covariance[ 7] = covariance(W_POS_Y, W_POS_Y);
+    msg.pose.covariance[35] = covariance(W_YAW, W_YAW);
+
+    // twist
+    msg.twist.twist.linear.x  = state[VEL_X];
+    msg.twist.twist.linear.y  = state[VEL_Y];
+    msg.twist.twist.angular.z = state[YAW_RATE];
+
+    msg.twist.covariance[ 0] = covariance(VEL_X, VEL_X);
+    msg.twist.covariance[ 7] = covariance(VEL_Y, VEL_Y);
+    msg.twist.covariance[35] = covariance(YAW_RATE, YAW_RATE);
+
+    return msg;
   }
 };
 
