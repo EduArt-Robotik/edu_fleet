@@ -24,6 +24,7 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(diagnostic_updater REQUIRED)
 find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}

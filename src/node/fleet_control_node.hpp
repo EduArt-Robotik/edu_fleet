@@ -18,6 +18,9 @@
 #include <rclcpp/subscription.hpp>
 
 #include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
@@ -51,33 +54,44 @@ public:
 
 private:
   void callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg);
-  void callbackTwistDriftCompensation(
-    std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index);  
   void callbackServiceGetTransform(
     const std::shared_ptr<edu_fleet::srv::GetTransform::Request> request,
     std::shared_ptr<edu_fleet::srv::GetTransform::Response> response);
   void callbackRobotStatusReport(
-    std::shared_ptr<const edu_robot::msg::RobotStatusReport> report,
-    const std::size_t robot_index);
+    std::shared_ptr<const edu_robot::msg::RobotStatusReport> report, const std::size_t robot_index);
+  void callbackLocalization(
+    std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index);
   void processKinematicDescription(
     std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index);
 
   Parameter _parameter;
-
-  std::vector<Eigen::MatrixXd> _kinematic_matrix;
-  std::vector<std::vector<eduart::robot::Rpm>> _robot_rpm_limit;
-  std::vector<std::uint8_t> _lost_fleet_formation; //> value != 0 indicates fleet formation is lost
-  std::vector<std::uint8_t> _current_robot_mode;
-  std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot_velocity;
-  std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _t_fleet_to_robot_transform;
-
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
-  std::vector<std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>>> _sub_twist_drift_compensation;
-  std::vector<std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>>> _sub_robot_status;
-  std::vector<std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotKinematicDescription>>> _sub_kinematic_description;
-  std::vector<std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>>> _pub_twist_robot;
-  std::vector<std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>>> _pub_set_lighting;
   std::shared_ptr<rclcpp::Service<edu_fleet::srv::GetTransform>> _srv_server_get_transform;
+
+  struct Robot {
+    // robot related things
+    Eigen::MatrixXd kinematic_matrix;
+    Eigen::Matrix3d t_fleet_to_robot_velocity;
+    Eigen::Matrix3d t_fleet_to_robot_transform;
+    std::vector<eduart::robot::Rpm> rpm_limit;
+    std::uint8_t lost_fleet_formation; //> value != 0 indicates fleet formation is lost
+    std::uint8_t current_mode;
+
+    
+
+    // subscriptions
+    std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>> sub_robot_status;
+    std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotKinematicDescription>> sub_kinematic_description;
+    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> sub_localization;
+
+    // publisher
+    std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> pub_twist_robot;
+    std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>> pub_target_pose;
+    std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>> pub_set_lighting;
+    std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::Marker>> pub_visualization;
+  };
+
+  std::vector<Robot> _robot;
 };
 
 } // end namespace fleet

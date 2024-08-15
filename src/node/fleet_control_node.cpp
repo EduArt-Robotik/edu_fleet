@@ -73,50 +73,58 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
 FleetControlNode::FleetControlNode()
   : rclcpp::Node("fleet_control_node")
   , _parameter(get_parameter(*this))
+  , _robot(_parameter.number_of_robots)
 {
-  for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+  for (std::size_t i = 0; i < _robot.size(); ++i) {
     const std::string robot_namespace = std::string("robot_") + std::to_string(i);
-    _pub_twist_robot.emplace_back(create_publisher<geometry_msgs::msg::Twist>(
+
+    // create publisher
+    _robot[i].pub_twist_robot = create_publisher<geometry_msgs::msg::Twist>(
       robot_namespace + "/cmd_vel",
-      rclcpp::QoS(1).reliable()
-    ));
-    _pub_set_lighting.emplace_back(create_publisher<edu_robot::msg::SetLightingColor>(
+      rclcpp::QoS(2).reliable()
+    );
+    _robot[i].pub_set_lighting = create_publisher<edu_robot::msg::SetLightingColor>(
       robot_namespace + "/set_lighting_color",
-      rclcpp::QoS(1).reliable()
-    ));
-    _sub_kinematic_description.emplace_back(create_subscription<edu_robot::msg::RobotKinematicDescription>(
+      rclcpp::QoS(2).reliable()
+    );
+    _robot[i].pub_target_pose = create_publisher<geometry_msgs::msg::PoseStamped>(
+      robot_namespace + "/target_pose",
+      rclcpp::QoS(2).reliable()
+    );
+
+    // create subscriptions
+    _robot[i].sub_kinematic_description = create_subscription<edu_robot::msg::RobotKinematicDescription>(
       robot_namespace + "/kinematic_description",
       rclcpp::QoS(2).reliable().transient_local(),
       [this, i](std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description) {
         processKinematicDescription(description, i);
       }
-    ));
-    _sub_twist_drift_compensation.emplace_back(create_subscription<geometry_msgs::msg::Twist>(
-      robot_namespace + "/twist_compensation", 
-      rclcpp::QoS(2).best_effort().durability_volatile(), 
-      [this, i](std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg) {
-        callbackTwistDriftCompensation(twist_msg, i);
-      }
-    ));
-    _sub_robot_status.emplace_back(create_subscription<edu_robot::msg::RobotStatusReport>(
+    );
+    _robot[i].sub_robot_status = create_subscription<edu_robot::msg::RobotStatusReport>(
       robot_namespace + "/status_report",
       rclcpp::QoS(2).best_effort().durability_volatile(),
       [this, i](std::shared_ptr<const edu_robot::msg::RobotStatusReport> report) {
         callbackRobotStatusReport(report, i);
       }
-    ));
+    );
+    _robot[i].sub_localization = create_subscription<nav_msgs::msg::Odometry>(
+      robot_namespace + "/localization",
+      rclcpp::QoS(2).best_effort(),
+      [this, i](std::shared_ptr<const nav_msgs::msg::Odometry> msg) {
+        callbackLocalization(msg, i);
+      }
+    );
 
     // Initialize twist calculation variables with default values.
-    _t_fleet_to_robot_velocity.emplace_back(calculate_fleet_to_robot_velocity_matrix(
+    _robot[i].t_fleet_to_robot_velocity = calculate_fleet_to_robot_velocity_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
-    ));
-    _t_fleet_to_robot_transform.emplace_back(calculate_fleet_to_robot_transform_matrix(
+    );
+    _robot[i].t_fleet_to_robot_transform = calculate_fleet_to_robot_transform_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
-    ));    
-    _kinematic_matrix.emplace_back(Eigen::Matrix3d::Identity());
-    _robot_rpm_limit.emplace_back();
-    _lost_fleet_formation.push_back(0);
-    _current_robot_mode.push_back(edu_robot::msg::Mode::INACTIVE);
+    );
+    _robot[i].kinematic_matrix = Eigen::Matrix3d::Identity();
+    _robot[i].lost_fleet_formation = 0;
+    _robot[i].current_mode = edu_robot::msg::Mode::INACTIVE;
   }
 
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
@@ -160,87 +168,92 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   float reduce_factor = 1.0;
 
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    velocity_robot[robot_idx] = _t_fleet_to_robot_velocity[robot_idx] * velocity;
+    velocity_robot[robot_idx] = _robot[robot_idx].t_fleet_to_robot_velocity * velocity;
 
     // Calculate wheel rotation speed using provided kinematic matrix.
     // Apply velocity reduction if a limit is reached.
-    Eigen::VectorXd radps = _kinematic_matrix[robot_idx] * velocity_robot[robot_idx];
+    Eigen::VectorXd radps = _robot[robot_idx].kinematic_matrix * velocity_robot[robot_idx];
 
     // Calculate reduce factor if one or more motors are over limit.
-    for (std::size_t wheel_idx = 0; wheel_idx < _robot_rpm_limit[robot_idx].size(); ++wheel_idx) {
+    for (std::size_t wheel_idx = 0; wheel_idx < _robot[robot_idx].rpm_limit.size(); ++wheel_idx) {
       reduce_factor = std::min(
-        std::abs(_robot_rpm_limit[robot_idx][wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
+        std::abs(_robot[robot_idx].rpm_limit[wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
         reduce_factor
       );
     }
   }
   // If fleet formation is lost stop fleet movement using reduce factor to get back formation.
-  for (const auto lost_formation : _lost_fleet_formation) {
-    reduce_factor = std::min(1.0f - static_cast<float>(lost_formation) / 100.0f, reduce_factor);
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    reduce_factor = std::min(1.0f - static_cast<float>(_robot[robot_idx].lost_fleet_formation) / 100.0f, reduce_factor);
   }
-  std::cout << "reduce factor = " << reduce_factor << std::endl;
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
+    _robot[robot_idx].pub_twist_robot->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
   }
 }
 
-void FleetControlNode::callbackTwistDriftCompensation(
-  std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index)
-{
-  if (_current_robot_mode[robot_index] != edu_robot::msg::Mode::AUTONOMOUS) {
-    return;
-  }
+// void FleetControlNode::callbackTwistDriftCompensation(
+//   std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index)
+// {
+//   if (_current_robot_mode[robot_index] != edu_robot::msg::Mode::AUTONOMOUS) {
+//     return;
+//   }
 
-  const Eigen::Vector2d twist_cmd(twist_msg->linear.x, twist_msg->linear.y);
-  const double velocity = twist_cmd.norm();
+//   const Eigen::Vector2d twist_cmd(twist_msg->linear.x, twist_msg->linear.y);
+//   const double velocity = twist_cmd.norm();
 
-  if (_lost_fleet_formation[robot_index] == 0 && velocity >= _parameter.drift_limit) {
-    RCLCPP_INFO(get_logger(), "Robot %lu lost fleet formation.", robot_index);
-    // Lost fleet formation!
-    _lost_fleet_formation[robot_index] = 100; // == 100%
+//   if (_lost_fleet_formation[robot_index] == 0 && velocity >= _parameter.drift_limit) {
+//     RCLCPP_INFO(get_logger(), "Robot %lu lost fleet formation.", robot_index);
+//     // Lost fleet formation!
+//     _lost_fleet_formation[robot_index] = 100; // == 100%
 
-    // Indicate lost by flashing red lighting.
-    edu_robot::msg::SetLightingColor lighting_msg;
+//     // Indicate lost by flashing red lighting.
+//     edu_robot::msg::SetLightingColor lighting_msg;
 
-    lighting_msg.r = 25;
-    lighting_msg.g = 0;
-    lighting_msg.b = 0;
+//     lighting_msg.r = 25;
+//     lighting_msg.g = 0;
+//     lighting_msg.b = 0;
 
-    lighting_msg.brightness.data = 0.7;
-    lighting_msg.lighting_name = "all";
-    lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
+//     lighting_msg.brightness.data = 0.7;
+//     lighting_msg.lighting_name = "all";
+//     lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
 
-    _pub_set_lighting[robot_index]->publish(lighting_msg);
-  }
-  else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
-    RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
-    // Fleet formation is fine.
-    _lost_fleet_formation[robot_index] = 0; // == 0%
+//     _pub_set_lighting[robot_index]->publish(lighting_msg);
+//   }
+//   else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
+//     RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
+//     // Fleet formation is fine.
+//     _lost_fleet_formation[robot_index] = 0; // == 0%
 
-    // Indicate normal operation by flashing white lighting.
-    edu_robot::msg::SetLightingColor lighting_msg;
+//     // Indicate normal operation by flashing white lighting.
+//     edu_robot::msg::SetLightingColor lighting_msg;
 
-    lighting_msg.r = 25;
-    lighting_msg.g = 25;
-    lighting_msg.b = 25;
+//     lighting_msg.r = 25;
+//     lighting_msg.g = 25;
+//     lighting_msg.b = 25;
 
-    lighting_msg.brightness.data = 0.7;
-    lighting_msg.lighting_name = "all";
-    lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
+//     lighting_msg.brightness.data = 0.7;
+//     lighting_msg.lighting_name = "all";
+//     lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
 
-    _pub_set_lighting[robot_index]->publish(lighting_msg);    
-  }
-  else if (_lost_fleet_formation[robot_index] != 0) {
-    // Calculate new formation lost indicator value.
-    _lost_fleet_formation[robot_index] = static_cast<std::uint8_t>((velocity / _parameter.drift_limit) * 100.0);
-    _lost_fleet_formation[robot_index] = std::min<std::uint8_t>(_lost_fleet_formation[robot_index], 100);
-  }
-}
+//     _pub_set_lighting[robot_index]->publish(lighting_msg);    
+//   }
+//   else if (_lost_fleet_formation[robot_index] != 0) {
+//     // Calculate new formation lost indicator value.
+//     _lost_fleet_formation[robot_index] = static_cast<std::uint8_t>((velocity / _parameter.drift_limit) * 100.0);
+//     _lost_fleet_formation[robot_index] = std::min<std::uint8_t>(_lost_fleet_formation[robot_index], 100);
+//   }
+// }
 
 void FleetControlNode::callbackRobotStatusReport(
     std::shared_ptr<const edu_robot::msg::RobotStatusReport> report, const std::size_t robot_index)
 {
-  _current_robot_mode[robot_index] = report->robot_state.mode.mode;
+  _robot[robot_index].current_mode = report->robot_state.mode.mode;
+}
+
+void FleetControlNode::callbackLocalization(
+  std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index)
+{
+  
 }
 
 void FleetControlNode::callbackServiceGetTransform(
@@ -261,15 +274,9 @@ void FleetControlNode::callbackServiceGetTransform(
   // Calculate transformation: t_to * t_from.inv() * p = t * p
   const std::size_t idx_from = search_from - _parameter.robot_name.begin();
   const std::size_t idx_to = search_to - _parameter.robot_name.begin();
-  // std::cout << "idx from = " << idx_from << std::endl;
-  // std::cout << "idx to = "<< idx_to << std::endl;
-  const auto t_from = _t_fleet_to_robot_transform[idx_from];
-  const auto t_to = _t_fleet_to_robot_transform[idx_to];
-  // std::cout << "t from:\n" << t_from << std::endl;
-  // std::cout << "t to:\n" << t_to << std::endl;
+  const auto t_from = _robot[idx_from].t_fleet_to_robot_transform;
+  const auto t_to = _robot[idx_to].t_fleet_to_robot_transform;
   const Eigen::Matrix3d t = t_from.inverse() * t_to;
-  std::cout << "t:\n" << t << std::endl;
-  // std::cout << "p:\n" << t * Eigen::Vector3d(0.0, 0.0, 1.0) << std::endl;
 
   // Copying Result to Response
   response->t.rows = t.rows();
@@ -291,24 +298,24 @@ void FleetControlNode::callbackServiceGetTransform(
 void FleetControlNode::processKinematicDescription(
   std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
-  if (robot_index >= _kinematic_matrix.size() || robot_index >= _robot_rpm_limit.size()) {
+  if (static_cast<Eigen::Index>(robot_index) >= _robot[robot_index].kinematic_matrix.size() || robot_index >= _robot.size()) {
     RCLCPP_ERROR(get_logger(), "Robot index out of range. Must not be happen! Debug it!");
     return;
   }
 
-  _kinematic_matrix[robot_index].resize(description->k.rows, description->k.cols);
-  _robot_rpm_limit[robot_index].clear();
-  _robot_rpm_limit[robot_index].reserve(description->wheel_limits.size());
+  _robot[robot_index].kinematic_matrix.resize(description->k.rows, description->k.cols);
+  _robot[robot_index].rpm_limit.clear();
+  _robot[robot_index].rpm_limit.reserve(description->wheel_limits.size());
 
-  for (Eigen::Index row = 0; row < _kinematic_matrix[robot_index].rows(); ++row) {
-    for (Eigen::Index col = 0; col < _kinematic_matrix[robot_index].cols(); ++col) {
-      _kinematic_matrix[robot_index](row, col) = description->k.data[row * description->k.cols + col];
+  for (Eigen::Index row = 0; row < _robot[robot_index].kinematic_matrix.rows(); ++row) {
+    for (Eigen::Index col = 0; col < _robot[robot_index].kinematic_matrix.cols(); ++col) {
+      _robot[robot_index].kinematic_matrix(row, col) = description->k.data[row * description->k.cols + col];
     }
   }
   for (const auto& limit : description->wheel_limits) {
-    _robot_rpm_limit[robot_index].emplace_back(limit);
+    _robot[robot_index].rpm_limit.emplace_back(limit);
   }
-  std::cout << "kinematic matrix:\n" << _kinematic_matrix[robot_index] << std::endl;
+  RCLCPP_INFO_STREAM(get_logger(), "received kinematic matrix:\n" << _robot[robot_index].kinematic_matrix);
 }
 
 } // end namespace fleet

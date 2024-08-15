@@ -42,6 +42,7 @@ ament_target_dependencies(fleet_control_node
   "rclcpp"
   "geometry_msgs"
   "edu_robot"
+  "visualization_msgs"
 )
 
 ### Fleet Localization
