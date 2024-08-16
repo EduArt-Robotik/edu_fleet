@@ -24,6 +24,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
+#include <Eigen/Geometry>
 
 #include <memory>
 #include <vector>
@@ -65,6 +66,9 @@ private:
     std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index);
 
   Parameter _parameter;
+  Eigen::Vector2d _fleet_position; //> not used for the moment
+  Eigen::Rotation2Dd _fleet_orientation;
+
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
   std::shared_ptr<rclcpp::Service<edu_fleet::srv::GetTransform>> _srv_server_get_transform;
 
@@ -76,8 +80,6 @@ private:
     std::vector<eduart::robot::Rpm> rpm_limit;
     std::uint8_t lost_fleet_formation; //> value != 0 indicates fleet formation is lost
     std::uint8_t current_mode;
-
-    
 
     // subscriptions
     std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>> sub_robot_status;
