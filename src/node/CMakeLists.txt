@@ -35,6 +35,7 @@ add_executable(fleet_control_node
   fleet_control_node.cpp
 )
 target_link_libraries(fleet_control_node
+  eduart-fleet-sensor-model  
   Eigen3::Eigen
   "${cpp_typesupport_target}"
 )

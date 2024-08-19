@@ -1,11 +1,11 @@
 #include "fleet_control_node.hpp"
 
+#include <edu_fleet/sensor_model/message_converting.hpp>
+
 #include <Eigen/Geometry>
 
-#include <Eigen/src/Core/Matrix.h>
 #include <cstddef>
 #include <functional>
-#include <iterator>
 #include <string>
 
 namespace eduart {
@@ -125,6 +125,8 @@ FleetControlNode::FleetControlNode()
     _robot[i].kinematic_matrix = Eigen::Matrix3d::Identity();
     _robot[i].lost_fleet_formation = 0;
     _robot[i].current_mode = edu_robot::msg::Mode::INACTIVE;
+    _robot[i].position = Eigen::Vector2d::Zero();
+    _robot[i].orientation = 0.0;
   }
 
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
@@ -143,29 +145,16 @@ FleetControlNode::~FleetControlNode()
 
 }
 
-static geometry_msgs::msg::Twist to_twist_message(const Eigen::Vector3d& velocity)
-{
-  geometry_msgs::msg::Twist msg;
-
-  msg.linear.x = velocity.x();
-  msg.linear.y = velocity.y();
-  msg.linear.z = 0.0;
-
-  msg.angular.x = 0.0;
-  msg.angular.y = 0.0;
-  msg.angular.z = velocity.z();
-
-  return msg;
-}
-
 void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg)
 {
+  using sensor_model::message_converting;
+
   // Calculate each robot's velocity.
   const Eigen::Vector3d velocity(twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
   std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> velocity_robot(_parameter.number_of_robots);
 
   // Keep robot's wheel speed below physical limits.
-  float reduce_factor = 1.0;
+  double reduce_factor = 1.0;
 
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
     velocity_robot[robot_idx] = _robot[robot_idx].t_fleet_to_robot_velocity * velocity;
@@ -176,7 +165,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
 
     // Calculate reduce factor if one or more motors are over limit.
     for (std::size_t wheel_idx = 0; wheel_idx < _robot[robot_idx].rpm_limit.size(); ++wheel_idx) {
-      reduce_factor = std::min(
+      reduce_factor = std::min<double>(
         std::abs(_robot[robot_idx].rpm_limit[wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
         reduce_factor
       );
@@ -184,10 +173,32 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
   }
   // If fleet formation is lost stop fleet movement using reduce factor to get back formation.
   for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
-    reduce_factor = std::min(1.0f - static_cast<float>(_robot[robot_idx].lost_fleet_formation) / 100.0f, reduce_factor);
+    reduce_factor = std::min<double>(1.0f - static_cast<float>(_robot[robot_idx].lost_fleet_formation) / 100.0f, reduce_factor);
   }
+
+  // calculate new fleet pose
+  const double dt = static_cast<double>(_parameter.expected_sending_interval.count()) / 1000.0;
+  const Eigen::Vector2d v(twist_msg->linear.x, twist_msg->linear.y);
+  
+  _fleet_position += reduce_factor * dt * v;
+  _fleet_orientation += dt * robot::AnglePiToPi(twist_msg->angular.z);
+
+  // calculate new robot poses
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    const Eigen::Vector2d v(velocity_robot[robot_idx].x(), velocity_robot[robot_idx].y());
+    _robot[robot_idx].target_position = _robot[robot_idx].position + reduce_factor * dt * v;
+    _robot[robot_idx].target_orientation = _robot[robot_idx].orientation + reduce_factor + dt * velocity_robot[robot_idx].z();
+  }
+
+  // publishing new control commands and set points
   for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    _robot[robot_idx].pub_twist_robot->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
+    // velocity feed forward control
+    _robot[robot_idx].pub_twist_robot->publish(message_converting<>::to_ros(velocity_robot[robot_idx] * reduce_factor));
+
+    // target pose for pose controller on the robot
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header =  
+    _robot[robot_idx].pub_target_pose->publish()
   }
 }
 
@@ -253,7 +264,12 @@ void FleetControlNode::callbackRobotStatusReport(
 void FleetControlNode::callbackLocalization(
   std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index)
 {
-  
+  _robot[robot_index].position.x() = msg->pose.pose.position.x;
+  _robot[robot_index].position.y() = msg->pose.pose.position.y;
+
+  _robot[robot_index].orientation = sensor_model::message_converting<>::quaternion_to_yaw(
+    msg->pose.pose.orientation
+  );
 }
 
 void FleetControlNode::callbackServiceGetTransform(

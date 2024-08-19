@@ -28,6 +28,7 @@
 
 #include <memory>
 #include <vector>
+#include <chrono>
 
 namespace eduart {
 namespace fleet {
@@ -45,7 +46,8 @@ public:
     };
     std::vector<Pose2D> robot_pose;
     std::vector<std::string> robot_name;
-    double drift_limit = 0.05;
+    std::chrono::milliseconds expected_sending_interval{10}; // 10ms
+    double drift_limit = 0.1; // 0.1m
   };
 
   FleetControlNode();
@@ -66,8 +68,8 @@ private:
     std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index);
 
   Parameter _parameter;
-  Eigen::Vector2d _fleet_position; //> not used for the moment
-  Eigen::Rotation2Dd _fleet_orientation;
+  Eigen::Vector2d _fleet_position; //> not used for the moment, or not really
+  robot::AnglePiToPi _fleet_orientation;
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
   std::shared_ptr<rclcpp::Service<edu_fleet::srv::GetTransform>> _srv_server_get_transform;
@@ -80,6 +82,11 @@ private:
     std::vector<eduart::robot::Rpm> rpm_limit;
     std::uint8_t lost_fleet_formation; //> value != 0 indicates fleet formation is lost
     std::uint8_t current_mode;
+
+    Eigen::Vector2d position;
+    robot::AnglePiToPi orientation;
+    Eigen::Vector2d target_position;
+    robot::AnglePiToPi target_orientation;
 
     // subscriptions
     std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>> sub_robot_status;

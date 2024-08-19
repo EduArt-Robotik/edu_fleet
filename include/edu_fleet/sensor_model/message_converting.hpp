@@ -25,25 +25,53 @@ namespace sensor_model {
 
 using kalman_filter::Data;
 
-template <class>
+template <class = void>
 struct message_converting;
+
+template <>
+struct message_converting<void> {
+  static robot::AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q) {
+    return std::atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
+  }
+
+  static geometry_msgs::msg::Twist to_ros(const Eigen::Vector3d& velocity) {
+    geometry_msgs::msg::Twist msg;
+
+    msg.linear.x = velocity.x();
+    msg.linear.y = velocity.y();
+    msg.linear.z = 0.0;
+
+    msg.angular.x = 0.0;
+    msg.angular.y = 0.0;
+    msg.angular.z = velocity.z();
+
+    return msg;    
+  }
+  static geometry_msgs::msg::Twist to_ros(const Eigen::Vector2d& linear_velocity, const robot::Angle& angular_velocity) {
+    geometry_msgs::msg::Twist msg;
+
+    msg.linear.x = linear_velocity.x();
+    msg.linear.y = linear_velocity.y();
+    msg.linear.z = 0.0;
+
+    msg.angular.x = 0.0;
+    msg.angular.y = 0.0;
+    msg.angular.z = angular_velocity;
+
+    return msg;    
+  } 
+};
 
 /**
  * \brief Converts ros messages to measurement vector and covariance matrix.
  */
 template <kalman_filter::Attribute... Attributes>
-struct message_converting<kalman_filter::AttributePack<Attributes...>> {
+struct message_converting<kalman_filter::AttributePack<Attributes...>> : public message_converting<>
+{
   using Pack = kalman_filter::AttributePack<Attributes...>;
 
   // Helper
   static robot::AnglePiToPi quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q) {
-    // const Eigen::Vector3d e_x = Eigen::Vector3d::UnitX();
-    // const Eigen::Quaterniond R(q.w, q.x, q.y, q.z);
-    // Eigen::Vector3d v = R * e_x;
-    // v.z() = 0.0;
-
-    // return e_x.dot(v);
-
     return std::atan2(2.0 * (q.z * q.w + q.x * q.y), -1.0 + 2.0 * (q.w * q.w + q.x * q.x));
   }
 
