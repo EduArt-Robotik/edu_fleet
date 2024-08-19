@@ -59,6 +59,17 @@ struct message_converting<void> {
     msg.angular.z = angular_velocity;
 
     return msg;    
+  }
+  static geometry_msgs::msg::Quaternion to_ros(const robot::Angle& yaw) {
+    geometry_msgs::msg::Quaternion msg;
+    const Eigen::Quaterniond q(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+
+    msg.w = q.w();
+    msg.x = q.x();
+    msg.y = q.y();
+    msg.z = q.z();
+
+    return msg;
   } 
 };
 
