@@ -166,11 +166,17 @@ void PoseController::process()
   const Eigen::Vector2f target_point = position_feedback - position_set_point;
   RCLCPP_INFO(get_logger(), "target point: x = %f, y = %f", target_point.x(), target_point.y());
 
-  // Linear X
-  _output->linear.x = _controller[0]->process(0.0f, -target_point.x(), dt);
+  Eigen::Vector2f output(
+    // Linear X
+    _controller[0]->process(0.0f, target_point.x(), dt),
+    // Linear Y
+    _controller[1]->process(0.0f, target_point.y(), dt)
+  );
+  // rotate output in robot frame
+  output = Eigen::Rotation2Df(-yaw_feedback) * output;
 
-  // Linear Y
-  _output->linear.y = _controller[1]->process(0.0f, -target_point.y(), dt); 
+  _output->linear.x = output.x();
+  _output->linear.y = output.y();
 
   // \todo replace hack with proper implementation
   if (std::abs(_output->linear.x)  < 0.01) _output->linear.x = 0.0;
