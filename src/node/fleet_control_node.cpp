@@ -49,11 +49,13 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
   ros_node.declare_parameter<int>("timeout_ms", parameter.timeout.count());
   ros_node.declare_parameter<int>("number_of_robots", parameter.number_of_robots);
   ros_node.declare_parameter<double>("drift_limit", parameter.drift_limit);
+  ros_node.declare_parameter<std::string>("world_frame_id", parameter.world_frame_id);
 
   parameter.process_interval = std::chrono::milliseconds(ros_node.get_parameter("process_interval_ms").as_int());
   parameter.timeout = std::chrono::milliseconds(ros_node.get_parameter("timeout_ms").as_int());
   parameter.number_of_robots = ros_node.get_parameter("number_of_robots").as_int();
   parameter.drift_limit = ros_node.get_parameter("drift_limit").as_double();
+  parameter.world_frame_id = ros_node.get_parameter("world_frame_id").as_string();
 
   // Depending on the number of robots n transformation matrices will be constructed.
   for (std::size_t i = 0; i < parameter.number_of_robots; ++i) {
@@ -132,6 +134,9 @@ FleetControlNode::FleetControlNode()
     _robot[i].current_mode = edu_robot::msg::Mode::INACTIVE;
     _robot[i].position = Eigen::Vector2d::Zero();
     _robot[i].orientation = 0.0;
+    _robot[i].target_position.x() = _parameter.robot_pose[i].x;
+    _robot[i].target_position.y() = _parameter.robot_pose[i].y;
+    _robot[i].target_orientation = _parameter.robot_pose[i].yaw;
   }
 
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
@@ -191,9 +196,11 @@ void FleetControlNode::process()
   // calculate new robot poses
   for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
     const Eigen::Vector2d v(_robot[robot_idx].velocity.x(), _robot[robot_idx].velocity.y());
-    _robot[robot_idx].target_position = _robot[robot_idx].position + _velocity_reduce_factor * dt * v;
+    const Eigen::Rotation2Dd R(_robot[robot_idx].target_orientation);
+
+    _robot[robot_idx].target_position = _robot[robot_idx].target_position + _velocity_reduce_factor * dt * (R * v);
     _robot[robot_idx].target_orientation =
-      _robot[robot_idx].orientation + _velocity_reduce_factor + dt * _robot[robot_idx].velocity.z();
+      _robot[robot_idx].target_orientation + _velocity_reduce_factor * dt * _robot[robot_idx].velocity.z();
   }
 
   // publishing new control commands and set points
