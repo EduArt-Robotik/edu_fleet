@@ -1,12 +1,12 @@
 ## Build Nodes
 ### Pose Controller
 add_executable(pose_controller
-  pid_controller.cpp
   pose_controller_node.cpp
 )
 target_link_libraries(pose_controller
   Eigen3::Eigen
   "${cpp_typesupport_target}"
+  eduart-fleet-controller
 )
 ament_target_dependencies(pose_controller
   "rclcpp"

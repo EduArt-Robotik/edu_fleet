@@ -5,10 +5,13 @@
  */
 #pragma once
 
+#include "edu_fleet/controller/controller_interface.hpp"
+
 namespace eduart {
 namespace fleet {
+namespace controller {
 
-class PidController
+class Pid : public ControllerInterface
 {
 public:
   struct Parameter {
@@ -20,10 +23,12 @@ public:
     bool use_anti_windup = true;
   } parameter;
 
-  PidController() = default;
-
-  void reset();
-  double operator()(const double set_point, const double feedback, const double dt);
+  ~Pid() override = default;
+  void reset() override;
+  double process(const double set_point, const double feedback, const double dt) override;
+  double operator()(const double set_point, const double feedback, const double dt) {
+    return process(set_point, feedback, dt);
+  }
 
 private:
   double _e_integral = 0.0;
@@ -32,5 +37,6 @@ private:
   double _previous_feedback = 0.0;
 };
 
+} // end namespace controller
 } // end namespace fleet
 } // end namespace eduart
