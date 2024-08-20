@@ -64,6 +64,7 @@ install(
     eduart-fleet-sensor-model
     eduart-fleet-kalman-filter
     eduart-fleet-transform
+    eduart-fleet-controller
   EXPORT export_${PROJECT_NAME}
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

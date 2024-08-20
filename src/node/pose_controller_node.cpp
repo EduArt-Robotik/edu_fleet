@@ -76,10 +76,15 @@ PoseController::PoseController()
   _controller[2] = std::move(controller);  
 
   // creating subscriptions and publisher
-  _sub_current_pose = create_subscription<geometry_msgs::msg::PoseStamped>(
+  _sub_current_pose = create_subscription<nav_msgs::msg::Odometry>(
     "pose_feedback",
-    rclcpp::QoS(1).best_effort(),
+    rclcpp::QoS(2).best_effort(),
     std::bind(&PoseController::callbackCurrentPose, this, std::placeholders::_1)
+  );
+  _sub_target_pose = create_subscription<geometry_msgs::msg::PoseStamped>(
+    "pose_target", 
+    rclcpp::QoS(2).best_effort(),
+    std::bind(&PoseController::callbackTargetPose, this, std::placeholders::_1)
   );
   _pub_twist = create_publisher<geometry_msgs::msg::Twist>(
     "twist_output", rclcpp::QoS(1).reliable()
@@ -95,15 +100,15 @@ PoseController::~PoseController()
 
 }
 
-void PoseController::callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg)
+void PoseController::callbackCurrentPose(std::shared_ptr<const nav_msgs::msg::Odometry> odometry_msg)
 {
   // only work in given frame id to avoid tf transform that takes too long...
-  if (pose_msg->header.frame_id != _parameter.frame_id) {
+  if (odometry_msg->header.frame_id != _parameter.frame_id) {
     RCLCPP_ERROR(get_logger(), "received pose must be in frame \"%s\"", _parameter.frame_id.c_str());
     return;
   }
 
-  *_feedback = pose_msg->pose;
+  *_feedback = odometry_msg->pose.pose;
   process();
 }
 
@@ -142,16 +147,20 @@ void PoseController::process()
   // \todo setup NTP server for robot fleet and use msg time.
   const auto now = get_clock()->now();
   // Keep dt smaller than 100ms. Bigger values are bad for the PID controller.
-  const double dt = std::min((now - _stamp_last_processed).seconds(), 0.1);
+  const double dt = std::max(std::min((now - _stamp_last_processed).seconds(), 0.1), 1e-3);
+  // dt == 0 leads to nan in pid controller...
 
   // Yaw Orientation
   const robot::AnglePiToPi yaw_feedback  = sensor_model::message_converting<>::quaternion_to_yaw(_feedback->orientation);
   const robot::AnglePiToPi yaw_set_point = sensor_model::message_converting<>::quaternion_to_yaw(_set_point->orientation);
-
-  _output->angular.z = _controller[2]->process(-yaw_set_point, -yaw_feedback, dt);
+  const robot::AnglePiToPi yaw_target = yaw_feedback - yaw_set_point;
+  RCLCPP_INFO(get_logger(), "feedback yaw: %f, set point yaw: %f", yaw_feedback.radian(), yaw_set_point.radian());
+  RCLCPP_INFO(get_logger(), "target yaw: %f", yaw_target.radian());
+  _output->angular.z = _controller[2]->process(0.0, yaw_target, dt);
 
   // Linear
   const Eigen::Vector2f position_feedback(_feedback->position.x, _feedback->position.y);
+  RCLCPP_INFO(get_logger(), "feedback point: x = %f, y = %f", position_feedback.x(), position_feedback.y());
   const Eigen::Vector2f position_set_point(_set_point->position.x, _set_point->position.y);
   RCLCPP_INFO(get_logger(), "set point: x = %f, y = %f", position_set_point.x(), position_set_point.y());
   const Eigen::Vector2f target_point = position_feedback - position_set_point;

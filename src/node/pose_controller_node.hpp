@@ -12,6 +12,7 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include <aruco_opencv_msgs/msg/aruco_detection.hpp>
 
@@ -49,7 +50,7 @@ public:
   static Parameter get_parameter(rclcpp::Node& ros_node);
 
 private:
-  void callbackCurrentPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg);
+  void callbackCurrentPose(std::shared_ptr<const nav_msgs::msg::Odometry> odometry_msg);
   void callbackTargetPose(std::shared_ptr<const geometry_msgs::msg::PoseStamped> pose_msg);
   void process();
   std::string getRobotName() const;
@@ -61,7 +62,8 @@ private:
   std::unique_ptr<geometry_msgs::msg::Twist> _output;
   rclcpp::Time _stamp_last_processed;
 
-  std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> _sub_current_pose;
+  std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_current_pose;
+  std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>> _sub_target_pose;
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
 
   std::shared_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
