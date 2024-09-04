@@ -78,6 +78,7 @@ target_link_libraries(robot_localization_node
 ament_target_dependencies(robot_localization_node
   "rclcpp"
   "geometry_msgs"
+  "tf2_sensor_msgs"
   "nav_msgs"
   "edu_robot"
   "std_srvs"
