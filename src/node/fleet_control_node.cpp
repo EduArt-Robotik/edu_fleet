@@ -148,6 +148,10 @@ FleetControlNode::FleetControlNode()
     "fleet/get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
   );
+  _pub_fleet_odometry = create_publisher<nav_msgs::msg::Odometry>(
+    "fleet/odometry", 
+    rclcpp::QoS(5).reliable()
+  );
   _pub_visualization = create_publisher<visualization_msgs::msg::MarkerArray>(
     "fleet/debug/target_pose",
     rclcpp::QoS(5).reliable()
@@ -162,6 +166,9 @@ FleetControlNode::FleetControlNode()
     get_node_base_interface(), get_node_timers_interface(), get_clock(),
     rclcpp::Duration(_parameter.process_interval),
     std::bind(&FleetControlNode::process, this)
+  );
+  _parameter_handle = add_on_set_parameters_callback(
+    std::bind(&FleetControlNode::callbackParameter, this, std::placeholders::_1)
   );
 }
 
@@ -228,6 +235,10 @@ void FleetControlNode::process()
   //   reduce_factor = std::min<double>(1.0f - static_cast<float>(_robot[robot_idx].lost_fleet_formation) / 100.0f, reduce_factor);
   // }
 
+  // publishing current fleet odometry
+  _pub_fleet_odometry->publish(getOdometryMessage(stamp_now));
+
+  // publishing debug info
   if (_pub_visualization->get_subscription_count() > 0) {
     // publishing debug visualization message for RViz
     _pub_visualization->publish(getDebugMessage(stamp_now));
@@ -296,20 +307,7 @@ void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::m
 //   }
 //   else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
 //     RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
-//     // Fleet formation is fine.
-//     _lost_fleet_formation[robot_index] = 0; // == 0%
-
-//     // Indicate normal operation by flashing white lighting.
-//     edu_robot::msg::SetLightingColor lighting_msg;
-
-//     lighting_msg.r = 25;
-//     lighting_msg.g = 25;
-//     lighting_msg.b = 25;
-
-//     lighting_msg.brightness.data = 0.7;
-//     lighting_msg.lighting_name = "all";
-//     lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
-
+//     // Fleet formation is  using sensor_model::message_converting;
 //     _pub_set_lighting[robot_index]->publish(lighting_msg);    
 //   }
 //   else if (_lost_fleet_formation[robot_index] != 0) {
@@ -375,6 +373,81 @@ void FleetControlNode::callbackServiceGetTransform(
   std::cout << std::endl;
 }    
 
+rcl_interfaces::msg::SetParametersResult FleetControlNode::callbackParameter(
+  const std::vector<rclcpp::Parameter>& parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+
+  // only accept parameters if none of them is invalid
+  bool found = false;
+
+  for (const auto& parameter : parameters) {
+    for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+      const std::string robot_name = std::string("robot_") + std::to_string(i);
+
+      if (parameter.get_name() == robot_name + ".x") {
+        found = true;
+      }
+      else if (parameter.get_name() == robot_name + ".y") {
+        found = true;
+      }
+      else if (parameter.get_name() == robot_name + ".yaw") {
+        found = true;
+      }
+      else {
+        result.successful = false;
+        result.reason = "parameter \"" + parameter.get_name() + "\" is unkown";
+        return result;
+      }
+    }
+  }
+
+  if (found == false) {
+    result.successful = false;
+    result.reason = "one or more given parameter are unkown or not changeable";
+    return result;
+  }
+
+  // accept given parameter
+  for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+    const std::string robot_name = std::string("robot_") + std::to_string(i);
+
+    for (const auto& parameter : parameters) {
+      if (parameter.get_name().find(robot_name) != std::string::npos) {
+        // found robot name in parameter name
+
+        if (parameter.get_name().find(robot_name + ".yaw") != std::string::npos) {
+          _parameter.robot_pose[i].yaw = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].yaw, parameter.get_name().c_str()
+          );
+        }
+        else if (parameter.get_name().find(robot_name + ".x") != std::string::npos) {
+          _parameter.robot_pose[i].x = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].x, parameter.get_name().c_str()
+          );
+        }
+        else if (parameter.get_name().find(robot_name + ".y") != std::string::npos) {
+          _parameter.robot_pose[i].y = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].y, parameter.get_name().c_str()
+          );
+        }
+        else {
+          RCLCPP_ERROR(get_logger(), "should never be called!");
+        }
+      }
+    }
+  }
+
+  result.successful = true;
+  return result;
+}
+
 void FleetControlNode::processKinematicDescription(
   std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
@@ -396,6 +469,27 @@ void FleetControlNode::processKinematicDescription(
     _robot[robot_index].rpm_limit.emplace_back(limit);
   }
   RCLCPP_INFO_STREAM(get_logger(), "received kinematic matrix:\n" << _robot[robot_index].kinematic_matrix);
+}
+
+nav_msgs::msg::Odometry FleetControlNode::getOdometryMessage(const rclcpp::Time stamp) const
+{
+  using sensor_model::message_converting;
+
+  nav_msgs::msg::Odometry odometry;
+
+  odometry.header.stamp = stamp;
+  odometry.header.frame_id = _parameter.world_frame_id;
+
+  odometry.child_frame_id = _parameter.world_frame_id;
+  odometry.pose.pose.position.x = _fleet_position.x();
+  odometry.pose.pose.position.y = _fleet_position.y();
+  odometry.pose.pose.orientation = message_converting<>::to_ros(_fleet_orientation);
+
+  const Eigen::Vector2d linear_velocity(_fleet_velocity.x(), _fleet_velocity.y());
+  const robot::Angle angular_velocity = _fleet_velocity.z();
+  odometry.twist.twist = message_converting<>::to_ros(linear_velocity, angular_velocity);
+
+  return odometry;
 }
 
 visualization_msgs::msg::MarkerArray FleetControlNode::getDebugMessage(const rclcpp::Time stamp) const

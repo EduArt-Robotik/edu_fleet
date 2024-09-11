@@ -69,9 +69,12 @@ private:
     std::shared_ptr<const edu_robot::msg::RobotStatusReport> report, const std::size_t robot_index);
   void callbackLocalization(
     std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index);
+  rcl_interfaces::msg::SetParametersResult callbackParameter(const std::vector<rclcpp::Parameter>& parameters);
   void processKinematicDescription(
     std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index);
+
   visualization_msgs::msg::MarkerArray getDebugMessage(const rclcpp::Time stamp) const;
+  nav_msgs::msg::Odometry getOdometryMessage(const rclcpp::Time stamp) const;
 
   Parameter _parameter;
   Eigen::Vector2d _fleet_position; //> not used for the moment, or not really
@@ -83,8 +86,10 @@ private:
 
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_twist_fleet;
   std::shared_ptr<rclcpp::Service<edu_fleet::srv::GetTransform>> _srv_server_get_transform;
+  std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> _pub_fleet_odometry;
   std::shared_ptr<rclcpp::Publisher<visualization_msgs::msg::MarkerArray>> _pub_visualization; //> used to debug target pose
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
+  std::shared_ptr<rclcpp::node_interfaces::OnSetParametersCallbackHandle> _parameter_handle;
 
   struct Robot {
     // robot related things
