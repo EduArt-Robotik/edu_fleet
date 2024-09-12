@@ -61,6 +61,11 @@ install(
     twist_accumulator
     fleet_localization_node
     robot_localization_node
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+install(
+  TARGETS
     # libraries
     eduart-fleet-sensor-model
     eduart-fleet-kalman-filter
@@ -84,5 +89,30 @@ if(BUILD_TESTING)
 
   add_subdirectory(src/test)
 endif()
+
+ament_export_include_directories(
+  include
+)
+ament_export_libraries(
+  eduart-fleet-sensor-model
+  eduart-fleet-kalman-filter
+  eduart-fleet-transform
+  eduart-fleet-controller
+)
+ament_export_dependencies(
+  rclcpp
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  tf2_sensor_msgs
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  Eigen3
+  std_srvs
+)
+ament_export_targets(
+  export_${PROJECT_NAME}
+)
 
 ament_package()
