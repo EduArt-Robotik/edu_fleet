@@ -384,7 +384,6 @@ rcl_interfaces::msg::SetParametersResult FleetControlNode::callbackParameter(
   for (const auto& parameter : parameters) {
     for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
       const std::string robot_name = std::string("robot_") + std::to_string(i);
-
       if (parameter.get_name() == robot_name + ".x") {
         found = true;
       }
@@ -394,17 +393,12 @@ rcl_interfaces::msg::SetParametersResult FleetControlNode::callbackParameter(
       else if (parameter.get_name() == robot_name + ".yaw") {
         found = true;
       }
-      else {
-        result.successful = false;
-        result.reason = "parameter \"" + parameter.get_name() + "\" is unkown";
-        return result;
-      }
     }
   }
 
   if (found == false) {
     result.successful = false;
-    result.reason = "one or more given parameter are unkown or not changeable";
+    result.reason = "no changeable parameter was given";
     return result;
   }
 
