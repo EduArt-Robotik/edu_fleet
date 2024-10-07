@@ -1,11 +1,11 @@
 #include "fleet_control_node.hpp"
 
+#include <edu_fleet/sensor_model/message_converting.hpp>
+
 #include <Eigen/Geometry>
 
-#include <Eigen/src/Core/Matrix.h>
 #include <cstddef>
 #include <functional>
-#include <iterator>
 #include <string>
 
 namespace eduart {
@@ -45,10 +45,17 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
 {
   FleetControlNode::Parameter parameter;
 
+  ros_node.declare_parameter<int>("process_interval_ms", parameter.process_interval.count());
+  ros_node.declare_parameter<int>("timeout_ms", parameter.timeout.count());
   ros_node.declare_parameter<int>("number_of_robots", parameter.number_of_robots);
   ros_node.declare_parameter<double>("drift_limit", parameter.drift_limit);
+  ros_node.declare_parameter<std::string>("world_frame_id", parameter.world_frame_id);
+
+  parameter.process_interval = std::chrono::milliseconds(ros_node.get_parameter("process_interval_ms").as_int());
+  parameter.timeout = std::chrono::milliseconds(ros_node.get_parameter("timeout_ms").as_int());
   parameter.number_of_robots = ros_node.get_parameter("number_of_robots").as_int();
   parameter.drift_limit = ros_node.get_parameter("drift_limit").as_double();
+  parameter.world_frame_id = ros_node.get_parameter("world_frame_id").as_string();
 
   // Depending on the number of robots n transformation matrices will be constructed.
   for (std::size_t i = 0; i < parameter.number_of_robots; ++i) {
@@ -73,60 +80,95 @@ FleetControlNode::Parameter FleetControlNode::get_parameter(rclcpp::Node& ros_no
 FleetControlNode::FleetControlNode()
   : rclcpp::Node("fleet_control_node")
   , _parameter(get_parameter(*this))
+  , _robot(_parameter.number_of_robots)
 {
-  for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+  for (std::size_t i = 0; i < _robot.size(); ++i) {
     const std::string robot_namespace = std::string("robot_") + std::to_string(i);
-    _pub_twist_robot.emplace_back(create_publisher<geometry_msgs::msg::Twist>(
+
+    // create publisher
+    _robot[i].pub_twist_robot = create_publisher<geometry_msgs::msg::Twist>(
       robot_namespace + "/cmd_vel",
-      rclcpp::QoS(1).reliable()
-    ));
-    _pub_set_lighting.emplace_back(create_publisher<edu_robot::msg::SetLightingColor>(
+      rclcpp::QoS(2).reliable()
+    );
+    _robot[i].pub_set_lighting = create_publisher<edu_robot::msg::SetLightingColor>(
       robot_namespace + "/set_lighting_color",
-      rclcpp::QoS(1).reliable()
-    ));
-    _sub_kinematic_description.emplace_back(create_subscription<edu_robot::msg::RobotKinematicDescription>(
-      robot_namespace + "/kinematic_description",
+      rclcpp::QoS(2).reliable()
+    );
+    _robot[i].pub_target_pose = create_publisher<geometry_msgs::msg::PoseStamped>(
+      robot_namespace + "/target_pose",
+      rclcpp::QoS(2).reliable()
+    );
+
+    // create subscriptions
+    _robot[i].sub_kinematic_description = create_subscription<edu_robot::msg::RobotKinematicDescription>(
+      robot_namespace + "/robot_kinematic_description",
       rclcpp::QoS(2).reliable().transient_local(),
       [this, i](std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description) {
         processKinematicDescription(description, i);
       }
-    ));
-    _sub_twist_drift_compensation.emplace_back(create_subscription<geometry_msgs::msg::Twist>(
-      robot_namespace + "/twist_compensation", 
-      rclcpp::QoS(2).best_effort().durability_volatile(), 
-      [this, i](std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg) {
-        callbackTwistDriftCompensation(twist_msg, i);
-      }
-    ));
-    _sub_robot_status.emplace_back(create_subscription<edu_robot::msg::RobotStatusReport>(
+    );
+    _robot[i].sub_robot_status = create_subscription<edu_robot::msg::RobotStatusReport>(
       robot_namespace + "/status_report",
       rclcpp::QoS(2).best_effort().durability_volatile(),
       [this, i](std::shared_ptr<const edu_robot::msg::RobotStatusReport> report) {
         callbackRobotStatusReport(report, i);
       }
-    ));
+    );
+    _robot[i].sub_localization = create_subscription<nav_msgs::msg::Odometry>(
+      robot_namespace + "/localization",
+      rclcpp::QoS(2).best_effort(),
+      [this, i](std::shared_ptr<const nav_msgs::msg::Odometry> msg) {
+        callbackLocalization(msg, i);
+      }
+    );
 
     // Initialize twist calculation variables with default values.
-    _t_fleet_to_robot_velocity.emplace_back(calculate_fleet_to_robot_velocity_matrix(
+    _robot[i].t_fleet_to_robot_velocity = calculate_fleet_to_robot_velocity_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
-    ));
-    _t_fleet_to_robot_transform.emplace_back(calculate_fleet_to_robot_transform_matrix(
+    );
+    _robot[i].t_fleet_to_robot_transform = calculate_fleet_to_robot_transform_matrix(
       _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
-    ));    
-    _kinematic_matrix.emplace_back(Eigen::Matrix3d::Identity());
-    _robot_rpm_limit.emplace_back();
-    _lost_fleet_formation.push_back(0);
-    _current_robot_mode.push_back(edu_robot::msg::Mode::INACTIVE);
+    );
+    _robot[i].kinematic_matrix = Eigen::Matrix3d::Identity();
+    _robot[i].lost_fleet_formation = 0;
+    _robot[i].current_mode = edu_robot::msg::Mode::INACTIVE;
+    _robot[i].position = Eigen::Vector2d::Zero();
+    _robot[i].orientation = 0.0;
+    _robot[i].target_position.x() = _parameter.robot_pose[i].x;
+    _robot[i].target_position.y() = _parameter.robot_pose[i].y;
+    _robot[i].target_orientation = _parameter.robot_pose[i].yaw;
   }
 
   _sub_twist_fleet = create_subscription<geometry_msgs::msg::Twist>(
-    "/cmd_vel",
+    "fleet/cmd_vel",
     rclcpp::QoS(1).best_effort(),
     std::bind(&FleetControlNode::callbackTwistFleet, this, std::placeholders::_1)
   );
-  _srv_server_get_transform = create_service<edu_swarm::srv::GetTransform>(
-    "/get_transform",
+  _srv_server_get_transform = create_service<edu_fleet::srv::GetTransform>(
+    "fleet/get_transform",
     std::bind(&FleetControlNode::callbackServiceGetTransform, this, std::placeholders::_1, std::placeholders::_2)
+  );
+  _pub_fleet_odometry = create_publisher<nav_msgs::msg::Odometry>(
+    "fleet/odometry", 
+    rclcpp::QoS(5).reliable()
+  );
+  _pub_visualization = create_publisher<visualization_msgs::msg::MarkerArray>(
+    "fleet/debug/target_pose",
+    rclcpp::QoS(5).reliable()
+  );
+
+  // start processing using timer
+  // velocity is zero at start up, so nothing should happen
+  const auto stamp_now = get_clock()->now();
+  _stamp_last_processing = stamp_now;
+  _stamp_last_twist_received = stamp_now;
+  _timer_processing = rclcpp::create_timer(
+    get_node_base_interface(), get_node_timers_interface(), get_clock(),
+    rclcpp::Duration(_parameter.process_interval),
+    std::bind(&FleetControlNode::process, this)
+  );
+  _parameter_handle = add_on_set_parameters_callback(
+    std::bind(&FleetControlNode::callbackParameter, this, std::placeholders::_1)
   );
 }
 
@@ -135,117 +177,166 @@ FleetControlNode::~FleetControlNode()
 
 }
 
-static geometry_msgs::msg::Twist to_twist_message(const Eigen::Vector3d& velocity)
+void FleetControlNode::process()
 {
-  geometry_msgs::msg::Twist msg;
+  const auto stamp_now = get_clock()->now();
 
-  msg.linear.x = velocity.x();
-  msg.linear.y = velocity.y();
-  msg.linear.z = 0.0;
+  // only process if received twist message isn't deprecated
+  if ((stamp_now - _stamp_last_twist_received) > rclcpp::Duration::from_nanoseconds(_parameter.timeout.count() * 1000000)) {
+    // setting all velocities to zero
+    _fleet_velocity = Eigen::Vector3d::Zero();
 
-  msg.angular.x = 0.0;
-  msg.angular.y = 0.0;
-  msg.angular.z = velocity.z();
+    for (auto& robot : _robot) {
+      robot.velocity = Eigen::Vector3d::Zero();
+    }
+  }
 
-  return msg;
+  using sensor_model::message_converting;
+
+  // calculate new fleet pose
+  const double dt = (stamp_now - _stamp_last_processing).seconds();
+  const Eigen::Vector2d v_fleet(_fleet_velocity.x(), _fleet_velocity.y());
+  
+  _fleet_position += dt * v_fleet * _velocity_reduce_factor;
+  _fleet_orientation += dt * robot::AnglePiToPi(_fleet_velocity.z() * _velocity_reduce_factor);
+
+  // calculate new robot poses
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    const Eigen::Vector2d v(_robot[robot_idx].velocity.x(), _robot[robot_idx].velocity.y());
+    const Eigen::Rotation2Dd R(_robot[robot_idx].target_orientation);
+
+    _robot[robot_idx].target_position = _robot[robot_idx].target_position + _velocity_reduce_factor * dt * (R * v);
+    _robot[robot_idx].target_orientation =
+      _robot[robot_idx].target_orientation + _velocity_reduce_factor * dt * _robot[robot_idx].velocity.z();
+  }
+
+  // publishing new control commands and set points
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    // velocity feed forward control
+    _robot[robot_idx].pub_twist_robot->publish(
+      message_converting<>::to_ros(_robot[robot_idx].velocity * _velocity_reduce_factor)
+    );
+
+    // target pose for pose controller on the robot
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = _parameter.world_frame_id;
+    pose.header.stamp = stamp_now;
+
+    pose.pose.position.x = _robot[robot_idx].target_position.x();
+    pose.pose.position.y = _robot[robot_idx].target_position.y();
+    pose.pose.orientation = message_converting<>::to_ros(_robot[robot_idx].target_orientation);
+
+    _robot[robot_idx].pub_target_pose->publish(pose);
+  }
+
+  // If fleet formation is lost stop fleet movement using reduce factor to get back formation.
+  // \todo handle fleet formation lose
+  // for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+  //   reduce_factor = std::min<double>(1.0f - static_cast<float>(_robot[robot_idx].lost_fleet_formation) / 100.0f, reduce_factor);
+  // }
+
+  // publishing current fleet odometry
+  _pub_fleet_odometry->publish(getOdometryMessage(stamp_now));
+
+  // publishing debug info
+  if (_pub_visualization->get_subscription_count() > 0) {
+    // publishing debug visualization message for RViz
+    _pub_visualization->publish(getDebugMessage(stamp_now));
+  }
+
+  _stamp_last_processing = stamp_now;
 }
 
 void FleetControlNode::callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg)
 {
+  using sensor_model::message_converting;
+
   // Calculate each robot's velocity.
   const Eigen::Vector3d velocity(twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
-  std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> velocity_robot(_parameter.number_of_robots);
 
-  // Keep robot's wheel speed below physical limits.
-  float reduce_factor = 1.0;
+  // Keep robot's wheel speed below physical limits. Using reduce factor for this.
+  _velocity_reduce_factor = 1.0;
 
-  for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    velocity_robot[robot_idx] = _t_fleet_to_robot_velocity[robot_idx] * velocity;
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    _robot[robot_idx].velocity = _robot[robot_idx].t_fleet_to_robot_velocity * velocity;
 
     // Calculate wheel rotation speed using provided kinematic matrix.
     // Apply velocity reduction if a limit is reached.
-    Eigen::VectorXd radps = _kinematic_matrix[robot_idx] * velocity_robot[robot_idx];
+    Eigen::VectorXd radps = _robot[robot_idx].kinematic_matrix * _robot[robot_idx].velocity;
 
     // Calculate reduce factor if one or more motors are over limit.
-    for (std::size_t wheel_idx = 0; wheel_idx < _robot_rpm_limit[robot_idx].size(); ++wheel_idx) {
-      reduce_factor = std::min(
-        std::abs(_robot_rpm_limit[robot_idx][wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
-        reduce_factor
+    for (std::size_t wheel_idx = 0; wheel_idx < _robot[robot_idx].rpm_limit.size(); ++wheel_idx) {
+      _velocity_reduce_factor = std::min<double>(
+        std::abs(_robot[robot_idx].rpm_limit[wheel_idx] / eduart::robot::Rpm::fromRadps(radps(wheel_idx))),
+        _velocity_reduce_factor
       );
     }
   }
-  // If fleet formation is lost stop fleet movement using reduce factor to get back formation.
-  for (const auto lost_formation : _lost_fleet_formation) {
-    reduce_factor = std::min(1.0f - static_cast<float>(lost_formation) / 100.0f, reduce_factor);
-  }
-  std::cout << "reduce factor = " << reduce_factor << std::endl;
-  for (std::size_t robot_idx = 0; robot_idx < velocity_robot.size(); ++robot_idx) {
-    _pub_twist_robot[robot_idx]->publish(to_twist_message(velocity_robot[robot_idx] * reduce_factor));
-  }
+
+  _fleet_velocity = velocity;
+  _stamp_last_twist_received = get_clock()->now();
 }
 
-void FleetControlNode::callbackTwistDriftCompensation(
-  std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index)
-{
-  if (_current_robot_mode[robot_index] != edu_robot::msg::Mode::AUTONOMOUS) {
-    return;
-  }
+// void FleetControlNode::callbackTwistDriftCompensation(
+//   std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg, const std::size_t robot_index)
+// {
+//   if (_current_robot_mode[robot_index] != edu_robot::msg::Mode::AUTONOMOUS) {
+//     return;
+//   }
 
-  const Eigen::Vector2d twist_cmd(twist_msg->linear.x, twist_msg->linear.y);
-  const double velocity = twist_cmd.norm();
+//   const Eigen::Vector2d twist_cmd(twist_msg->linear.x, twist_msg->linear.y);
+//   const double velocity = twist_cmd.norm();
 
-  if (_lost_fleet_formation[robot_index] == 0 && velocity >= _parameter.drift_limit) {
-    RCLCPP_INFO(get_logger(), "Robot %lu lost fleet formation.", robot_index);
-    // Lost fleet formation!
-    _lost_fleet_formation[robot_index] = 100; // == 100%
+//   if (_lost_fleet_formation[robot_index] == 0 && velocity >= _parameter.drift_limit) {
+//     RCLCPP_INFO(get_logger(), "Robot %lu lost fleet formation.", robot_index);
+//     // Lost fleet formation!
+//     _lost_fleet_formation[robot_index] = 100; // == 100%
 
-    // Indicate lost by flashing red lighting.
-    edu_robot::msg::SetLightingColor lighting_msg;
+//     // Indicate lost by flashing red lighting.
+//     edu_robot::msg::SetLightingColor lighting_msg;
 
-    lighting_msg.r = 25;
-    lighting_msg.g = 0;
-    lighting_msg.b = 0;
+//     lighting_msg.r = 25;
+//     lighting_msg.g = 0;
+//     lighting_msg.b = 0;
 
-    lighting_msg.brightness.data = 0.7;
-    lighting_msg.lighting_name = "all";
-    lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
+//     lighting_msg.brightness.data = 0.7;
+//     lighting_msg.lighting_name = "all";
+//     lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
 
-    _pub_set_lighting[robot_index]->publish(lighting_msg);
-  }
-  else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
-    RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
-    // Fleet formation is fine.
-    _lost_fleet_formation[robot_index] = 0; // == 0%
-
-    // Indicate normal operation by flashing white lighting.
-    edu_robot::msg::SetLightingColor lighting_msg;
-
-    lighting_msg.r = 25;
-    lighting_msg.g = 25;
-    lighting_msg.b = 25;
-
-    lighting_msg.brightness.data = 0.7;
-    lighting_msg.lighting_name = "all";
-    lighting_msg.mode = edu_robot::msg::SetLightingColor::FLASH;
-
-    _pub_set_lighting[robot_index]->publish(lighting_msg);    
-  }
-  else if (_lost_fleet_formation[robot_index] != 0) {
-    // Calculate new formation lost indicator value.
-    _lost_fleet_formation[robot_index] = static_cast<std::uint8_t>((velocity / _parameter.drift_limit) * 100.0);
-    _lost_fleet_formation[robot_index] = std::min<std::uint8_t>(_lost_fleet_formation[robot_index], 100);
-  }
-}
+//     _pub_set_lighting[robot_index]->publish(lighting_msg);
+//   }
+//   else if (_lost_fleet_formation[robot_index] != 0 && velocity < 0.02) {
+//     RCLCPP_INFO(get_logger(), "Robot %lu back in fleet formation.", robot_index);    
+//     // Fleet formation is  using sensor_model::message_converting;
+//     _pub_set_lighting[robot_index]->publish(lighting_msg);    
+//   }
+//   else if (_lost_fleet_formation[robot_index] != 0) {
+//     // Calculate new formation lost indicator value.
+//     _lost_fleet_formation[robot_index] = static_cast<std::uint8_t>((velocity / _parameter.drift_limit) * 100.0);
+//     _lost_fleet_formation[robot_index] = std::min<std::uint8_t>(_lost_fleet_formation[robot_index], 100);
+//   }
+// }
 
 void FleetControlNode::callbackRobotStatusReport(
     std::shared_ptr<const edu_robot::msg::RobotStatusReport> report, const std::size_t robot_index)
 {
-  _current_robot_mode[robot_index] = report->robot_state.mode.mode;
+  _robot[robot_index].current_mode = report->robot_state.mode.mode;
+}
+
+void FleetControlNode::callbackLocalization(
+  std::shared_ptr<const nav_msgs::msg::Odometry> msg, const std::size_t robot_index)
+{
+  _robot[robot_index].position.x() = msg->pose.pose.position.x;
+  _robot[robot_index].position.y() = msg->pose.pose.position.y;
+
+  _robot[robot_index].orientation = sensor_model::message_converting<>::quaternion_to_yaw(
+    msg->pose.pose.orientation
+  );
 }
 
 void FleetControlNode::callbackServiceGetTransform(
-  const std::shared_ptr<edu_swarm::srv::GetTransform::Request> request, 
-  std::shared_ptr<edu_swarm::srv::GetTransform::Response> response)
+  const std::shared_ptr<edu_fleet::srv::GetTransform::Request> request, 
+  std::shared_ptr<edu_fleet::srv::GetTransform::Response> response)
 {
   const auto search_from = std::find(
     _parameter.robot_name.begin(), _parameter.robot_name.end(), request->from_robot);
@@ -261,15 +352,9 @@ void FleetControlNode::callbackServiceGetTransform(
   // Calculate transformation: t_to * t_from.inv() * p = t * p
   const std::size_t idx_from = search_from - _parameter.robot_name.begin();
   const std::size_t idx_to = search_to - _parameter.robot_name.begin();
-  // std::cout << "idx from = " << idx_from << std::endl;
-  // std::cout << "idx to = "<< idx_to << std::endl;
-  const auto t_from = _t_fleet_to_robot_transform[idx_from];
-  const auto t_to = _t_fleet_to_robot_transform[idx_to];
-  // std::cout << "t from:\n" << t_from << std::endl;
-  // std::cout << "t to:\n" << t_to << std::endl;
+  const auto t_from = _robot[idx_from].t_fleet_to_robot_transform;
+  const auto t_to = _robot[idx_to].t_fleet_to_robot_transform;
   const Eigen::Matrix3d t = t_from.inverse() * t_to;
-  std::cout << "t:\n" << t << std::endl;
-  // std::cout << "p:\n" << t * Eigen::Vector3d(0.0, 0.0, 1.0) << std::endl;
 
   // Copying Result to Response
   response->t.rows = t.rows();
@@ -288,27 +373,155 @@ void FleetControlNode::callbackServiceGetTransform(
   std::cout << std::endl;
 }    
 
+rcl_interfaces::msg::SetParametersResult FleetControlNode::callbackParameter(
+  const std::vector<rclcpp::Parameter>& parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+
+  // only accept parameters if none of them is invalid
+  bool found = false;
+
+  for (const auto& parameter : parameters) {
+    for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+      const std::string robot_name = std::string("robot_") + std::to_string(i);
+      if (parameter.get_name() == robot_name + ".x") {
+        found = true;
+      }
+      else if (parameter.get_name() == robot_name + ".y") {
+        found = true;
+      }
+      else if (parameter.get_name() == robot_name + ".yaw") {
+        found = true;
+      }
+    }
+  }
+
+  if (found == false) {
+    result.successful = false;
+    result.reason = "no changeable parameter was given";
+    return result;
+  }
+
+  // accept given parameter
+  for (std::size_t i = 0; i < _parameter.number_of_robots; ++i) {
+    const std::string robot_name = std::string("robot_") + std::to_string(i);
+
+    for (const auto& parameter : parameters) {
+      if (parameter.get_name().find(robot_name) != std::string::npos) {
+        // found robot name in parameter name
+
+        if (parameter.get_name().find(robot_name + ".yaw") != std::string::npos) {
+          _parameter.robot_pose[i].yaw = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].yaw, parameter.get_name().c_str()
+          );
+        }
+        else if (parameter.get_name().find(robot_name + ".x") != std::string::npos) {
+          _parameter.robot_pose[i].x = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].x, parameter.get_name().c_str()
+          );
+        }
+        else if (parameter.get_name().find(robot_name + ".y") != std::string::npos) {
+          _parameter.robot_pose[i].y = parameter.get_value<double>();
+          RCLCPP_INFO(
+            get_logger(), "get new value %f.2 for parameter \"%s\"",
+            _parameter.robot_pose[i].y, parameter.get_name().c_str()
+          );
+        }
+        else {
+          RCLCPP_ERROR(get_logger(), "should never be called!");
+        }
+      }
+    }
+  }
+
+  result.successful = true;
+  return result;
+}
+
 void FleetControlNode::processKinematicDescription(
   std::shared_ptr<const edu_robot::msg::RobotKinematicDescription> description, const std::size_t robot_index)
 {
-  if (robot_index >= _kinematic_matrix.size() || robot_index >= _robot_rpm_limit.size()) {
+  if (static_cast<Eigen::Index>(robot_index) >= _robot[robot_index].kinematic_matrix.size() || robot_index >= _robot.size()) {
     RCLCPP_ERROR(get_logger(), "Robot index out of range. Must not be happen! Debug it!");
     return;
   }
 
-  _kinematic_matrix[robot_index].resize(description->k.rows, description->k.cols);
-  _robot_rpm_limit[robot_index].clear();
-  _robot_rpm_limit[robot_index].reserve(description->wheel_limits.size());
+  _robot[robot_index].kinematic_matrix.resize(description->k.rows, description->k.cols);
+  _robot[robot_index].rpm_limit.clear();
+  _robot[robot_index].rpm_limit.reserve(description->wheel_limits.size());
 
-  for (Eigen::Index row = 0; row < _kinematic_matrix[robot_index].rows(); ++row) {
-    for (Eigen::Index col = 0; col < _kinematic_matrix[robot_index].cols(); ++col) {
-      _kinematic_matrix[robot_index](row, col) = description->k.data[row * description->k.cols + col];
+  for (Eigen::Index row = 0; row < _robot[robot_index].kinematic_matrix.rows(); ++row) {
+    for (Eigen::Index col = 0; col < _robot[robot_index].kinematic_matrix.cols(); ++col) {
+      _robot[robot_index].kinematic_matrix(row, col) = description->k.data[row * description->k.cols + col];
     }
   }
   for (const auto& limit : description->wheel_limits) {
-    _robot_rpm_limit[robot_index].emplace_back(limit);
+    _robot[robot_index].rpm_limit.emplace_back(limit);
   }
-  std::cout << "kinematic matrix:\n" << _kinematic_matrix[robot_index] << std::endl;
+  RCLCPP_INFO_STREAM(get_logger(), "received kinematic matrix:\n" << _robot[robot_index].kinematic_matrix);
+}
+
+nav_msgs::msg::Odometry FleetControlNode::getOdometryMessage(const rclcpp::Time stamp) const
+{
+  using sensor_model::message_converting;
+
+  nav_msgs::msg::Odometry odometry;
+
+  odometry.header.stamp = stamp;
+  odometry.header.frame_id = _parameter.world_frame_id;
+
+  odometry.child_frame_id = _parameter.world_frame_id;
+  odometry.pose.pose.position.x = _fleet_position.x();
+  odometry.pose.pose.position.y = _fleet_position.y();
+  odometry.pose.pose.orientation = message_converting<>::to_ros(_fleet_orientation);
+
+  const Eigen::Vector2d linear_velocity(_fleet_velocity.x(), _fleet_velocity.y());
+  const robot::Angle angular_velocity = _fleet_velocity.z();
+  odometry.twist.twist = message_converting<>::to_ros(linear_velocity, angular_velocity);
+
+  return odometry;
+}
+
+visualization_msgs::msg::MarkerArray FleetControlNode::getDebugMessage(const rclcpp::Time stamp) const
+{
+  visualization_msgs::msg::MarkerArray debug_msg;
+
+  for (std::size_t robot_idx = 0; robot_idx < _robot.size(); ++robot_idx) {
+    visualization_msgs::msg::Marker marker;
+
+    marker.header.frame_id = _parameter.world_frame_id;
+    marker.header.stamp = stamp;
+
+    marker.id = robot_idx;
+    marker.action = marker.ADD;
+    marker.type = marker.SPHERE;
+
+    marker.scale.x = 0.1;
+    marker.scale.y = 0.1;
+    marker.scale.z = 0.1;
+
+    marker.color.r = 1.0;
+    marker.color.a = 0.5;
+
+    marker.pose.position.x = _robot[robot_idx].target_position.x();
+    marker.pose.position.y = _robot[robot_idx].target_position.y();
+    marker.pose.position.z = 0.2; // to get a floating sphere over the robot
+
+    debug_msg.markers.emplace_back(std::move(marker));
+    // marker.points.emplace_back();
+    // marker.points.back().x = robot.target_position.x();
+    // marker.points.back().y = robot.target_position.y();
+
+    // marker.colors.emplace_back();
+    // marker.colors.back().r = 1.0;
+    // marker.colors.back().a = 0.5;
+  }
+
+  return debug_msg;
 }
 
 } // end namespace fleet

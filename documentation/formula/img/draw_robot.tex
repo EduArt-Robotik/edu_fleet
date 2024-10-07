@@ -1,0 +1,65 @@
+%% -----------------------------------------------------------------------------------------------------------------
+% Draws a wheel at given position and orientation.
+% arguments:
+% #1: position [x,y]
+% #2: orientation [°]
+\newcommand{\drawomiwheelleft}[2]{
+    \begin{scope}[shift={(#1)}]
+        \begin{scope}[rotate=#2]
+            \draw [line width=0.4mm, draw=black] (-0.245,-0.42) rectangle ++(0.49,0.77);
+            \draw [line width=0.2mm, fill=gray, rotate around={45:(0.21,0.07)}] (-0.345,-0.03) rectangle ++(0.42,0.14);
+            \draw [line width=0.2mm, fill=gray, rotate around={45:(0.21,0.07)}] (-0.105, 0.21) rectangle ++(0.42,0.14);
+        \end{scope}
+    \end{scope}
+}
+\newcommand{\drawomiwheelright}[2]{
+    \begin{scope}[shift={(#1)}]
+        \begin{scope}[rotate=#2]
+            \draw [line width=0.4mm, draw=black] (-0.245,-0.42) rectangle ++(0.49,0.77);
+            % \draw [line width=0.2mm, draw=black, rotate around={-45:(0.21,0.07)}] ( 0.03,-0.32) rectangle ++(0.42,0.14);
+            % \draw [line width=0.2mm, draw=black, rotate around={-45:(0.21,0.07)}] (-0.17,-0.09) rectangle ++(0.42,0.14);
+            \draw [line width=0.2mm, fill=gray, rotate around={-45:(0.21,0.07)}] (0.03, -0.345) rectangle ++(0.42,0.14);
+            \draw [line width=0.2mm, fill=gray, rotate around={-45:(0.21,0.07)}] (-0.21,-0.105) rectangle ++(0.42,0.14);
+        \end{scope}
+    \end{scope}
+}
+%% -----------------------------------------------------------------------------------------------------------------
+
+%% -----------------------------------------------------------------------------------------------------------------
+% Draws a coordinate system at given position and orientation. Additional a text label is printed as well without
+% orientation. Note: position of text is buggy!
+% #1: name [text]
+% #2: position [x,y]
+% #3: orientation [°]
+\newcommand{\drawcoordinatesystem}[3]{
+    \begin{scope}[shift={(#2)}]
+        \begin{scope}[rotate=#3]
+            \node (#1) at (0,0) {};
+            \draw [-stealth, draw=red,   line width=0.5mm] (0,0) -- ( 0,1);
+            \draw [-stealth, draw=green, line width=0.5mm] (0,0) -- (-1,0);
+            \filldraw [fill=black] (0,0) circle (1mm);
+        \end{scope}
+        \node at (-0.5, -0.0) {#1};
+    \end{scope}
+}
+%% -----------------------------------------------------------------------------------------------------------------
+
+%% -----------------------------------------------------------------------------------------------------------------
+% Draws a robot at given position and orientation. The given name will be printed at robot's origin.
+% #1: name [text]
+% #2: position [x,y]
+% #3: orientation [°]
+\newcommand{\drawrobot}[3]{
+    \begin{scope}[shift={(#2)}]
+        \begin{scope}[rotate=#3]
+            \drawomiwheelright{0.84,-0.84}{0};
+            \drawomiwheelleft{-0.84,-0.84}{0};
+            \drawomiwheelleft{ 0.84, 0.84}{0};
+            \drawomiwheelright{-0.84, 0.84}{0};
+            \draw [draw=black, line width=0.4mm] (-0.5,-1.0) rectangle ++(1.0,2.0);
+            \draw [draw=black, dashed, line width=0.3mm] (0,0) circle (1.1879);
+        \end{scope}
+    \end{scope}    
+    \drawcoordinatesystem{#1}{#2}{#3}
+}
+%% -----------------------------------------------------------------------------------------------------------------

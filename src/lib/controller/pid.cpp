@@ -1,9 +1,10 @@
-#include "pid_controller.hpp"
+#include "edu_fleet/controller/pid.hpp"
 
 namespace eduart {
 namespace fleet {
+namespace controller {
 
-void PidController::reset()
+void Pid::reset()
 {
   _e_integral = 0.0;
   _e_prev = 0.0;
@@ -11,7 +12,7 @@ void PidController::reset()
 	_previous_feedback = 0.0;
 }
 
-double PidController::operator()(const double set_point, const double feedback, const double dt)
+double Pid::process(const double set_point, const double feedback, const double dt)
 {
 	const double filtered_feedback = (1.0 - parameter.input_filter_weight) * _previous_feedback 
 	                               + feedback * parameter.input_filter_weight;
@@ -44,5 +45,6 @@ double PidController::operator()(const double set_point, const double feedback, 
 	return fy;  
 }
 
+} // end namespace controller
 } // end namespace fleet
 } // end namespace eduart

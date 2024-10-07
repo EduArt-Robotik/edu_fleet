@@ -1,12 +1,12 @@
 ## Build Nodes
 ### Pose Controller
 add_executable(pose_controller
-  pid_controller.cpp
   pose_controller_node.cpp
 )
 target_link_libraries(pose_controller
   Eigen3::Eigen
   "${cpp_typesupport_target}"
+  eduart-fleet-controller
 )
 ament_target_dependencies(pose_controller
   "rclcpp"
@@ -17,7 +17,6 @@ ament_target_dependencies(pose_controller
   "aruco_opencv_msgs"
   "edu_robot"
 )
-rosidl_target_interfaces(pose_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ### Twist Accumulator
 add_executable(twist_accumulator
@@ -30,13 +29,13 @@ ament_target_dependencies(twist_accumulator
   "rclcpp"
   "geometry_msgs"
 )
-# rosidl_target_interfaces(twist_accumulator ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ### Control Node
 add_executable(fleet_control_node
   fleet_control_node.cpp
 )
 target_link_libraries(fleet_control_node
+  eduart-fleet-sensor-model  
   Eigen3::Eigen
   "${cpp_typesupport_target}"
 )
@@ -44,5 +43,43 @@ ament_target_dependencies(fleet_control_node
   "rclcpp"
   "geometry_msgs"
   "edu_robot"
+  "visualization_msgs"
 )
-rosidl_target_interfaces(fleet_control_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+### Fleet Localization
+add_executable(fleet_localization_node
+  fleet_localization_node.cpp
+)
+target_link_libraries(fleet_localization_node
+  Eigen3::Eigen
+  eduart-fleet-kalman-filter
+  eduart-fleet-sensor-model
+  "${cpp_typesupport_target}"
+)
+ament_target_dependencies(fleet_localization_node
+  "rclcpp"
+  "geometry_msgs"
+  "nav_msgs"
+  "edu_robot"
+  "std_srvs"
+)
+
+### Robot Localization
+add_executable(robot_localization_node
+  robot_localization_node.cpp
+)
+target_link_libraries(robot_localization_node
+  Eigen3::Eigen
+  eduart-fleet-kalman-filter
+  eduart-fleet-sensor-model
+  eduart-fleet-transform
+  "${cpp_typesupport_target}"
+)
+ament_target_dependencies(robot_localization_node
+  "rclcpp"
+  "geometry_msgs"
+  "tf2_sensor_msgs"
+  "nav_msgs"
+  "edu_robot"
+  "std_srvs"
+)
