@@ -1,7 +1,7 @@
-image_name = eduart-swarm:0.2.1
+image_name = eduart-fleet:0.3.0
 
 download-sources:
-	git clone --branch 0.2.0 git@github.com:EduArt-Robotik/edu_swarm.git
+	git clone --branch 0.3.0 git@github.com:EduArt-Robotik/edu_swarm.git
 
 build-docker:
 	docker build -t $(image_name) .
