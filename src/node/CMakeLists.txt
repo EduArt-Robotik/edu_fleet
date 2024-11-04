@@ -18,6 +18,24 @@ ament_target_dependencies(pose_controller
   "edu_robot"
 )
 
+### Line Controller
+### Optional
+if (${sick_lidar_localization_FOUND})
+  message(STATUS "Building Line Controller for Sick Line Follower")
+
+  add_executable(line_controller_node
+    line_controller_node.cpp
+  )
+  target_link_libraries(line_controller_node
+    eduart-fleet-controller
+  )
+  ament_target_dependencies(line_controller_node
+  "rclcpp"
+  "geometry_msgs"
+  "sick_lidar_localization"
+)  
+endif()
+
 ### Twist Accumulator
 add_executable(twist_accumulator
   twist_accumulator.cpp

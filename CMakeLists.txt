@@ -27,6 +27,10 @@ find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
+# optional packages
+find_package(sick_lidar_localization)
+
+
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}
 # Messages
@@ -61,6 +65,7 @@ install(
     twist_accumulator
     fleet_localization_node
     robot_localization_node
+    line_controller_node
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
