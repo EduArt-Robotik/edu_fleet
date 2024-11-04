@@ -101,3 +101,16 @@ ament_target_dependencies(robot_localization_node
   "edu_robot"
   "std_srvs"
 )
+
+### Collision Avoidance LiDAR
+add_executable(collision_avoidance_lidar_node
+  collision_avoidance_lidar_node.cpp
+)
+target_link_libraries(collision_avoidance_lidar_node
+
+)
+ament_target_dependencies(collision_avoidance_lidar_node
+  "rclcpp"
+  "geometry_msgs"
+  "sensor_msgs"
+)
