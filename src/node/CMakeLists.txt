@@ -23,17 +23,30 @@ ament_target_dependencies(pose_controller
 if (${sick_lidar_localization_FOUND})
   message(STATUS "Building Line Controller for Sick Line Follower")
 
-  add_executable(line_controller_node
-    line_controller_node.cpp
+  add_executable(sick_line_controller_node
+    sick_line_controller_node.cpp
   )
-  target_link_libraries(line_controller_node
+  target_link_libraries(sick_line_controller_node
     eduart-fleet-controller
   )
-  ament_target_dependencies(line_controller_node
-  "rclcpp"
-  "geometry_msgs"
-  "sick_lidar_localization"
-)  
+  ament_target_dependencies(sick_line_controller_node
+    "rclcpp"
+    "geometry_msgs"
+    "sick_lidar_localization"
+  )
+
+  add_executable(sick_line_navigation_node
+    sick_line_navigation_node.cpp
+  )
+  target_link_libraries(sick_line_navigation_node
+
+  )
+  ament_target_dependencies(sick_line_navigation_node
+    "rclcpp"
+    "geometry_msgs"
+    "sick_lidar_localization"
+  )
+
 endif()
 
 ### Twist Accumulator

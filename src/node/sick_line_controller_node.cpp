@@ -1,17 +1,18 @@
-#include "line_controller_node.hpp"
+#include "sick_line_controller_node.hpp"
 
 #include <rclcpp/executors.hpp>
 
 namespace eduart {
 namespace fleet {
 
-LineController::Parameter LineController::get_parameter(const Parameter &default_parameter, rclcpp::Node &ros_node)
+SickLineController::Parameter SickLineController::get_parameter(
+  const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
   (void)ros_node;
   return default_parameter;
 }
 
-LineController::LineController()
+SickLineController::SickLineController()
   : rclcpp::Node("line_controller")
   , _parameter(get_parameter({}, *this))
 {
@@ -19,10 +20,14 @@ LineController::LineController()
   _pub_velocity = create_publisher<geometry_msgs::msg::Twist>(
     "out/velocity", rclcpp::QoS(2).reliable()
   );
+  _pub_on_track = create_publisher<std_msgs::msg::Bool>(
+    "out/on_track", 
+    rclcpp::QoS(2).transient_local()
+  );
   _sub_line_sensor = create_subscription<sick_lidar_localization::msg::LineMeasurementMessage0404>(
     "in/line_detection",
     rclcpp::QoS(10).reliable(),
-    std::bind(&LineController::callbackLineSensor, this, std::placeholders::_1)
+    std::bind(&SickLineController::callbackLineSensor, this, std::placeholders::_1)
   );
 
   // Initializing Processing Data
@@ -37,7 +42,7 @@ LineController::LineController()
   _processing_data.stamp_last_processing = get_clock()->now();
 }
 
-void LineController::callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg)
+void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg)
 {
   // Start new measurement cycle if telegram number changed.
   if (msg.telegram_count != _processing_data.current_telegram) {
@@ -66,6 +71,7 @@ void LineController::callbackLineSensor(const sick_lidar_localization::msg::Line
   for (const auto received : _processing_data.line_distance_received) {
     if (received == false) {
       // Minium one measurement is missing --> return
+      RCLCPP_ERROR(get_logger(), "Minium one measurement is missing --> return");
       return;
     }
   }
@@ -80,7 +86,7 @@ void LineController::callbackLineSensor(const sick_lidar_localization::msg::Line
   const double error_line = _processing_data.line_distance[0] - _processing_data.line_distance[1];
   const double error_yaw = std::atan2(error_line, _parameter.d_x);
 
-  const double yaw_rate = _processing_data.orientate_to_line->process(0.0, error_yaw, dt);
+  const double yaw_rate = _processing_data.orientate_to_line->process(0.0, -error_yaw, dt);
 
   RCLCPP_INFO(get_logger(), "yaw error = %f.", error_yaw);
   RCLCPP_INFO(get_logger(), "yaw rate output = %f.", yaw_rate);
@@ -88,10 +94,17 @@ void LineController::callbackLineSensor(const sick_lidar_localization::msg::Line
   // Calculate error in y direction.
   const double error_y = error_line / 2.0f + _processing_data.line_distance[1];
 
-  const double vel_y = _processing_data.stay_on_line->process(0.0, error_y, dt);
+  const double vel_y = _processing_data.stay_on_line->process(0.0, -error_y, dt);
 
   RCLCPP_INFO(get_logger(), "error in y direction = %f.", error_y);
   RCLCPP_INFO(get_logger(), "velocity y = %f.", vel_y);
+
+  // Estimate if robot is on track.
+  std_msgs::msg::Bool on_track;
+
+  on_track.data =
+    std::abs(error_y) < _parameter.max_error_on_track && std::abs(error_yaw) < _parameter.max_error_yaw;
+  _pub_on_track->publish(on_track);
 
   // Finish processing.
   _processing_data.stamp_last_processing = stamp_now;
@@ -110,7 +123,7 @@ void LineController::callbackLineSensor(const sick_lidar_localization::msg::Line
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<eduart::fleet::LineController>());
+  rclcpp::spin(std::make_shared<eduart::fleet::SickLineController>());
   rclcpp::shutdown();
 
   return 0;

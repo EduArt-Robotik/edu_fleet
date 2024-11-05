@@ -65,7 +65,8 @@ install(
     twist_accumulator
     fleet_localization_node
     robot_localization_node
-    # line_controller_node
+    sick_line_controller_node
+    sick_line_navigation_node
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
