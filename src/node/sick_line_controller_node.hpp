@@ -24,7 +24,7 @@ public:
     double d_x = 0.25f; // distance between line sensors in meter
     double gain_yaw = 1.0f; // used to compensate yaw error
     double max_error_on_track = 0.1f; // defines the maximum allowed error between track on current robot pose
-    double max_error_yaw = 10.0 * M_PI / 180.0;
+    double max_error_yaw = 25.0 * M_PI / 180.0;
     std::vector<std::int32_t> source_ids = {1, 2}; // contains all expected virtual line sensor source ids
     
     struct {
