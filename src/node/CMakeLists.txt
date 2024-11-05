@@ -126,4 +126,8 @@ ament_target_dependencies(collision_avoidance_lidar_node
   "rclcpp"
   "geometry_msgs"
   "sensor_msgs"
+  "tf2"
+  "tf2_ros"
+  "tf2_sensor_msgs"
+  "laser_geometry"
 )

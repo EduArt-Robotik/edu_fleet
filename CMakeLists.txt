@@ -26,6 +26,7 @@ find_package(diagnostic_updater REQUIRED)
 find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(laser_geometry REQUIRED)
 
 # optional packages
 find_package(sick_lidar_localization)

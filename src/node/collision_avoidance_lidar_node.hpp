@@ -12,6 +12,11 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+
+#include <laser_geometry/laser_geometry.hpp>
+
 #include <array>
 #include <memory>
 
@@ -24,10 +29,15 @@ public:
   struct Parameter {
     float distance_reduce_velocity = 0.4f;
     float distance_velocity_zero = 0.05;
+    std::string tf_base_link = "base_link";
   };
 
   CollisionAvoidanceLidar();
-  virtual ~CollisionAvoidanceLidar();
+  CollisionAvoidanceLidar(const CollisionAvoidanceLidar &) = delete;
+  CollisionAvoidanceLidar(CollisionAvoidanceLidar &&) = delete;
+  CollisionAvoidanceLidar &operator=(const CollisionAvoidanceLidar &) = delete;
+  CollisionAvoidanceLidar &operator=(CollisionAvoidanceLidar &&) = delete;
+  ~CollisionAvoidanceLidar() override = default;
 
   static Parameter get_parameter(const Parameter& default_parameter, rclcpp::Node& ros_node);
 
@@ -42,6 +52,8 @@ private:
 
   void callbackLaserScan(std::shared_ptr<const sensor_msgs::msg::LaserScan> msg);
   void callbackVelocity(std::shared_ptr<const geometry_msgs::msg::Twist> msg);
+  float calculateReduceFactor(const float distance, const Parameter& parameter) const;
+  std::string getFrameIdPrefix() const;
 
   const Parameter _parameter;
   struct {
@@ -52,6 +64,10 @@ private:
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::LaserScan>> _sub_laser_scan;
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::Twist>> _sub_velocity;
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
+
+  std::unique_ptr<tf2_ros::Buffer> _tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
+  std::shared_ptr<laser_geometry::LaserProjection> _laser_projection;
 };
 
 } // end namespace fleet
