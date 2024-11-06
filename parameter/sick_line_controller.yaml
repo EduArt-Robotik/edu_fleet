@@ -1,0 +1,25 @@
+/**:
+  ros__parameters:
+    # general ros parameter
+    start_type_description_service: true
+    use_sim_time: false
+
+    # application parameter
+    d_x: 0.25 # distance between line sensors
+    max_error_on_track: 0.1 # maximum allowed linear error
+    max_error_yaw: 0.5      # maximum allowed angular error
+
+    # used source ids of line sensors
+    source_ids:
+    - 1
+    - 2
+
+    # controller
+    pid:
+      angular:
+        kp: 1.0
+        limit: 1.5707963267948966
+      linear:
+        kp: 1.0
+        limit: 0.5
+

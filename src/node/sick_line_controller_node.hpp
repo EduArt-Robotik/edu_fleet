@@ -22,16 +22,16 @@ class SickLineController : public rclcpp::Node
 public:
   struct Parameter {
     double d_x = 0.25f; // distance between line sensors in meter
-    double gain_yaw = 1.0f; // used to compensate yaw error
+    // double gain_yaw = 1.0f; // used to compensate yaw error
     double max_error_on_track = 0.1f; // defines the maximum allowed error between track on current robot pose
     double max_error_yaw = 25.0 * M_PI / 180.0;
-    std::vector<std::int32_t> source_ids = {1, 2}; // contains all expected virtual line sensor source ids
+    std::vector<std::int64_t> source_ids = {1, 2}; // contains all expected virtual line sensor source ids
     
     struct {
       controller::Pid::Parameter stay_on_line = {
-         1.0, 0.0, 0.0, 2.0, 1.0, true};
+         1.0, 0.0, 0.0, 0.5, 1.0, true};
       controller::Pid::Parameter orientate_to_line = {
-         1.0, 0.0, 0.0, M_PI, 1.0, true};
+         1.0, 0.0, 0.0, M_PI_2, 1.0, true};
     } pid;
   };
 

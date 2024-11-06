@@ -19,8 +19,7 @@ def generate_launch_description():
   # Bring Up Line Controller Node
   ## Line Controller
   line_controller_parameter_file = PathJoinSubstitution([
-    FindPackageShare('edu_fleet'),
-    'parameter',
+    './',
     'sick_line_controller.yaml'
   ])
 
@@ -41,8 +40,7 @@ def generate_launch_description():
 
   ## Line Navigation
   line_navigation_parameter_file = PathJoinSubstitution([
-    FindPackageShare('edu_fleet'),
-    'parameter',
+    './',
     'sick_line_navigation.yaml'
   ])
 

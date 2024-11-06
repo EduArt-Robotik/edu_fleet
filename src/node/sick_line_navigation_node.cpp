@@ -8,7 +8,12 @@ using namespace std::chrono_literals;
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
-  (void)ros_node;
+  Parameter parameter;
+
+  ros_node.declare_parameter("move_velocity", default_parameter.move_velocity);
+
+  parameter.move_velocity = ros_node.get_parameter("move_velocity").as_double();
+
   return default_parameter;
 }
 

@@ -8,8 +8,29 @@ namespace fleet {
 SickLineController::Parameter SickLineController::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
-  (void)ros_node;
-  return default_parameter;
+  ros_node.declare_parameter<double>("d_x", default_parameter.d_x);
+  ros_node.declare_parameter<double>("max_error_on_track", default_parameter.max_error_on_track);
+  ros_node.declare_parameter<double>("max_error_yaw", default_parameter.max_error_yaw);
+  ros_node.declare_parameter<std::vector<std::int64_t>>("source_ids", default_parameter.source_ids);
+
+  ros_node.declare_parameter<double>("pid.linear.kp", default_parameter.pid.stay_on_line.kp);
+  ros_node.declare_parameter<double>("pid.linear.limit", default_parameter.pid.stay_on_line.limit);
+  ros_node.declare_parameter<double>("pid.angular.kp", default_parameter.pid.orientate_to_line.kp);
+  ros_node.declare_parameter<double>("pid.angular.limit", default_parameter.pid.orientate_to_line.limit);
+
+  Parameter parameter;
+
+  parameter.d_x = ros_node.get_parameter("d_x").as_double();
+  parameter.max_error_on_track = ros_node.get_parameter("max_error_on_track").as_double();
+  parameter.max_error_yaw = ros_node.get_parameter("max_error_yaw").as_double();
+  parameter.source_ids = ros_node.get_parameter("source_ids").as_integer_array();
+
+  parameter.pid.stay_on_line.kp = ros_node.get_parameter("pid.linear.kp").as_double();
+  parameter.pid.stay_on_line.limit = ros_node.get_parameter("max_error_on_track").as_double();
+  parameter.pid.orientate_to_line.kp = ros_node.get_parameter("pid.angular.kp").as_double();
+  parameter.pid.orientate_to_line.limit = ros_node.get_parameter("pid.angular.limit").as_double();
+
+  return parameter;
 }
 
 SickLineController::SickLineController()
