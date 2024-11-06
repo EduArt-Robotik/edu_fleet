@@ -33,6 +33,7 @@ SickLineController::SickLineController()
   // Initializing Processing Data
   _processing_data.line_distance_received.fill(false);
   _processing_data.line_distance.fill(0.0);
+  _processing_data.valid_line_distance.fill(false);
   _processing_data.current_telegram = 0;
 
   _processing_data.stay_on_line = std::make_shared<controller::Pid>(_parameter.pid.stay_on_line);
@@ -50,6 +51,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
     _processing_data.current_telegram = msg.telegram_count;
     _processing_data.line_distance_received.fill(false);
     _processing_data.line_distance.fill(0.0);
+    _processing_data.valid_line_distance.fill(false);
   }
 
   // Assign line measurement.
@@ -57,12 +59,18 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
     // First get correct index i of received line measurement.
     if (msg.source_id == _parameter.source_ids[i]) {
       // Found correct index i.
-      // Use lcp2 only at the moment (middle line)
-      // std::cout << "source id = " << msg.source_id << std::endl;
-      // std::cout << "found index = " << i << std::endl;
-      _processing_data.line_distance[i] = -msg.lcp2 / 1000.0f; // convert into meter
-      // std::cout << "assigned distance = " << _processing_data.line_distance[i] << std::endl;
       _processing_data.line_distance_received[i] = true;
+
+      if ((msg.cnt_lpc & (1 << 1)) == false) {
+        // No valid middle line.
+        _processing_data.valid_line_distance[i] = false;
+        break;
+      }
+
+      // Valid middle line.
+      _processing_data.valid_line_distance[i] = true;
+      // Use lcp2 only at the moment (middle line)
+      _processing_data.line_distance[i] = -msg.lcp2 / 1000.0f; // convert into meter
       break;
     }
   }
@@ -71,12 +79,23 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
   for (const auto received : _processing_data.line_distance_received) {
     if (received == false) {
       // Minium one measurement is missing --> return
-      RCLCPP_ERROR(get_logger(), "Minium one measurement is missing --> return");
       return;
     }
   }
+  //else: Line measurements are finished.
 
-  // Line measurements are finished.
+  // Check if all measurements are valid.
+  for (const auto valid : _processing_data.valid_line_distance) {
+    if (valid == false) {
+      RCLCPP_ERROR(get_logger(), "Minium one measurement is not valid --> stop robot");
+
+      // Publish command to stop the robot.
+      _pub_on_track->publish(std_msgs::msg::Bool());
+      _pub_velocity->publish(geometry_msgs::msg::Twist());
+      return;
+    }
+  }
+  //else: valid measurement.
   RCLCPP_INFO(get_logger(), "line measurements complete.");
   // Get dt
   const auto stamp_now = get_clock()->now();

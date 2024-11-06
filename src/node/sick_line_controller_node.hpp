@@ -52,6 +52,7 @@ private:
   struct {
     std::array<bool, 2> line_distance_received;
     std::array<double, 2> line_distance;
+    std::array<bool, 2> valid_line_distance;
     std::uint64_t current_telegram;
     std::shared_ptr<controller::ControllerInterface> stay_on_line;
     std::shared_ptr<controller::ControllerInterface> orientate_to_line;
