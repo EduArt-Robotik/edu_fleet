@@ -68,6 +68,7 @@ install(
     robot_localization_node
     sick_line_controller_node
     sick_line_navigation_node
+    collision_avoidance_lidar_node
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )

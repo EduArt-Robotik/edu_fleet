@@ -8,11 +8,30 @@
 namespace eduart {
 namespace fleet {
 
+static bool is_in_box(
+  const sensor_msgs::PointCloud2ConstIterator<float>& point, const Eigen::Vector2f& left_bottom, const Eigen::Vector2f& right_top)
+{
+  return point[0] >= left_bottom.x() && point[0] <= right_top.x() && point[1] >= right_top.y() && point[1] <= left_bottom.y();
+}
+
 CollisionAvoidanceLidar::Parameter CollisionAvoidanceLidar::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
-  (void)ros_node;
-  return default_parameter;
+  Parameter parameter;
+
+  ros_node.declare_parameter<double>("distance.reduce_velocity", default_parameter.distance_reduce_velocity);
+  ros_node.declare_parameter<double>("distance.velocity_zero", default_parameter.distance_velocity_zero);
+  ros_node.declare_parameter<double>("size.width", default_parameter.size.width);
+  ros_node.declare_parameter<double>("size.length", default_parameter.size.length);
+  ros_node.declare_parameter<std::string>("tf_frame_robot", default_parameter.tf_base_link);
+
+  parameter.distance_reduce_velocity = ros_node.get_parameter("distance.reduce_velocity").as_double();
+  parameter.distance_velocity_zero = ros_node.get_parameter("distance.velocity_zero").as_double();
+  parameter.size.width = ros_node.get_parameter("size.width").as_double();
+  parameter.size.length = ros_node.get_parameter("size.length").as_double();
+  parameter.tf_base_link = ros_node.get_parameter("tf_frame_robot").as_string();
+
+  return parameter;
 }
 
 CollisionAvoidanceLidar::CollisionAvoidanceLidar()
@@ -24,9 +43,14 @@ CollisionAvoidanceLidar::CollisionAvoidanceLidar()
 {
   // ROS Related
   _sub_laser_scan = create_subscription<sensor_msgs::msg::LaserScan>(
-    "scan",
+    "in/scan",
     rclcpp::QoS(10).best_effort(),
     std::bind(&CollisionAvoidanceLidar::callbackLaserScan, this, std::placeholders::_1)
+  );
+  _sub_point_cloud = create_subscription<sensor_msgs::msg::PointCloud2>(
+    "in/point_cloud", 
+    rclcpp::QoS(10).best_effort(), 
+    std::bind(&CollisionAvoidanceLidar::callbackPointCloud, this, std::placeholders::_1)
   );
   _sub_velocity = create_subscription<geometry_msgs::msg::Twist>(
     "in/cmd_vel",
@@ -37,14 +61,43 @@ CollisionAvoidanceLidar::CollisionAvoidanceLidar()
     "out/cmd_vel",
     rclcpp::QoS(10).reliable()
   );
+  _pub_debug = create_publisher<sensor_msgs::msg::PointCloud2>(
+    "out/debug", 
+    rclcpp::QoS(2).reliable()
+  );
 
   // Preparing Processing
   _processing_data.intersection.fill(false);
   _processing_data.reduce_factor.fill(1.0f);
+
+  // Box in front.
+  _processing_data.left_bottom[FRONT].x() = _parameter.size.length / 2.0f;
+  _processing_data.left_bottom[FRONT].y() = _parameter.size.width / 2.0f;
+  _processing_data.right_top[FRONT].x() = _parameter.size.length / 2.0f + _parameter.distance_reduce_velocity;
+  _processing_data.right_top[FRONT].y() = -_parameter.size.width / 2.0f;
+
+  // Box in back.
+  _processing_data.left_bottom[REAR].x() = -_parameter.size.length / 2.0f - _parameter.distance_reduce_velocity;
+  _processing_data.left_bottom[REAR].y() = _parameter.size.width / 2.0f;
+  _processing_data.right_top[REAR].x() = -_parameter.size.length / 2.0f;
+  _processing_data.right_top[REAR].y() = -_parameter.size.width / 2.0f;
+
+  // Box on left side.
+  _processing_data.left_bottom[LEFT].x() = -_parameter.size.length / 2.0f;
+  _processing_data.left_bottom[LEFT].y() = _parameter.size.width / 2.0f + _parameter.distance_reduce_velocity;
+  _processing_data.right_top[LEFT].x() = _parameter.size.length / 2.0f;
+  _processing_data.right_top[LEFT].y() = _parameter.size.width / 2.0f;
+
+  // Box on right side.
+  _processing_data.left_bottom[RIGHT].x() = -_parameter.size.length / 2.0f;
+  _processing_data.left_bottom[RIGHT].y() = -_parameter.size.width / 2.0f;
+  _processing_data.right_top[RIGHT].x() = _parameter.size.length / 2.0f;
+  _processing_data.right_top[RIGHT].y() = -_parameter.size.width / 2.0f - _parameter.distance_reduce_velocity;
 }
 
 void CollisionAvoidanceLidar::callbackLaserScan(std::shared_ptr<const sensor_msgs::msg::LaserScan> msg)
 {
+  std::cout << __PRETTY_FUNCTION__ << std::endl;
   sensor_msgs::msg::PointCloud2 points;
 
   // Transform laser scan into robot frame.
@@ -61,57 +114,71 @@ void CollisionAvoidanceLidar::callbackLaserScan(std::shared_ptr<const sensor_msg
       (getFrameIdPrefix() + _parameter.tf_base_link).c_str(),
       ex.what()
     );
+    return;
   }
 
+  _pub_debug->publish(points);
+  callbackPointCloud(points);
+}
+
+void CollisionAvoidanceLidar::callbackPointCloud(const sensor_msgs::msg::PointCloud2& points)
+{
+  std::cout << __PRETTY_FUNCTION__ << std::endl;
   // Check if an intersection is present.
-  for (const auto& field : points.fields) {
-    std::cout << "field: "<< field.name << std::endl;
-    std::cout << "datatype: " << field.datatype << std::endl;
-  }
+  // for (const auto& field : points.fields) {
+  //   std::cout << "field: "<< field.name << std::endl;
+  //   std::cout << "datatype: " << field.datatype << std::endl;
+  // }
 
   // Prepare processing data and estimate new intersections.
   _processing_data.intersection.fill(false);
   _processing_data.reduce_factor.fill(1.0f);
 
-  for (sensor_msgs::PointCloud2Iterator<float> point(points, "x"); point != point.end(); ++point) {
-    if (point[0] >= 0.0 && point[0] <= _parameter.distance_reduce_velocity) {
+  for (sensor_msgs::PointCloud2ConstIterator<float> point(points, "x"); point != point.end(); ++point) {
+    if (is_in_box(point, _processing_data.left_bottom[FRONT], _processing_data.right_top[FRONT])) {
       // Point is in front and is too close.
       _processing_data.intersection[FRONT] = true;
       _processing_data.reduce_factor[FRONT] = std::min(
-        calculateReduceFactor(point[0], _parameter), _processing_data.reduce_factor[FRONT]
+        calculateReduceFactor(point[0] - _parameter.size.length / 2.0f, _parameter),
+        _processing_data.reduce_factor[FRONT]
       );
     }
 
-    if (point[0] < 0.0 && std::abs(point[0]) <= _parameter.distance_reduce_velocity) {
+    // if (point[0] < 0.0 && std::abs(point[0]) <= _parameter.distance_reduce_velocity) {
+    if (is_in_box(point, _processing_data.left_bottom[REAR], _processing_data.right_top[REAR])) {
       // Point is in back and is too close.
       _processing_data.intersection[REAR] = true;
       _processing_data.reduce_factor[REAR] = std::min(
-        calculateReduceFactor(std::abs(point[0]), _parameter), _processing_data.reduce_factor[REAR]
+        calculateReduceFactor(std::abs(point[0] + _parameter.size.length / 2.0f), _parameter),
+        _processing_data.reduce_factor[REAR]
       );
     }
 
-    if (point[1] >= 0.0 && point[1] <= _parameter.distance_reduce_velocity) {
+    if (is_in_box(point, _processing_data.left_bottom[LEFT], _processing_data.right_top[LEFT])) {
       // Point is left and is too close.
       _processing_data.intersection[LEFT] = true;
       _processing_data.reduce_factor[LEFT] = std::min(
-        calculateReduceFactor(point[0], _parameter), _processing_data.reduce_factor[LEFT]
+        calculateReduceFactor(point[1] - _parameter.size.width / 2.0f, _parameter),
+        _processing_data.reduce_factor[LEFT]
       );      
     }
 
-    if (point[1] < 0.0 && std::abs(point[1]) <= _parameter.distance_reduce_velocity) {
+    if (is_in_box(point, _processing_data.left_bottom[RIGHT], _processing_data.right_top[RIGHT])) {
+      // std::cout << "inside left box: (" << point[0] << ", " << point[1] << ")" << std::endl;
       // Point is right and is too close.
       _processing_data.intersection[RIGHT] = true;
       _processing_data.reduce_factor[RIGHT] = std::min(
-        calculateReduceFactor(std::abs(point[0]), _parameter), _processing_data.reduce_factor[RIGHT]
+        calculateReduceFactor(std::abs(point[1] + _parameter.size.width / 2.0f), _parameter),
+        _processing_data.reduce_factor[RIGHT]
       );
     }
   }
 
-  std::cout << "reduce factors:\n";
-  std::cout << "front = " << _processing_data.reduce_factor[FRONT] << std::endl;
-  std::cout << "rear  = " << _processing_data.reduce_factor[REAR] << std::endl;
-  std::cout << "left  = " << _processing_data.reduce_factor[LEFT] << std::endl;
-  std::cout << "right = " << _processing_data.reduce_factor[RIGHT] << std::endl;
+  // std::cout << "reduce factors:\n";
+  // std::cout << "front = " << _processing_data.reduce_factor[FRONT] << std::endl;
+  // std::cout << "rear  = " << _processing_data.reduce_factor[REAR] << std::endl;
+  // std::cout << "left  = " << _processing_data.reduce_factor[LEFT] << std::endl;
+  // std::cout << "right = " << _processing_data.reduce_factor[RIGHT] << std::endl;
 }
 
 void CollisionAvoidanceLidar::callbackVelocity(std::shared_ptr<const geometry_msgs::msg::Twist> msg)

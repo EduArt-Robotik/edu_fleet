@@ -75,6 +75,26 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Collision Avoidance
+  collision_avoidance_parameter_file = PathJoinSubstitution([
+    './',
+    'collision_avoidance_lidar.yaml'
+  ])
+  collision_avoidance = Node(
+    package='edu_fleet',
+    executable='collision_avoidance_lidar_node',
+    name='collision_avoidance_lidar',
+    namespace=edu_robot_namespace,
+    parameters=[collision_avoidance_parameter_file],
+    remappings=[
+      # ('in/point_cloud', '/cloud_all_fields_fullframe'),
+      ('in/scan', '/scan_fullframe'),
+      ('in/cmd_vel', 'combined/cmd_vel'),
+      ('out/cmd_vel', 'autonomous/cmd_vel')
+    ],
+    output='screen'
+  )
+
   return LaunchDescription([
     edu_robot_namespace_arg,
     line_controller,

@@ -26,7 +26,7 @@ SickLineController::Parameter SickLineController::get_parameter(
   parameter.source_ids = ros_node.get_parameter("source_ids").as_integer_array();
 
   parameter.pid.stay_on_line.kp = ros_node.get_parameter("pid.linear.kp").as_double();
-  parameter.pid.stay_on_line.limit = ros_node.get_parameter("max_error_on_track").as_double();
+  parameter.pid.stay_on_line.limit = ros_node.get_parameter("pid.linear.limit").as_double();
   parameter.pid.orientate_to_line.kp = ros_node.get_parameter("pid.angular.kp").as_double();
   parameter.pid.orientate_to_line.limit = ros_node.get_parameter("pid.angular.limit").as_double();
 

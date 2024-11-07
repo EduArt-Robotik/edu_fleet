@@ -55,7 +55,7 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
 
-  return default_parameter;
+  return parameter;
 }
 
 SickLineNavigation::SickLineNavigation()

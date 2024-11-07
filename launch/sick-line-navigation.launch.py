@@ -71,9 +71,30 @@ def generate_launch_description():
     remappings=[
       ('twist/input_0', 'line_controller/cmd_vel'),
       ('twist/input_1', 'line_navigation/cmd_vel'),
-      ('twist/output', 'autonomous/cmd_vel')
+      ('twist/output', 'combined/cmd_vel')
     ],
     # prefix=['gdbserver localhost:3000'],
+    output='screen'
+  )
+
+  ## Collision Avoidance
+  collision_avoidance_parameter_file = PathJoinSubstitution([
+    FindPackageShare('edu_fleet'),
+    'parameter',
+    'collision_avoidance_lidar.yaml'
+  ])
+  collision_avoidance = Node(
+    package='edu_fleet',
+    executable='collision_avoidance_lidar_node',
+    name='collision_avoidance_lidar',
+    namespace=edu_robot_namespace,
+    parameters=[collision_avoidance_parameter_file],
+    remappings=[
+      # ('in/point_cloud', '/cloud_all_fields_fullframe'),
+      ('in/scan', '/scan_fullframe'),
+      ('in/cmd_vel', 'combined/cmd_vel'),
+      ('out/cmd_vel', 'autonomous/cmd_vel')
+    ],
     output='screen'
   )
 
@@ -81,6 +102,7 @@ def generate_launch_description():
     edu_robot_namespace_arg,
     line_controller,
     line_navigation,
-    twist_accumulator
+    twist_accumulator,
+    collision_avoidance
   ])
     
