@@ -45,6 +45,7 @@ if (${sick_lidar_localization_FOUND})
     "rclcpp"
     "geometry_msgs"
     "sick_lidar_localization"
+    "edu_robot"
   )
 
 endif()

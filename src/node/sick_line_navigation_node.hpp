@@ -8,7 +8,10 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/twist.hpp>
+
 #include <std_msgs/msg/bool.hpp>
+
+#include <edu_robot/msg/set_lighting_color.hpp>
 
 #include <sick_lidar_localization/msg/code_measurement_message0304.hpp>
 
@@ -19,7 +22,8 @@ class SickLineNavigation : public rclcpp::Node
 {
 public:
   struct Parameter {
-    float move_velocity = 0.2;
+    float move_velocity_slow = 0.1;
+    float move_velocity_fast = 0.5;
   };
 
   SickLineNavigation();
@@ -34,8 +38,10 @@ private:
 
   const Parameter _parameter;
   bool _on_track;
+  float _current_velocity;
 
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
+  std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>> _pub_lighting_color;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;

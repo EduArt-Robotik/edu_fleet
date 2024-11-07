@@ -53,6 +53,7 @@ def generate_launch_description():
     parameters=[line_navigation_parameter_file],
     remappings=[
       ('out/cmd_vel', 'line_navigation/cmd_vel'),
+      ('out/set_lighting_color', 'set_lighting_color'),
       ('in/on_track', 'line_controller/on_track'),
       ('in/code', '/localizationcontroller/out/code_measurement_message_0304')
     ],
