@@ -33,16 +33,13 @@ def generate_launch_description():
     remappings=[
       # ('in/point_cloud', '/cloud_all_fields_fullframe'),
       ('in/scan', 'scan'),
-      ('in/cmd_vel', 'unsafe/cmd_vel'),
-      ('out/cmd_vel', 'cmd_vel')
+      ('in/cmd_vel', 'cmd_vel'),
+      ('out/cmd_vel', 'safety/cmd_vel')
     ],
     output='screen'
   )
 
   return LaunchDescription([
     edu_robot_namespace_arg,
-    line_controller,
-    line_navigation,
-    twist_accumulator,
     collision_avoidance
   ])
