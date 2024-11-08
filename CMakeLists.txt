@@ -26,6 +26,11 @@ find_package(diagnostic_updater REQUIRED)
 find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(laser_geometry REQUIRED)
+
+# optional packages
+find_package(sick_lidar_localization)
+
 
 ## Build Defined ROS Messages
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -53,14 +58,27 @@ install(
     parameter
   DESTINATION share/${PROJECT_NAME}
 )
+
+set(TARGET_NODE_LIST
+  pose_controller
+  fleet_control_node
+  twist_accumulator
+  fleet_localization_node
+  robot_localization_node
+  collision_avoidance_lidar_node
+)
+if (${sick_lidar_localization_FOUND})
+  set(TARGET_NODE_LIST
+    ${TARGET_NODE_LIST}
+    sick_line_controller_node
+    sick_line_navigation_node    
+  )
+endif()
+
 install(
   TARGETS
     # nodes
-    pose_controller
-    fleet_control_node
-    twist_accumulator
-    fleet_localization_node
-    robot_localization_node
+    ${TARGET_NODE_LIST}
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )

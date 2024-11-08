@@ -23,6 +23,8 @@ public:
     bool use_anti_windup = true;
   } parameter;
 
+  Pid() = default;
+  Pid(const Parameter& parameter_) : parameter(parameter_) { }
   ~Pid() override = default;
   void reset() override;
   double process(const double set_point, const double feedback, const double dt) override;
