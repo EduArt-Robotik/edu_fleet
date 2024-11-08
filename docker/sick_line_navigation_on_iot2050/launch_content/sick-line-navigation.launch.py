@@ -69,7 +69,7 @@ def generate_launch_description():
     remappings=[
       ('twist/input_0', 'line_controller/cmd_vel'),
       ('twist/input_1', 'line_navigation/cmd_vel'),
-      ('twist/output', 'autonomous/cmd_vel')
+      ('twist/output', 'combined/cmd_vel')
     ],
     # prefix=['gdbserver localhost:3000'],
     output='screen'
@@ -99,6 +99,7 @@ def generate_launch_description():
     edu_robot_namespace_arg,
     line_controller,
     line_navigation,
-    twist_accumulator
+    twist_accumulator,
+    collision_avoidance
   ])
     
