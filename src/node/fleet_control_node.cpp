@@ -177,6 +177,16 @@ FleetControlNode::~FleetControlNode()
 
 }
 
+void FleetControlNode::initializeRobotTransformMatrix(const std::size_t i)
+{
+  _robot[i].t_fleet_to_robot_velocity = calculate_fleet_to_robot_velocity_matrix(
+    _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
+  );
+  _robot[i].t_fleet_to_robot_transform = calculate_fleet_to_robot_transform_matrix(
+    _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
+  );  
+}
+
 void FleetControlNode::process()
 {
   const auto stamp_now = get_clock()->now();
@@ -436,6 +446,8 @@ rcl_interfaces::msg::SetParametersResult FleetControlNode::callbackParameter(
         }
       }
     }
+
+    initializeRobotTransformMatrix(i);
   }
 
   result.successful = true;

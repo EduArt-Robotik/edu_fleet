@@ -60,6 +60,7 @@ public:
   static Parameter get_parameter(rclcpp::Node& ros_node);
 
 private:
+  void initializeRobotTransformMatrix(const std::size_t i);
   void process();
   void callbackTwistFleet(std::shared_ptr<const geometry_msgs::msg::Twist> twist_msg);
   void callbackServiceGetTransform(
