@@ -184,7 +184,11 @@ void FleetControlNode::initializeRobotTransformMatrix(const std::size_t i)
   );
   _robot[i].t_fleet_to_robot_transform = calculate_fleet_to_robot_transform_matrix(
     _parameter.robot_pose[i].x, _parameter.robot_pose[i].y, _parameter.robot_pose[i].yaw
-  );  
+  );
+
+  const Eigen::Rotation2Dd R(_robot[i].target_orientation);
+  const Eigen::Vector2d p(_parameter.robot_pose[i].x, _parameter.robot_pose[i].y);
+  _robot[i].target_position = R * p;
 }
 
 void FleetControlNode::process()
