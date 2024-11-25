@@ -5,6 +5,13 @@ Kinematics-adaptive Drive System** .
 
 Unfortunately the documentation is still missing. If you have any questions, please contact [Christian Wendt](mailto:christian.wendt@eduart-robotik.com).
 
+# Building Dependencies
+
+```bash
+sudo apt update
+sudo apt install ros-$ROS_DISTRO-aruco-opencv-msgs
+```
+
 
 # Robot Fleet Ip Configuration
 

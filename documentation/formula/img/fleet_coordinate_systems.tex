@@ -1,0 +1,8 @@
+\begin{tikzpicture}
+    \drawrobot{V}{4,4}{-110};
+    \drawcoordinatesystem{W}{0,0}{-90};
+    \draw [dashed, line width=0.3mm, -stealth] (W) to[out=20,in=-100] node[below, xshift=0cm, yshift=-4mm]{$\Pose{W}{V}$} (V);
+    % \draw [dashed, line width=0.3mm, -stealth] (F$_j$) to[out=-90,in=-20] node[below, xshift=2mm, yshift=-2mm]{$\Transform{F_j}{R_{j,2}}$} (R$_{j,2}$);
+    % \draw [dashed, line width=0.3mm, -stealth] (W) to[out= 20,in=-60] node[below, xshift=2mm, yshift=-2mm]{$\Transform{W}{F_j}$} (F$_j$);
+    % \draw [dashed, line width=0.3mm, -stealth] (W) to[out= 50,in=-80] node[right, xshift=1mm, yshift= 0mm]{$\Transform{W}{R_{j,2}}$} (R$_{j,2}$);
+\end{tikzpicture}

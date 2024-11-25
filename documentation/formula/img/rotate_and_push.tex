@@ -1,0 +1,20 @@
+\begin{figure}
+  \center
+
+  \begin{tikzpicture}
+    % rotation
+    \node at (-2, 6.7) {step 1:};
+    \draw [dashed, line width=0.3mm, -stealth] (-1, 6) to[out=180,in=80] node[below, xshift=-10mm, yshift=7mm]{$^W\phi_t = \dot{\phi}_{t-1} \cdot dt$} (-3.45, 4.3);
+    \drawcoordinatesystem{W}{0, 0}{0};
+    \drawcoordinatesystem{V}{-1.45, 4}{0};
+    \drawrobot{}{-1.45, 4}{80};
+    % translation
+    \node at (4.7, 6.7) {step 2:};
+    \drawcoordinatesystem{W}{7, 0}{0};
+    \drawcoordinatesystem{V'}{7, 4}{80}
+    \drawrobot{V}{3.45, 4.6}{80};
+    \draw [dashed, line width=0.3mm, -stealth] (V') to[out=170,in=-10] node[below, xshift=6mm, yshift=0mm]{$\Position{W}{t}$} (V);
+  \end{tikzpicture}
+  \caption{Push and Rotate}
+  \label{fig:push_and_rotate}
+\end{figure}

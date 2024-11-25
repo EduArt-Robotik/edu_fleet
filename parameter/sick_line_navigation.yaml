@@ -1,0 +1,10 @@
+/**:
+  ros__parameters:
+    # general ros parameter
+    start_type_description_service: true
+    use_sim_time: false
+
+    # movement velocity along the track
+    move_velocity:
+      fast: 0.5
+      slow: 0.1

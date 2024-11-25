@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>edu_swarm</name>
+  <name>edu_fleet</name>
   <version>0.1.0</version>
   <description>ROS2 Software for implementing fleet control for Eduart robots.</description>
   <maintainer email="apastore@todo.todo">apastore</maintainer>
@@ -15,6 +15,9 @@
   <depend>tf2</depend>
   <depend>edu_robot</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>laser_geometry</depend>
 
   <test_depend>ament_copyright</test_depend>
   <!-- <test_depend>ament_flake8</test_depend>
