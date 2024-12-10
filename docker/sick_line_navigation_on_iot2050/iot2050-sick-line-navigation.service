@@ -7,10 +7,10 @@ After=docker.service
 Type=oneshot
 RemainAfterExit=yes
 # first stop and remove already running container
-ExecStartPre=/bin/docker compose -f /home/user/edu_fleet/docker/iot2050/docker-compose.yaml down
+ExecStartPre=/bin/docker compose -f /home/user/edu_fleet/docker/sick_line_navigation_on_iot2050/docker-compose.yaml down
 # start container
-ExecStart=/bin/docker compose -f /home/user/edu_fleet/docker/iot2050/docker-compose.yaml up -d
-ExecStop=/bin/docker compose -f /home/user/edu_fleet/docker/iot2050/docker-compose.yaml down
+ExecStart=/bin/docker compose -f /home/user/edu_fleet/docker/sick_line_navigation_on_iot2050/docker-compose.yaml up -d
+ExecStop=/bin/docker compose -f /home/user/edu_fleet/docker/sick_line_navigation_on_iot2050/docker-compose.yaml down
 
 [Install]
 WantedBy=multi-user.target
