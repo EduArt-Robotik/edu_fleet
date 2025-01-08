@@ -25,6 +25,7 @@ class SickLineNavigation : public rclcpp::Node
 public:
   struct Parameter {
     float move_velocity_slow = 0.1;
+    float move_velocity_middle = 0.3;
     float move_velocity_fast = 0.5;
   };
 

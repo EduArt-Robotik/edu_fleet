@@ -107,9 +107,11 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   Parameter parameter;
 
   ros_node.declare_parameter<double>("move_velocity.slow", default_parameter.move_velocity_slow);
+  ros_node.declare_parameter<double>("move_velocity.middle", default_parameter.move_velocity_middle);
   ros_node.declare_parameter<double>("move_velocity.fast", default_parameter.move_velocity_fast);
 
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
+  parameter.move_velocity_middle = ros_node.get_parameter("move_velocity.middle").as_double();
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
 
   return parameter;
@@ -159,8 +161,10 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   // 3. default licht
   // 4. blau rotierend (police)
   // 5. warnblinklicht
-  // 6. schnell
-  // 7. langsam
+  // 10. disable robot
+  // 11. schnell
+  // 12. mittel schnell
+  // 13. langsam
   
   switch (msg->code) {
     // Lighting
@@ -171,13 +175,11 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 5: set_lighting_warning   (*_pub_lighting_color); break;
 
     // Moving Velocity
-    case 6: _current_velocity = _parameter.move_velocity_fast; break;
-    case 7: _current_velocity = _parameter.move_velocity_slow; break;
-    case 8: break; // reserved for velocity
+    case 10: disable(*this, *_client_set_mode); break;
+    case 11: _current_velocity = _parameter.move_velocity_slow; break;
+    case 12: _current_velocity = _parameter.move_velocity_middle; break;
+    case 13: _current_velocity = _parameter.move_velocity_fast; break;
 
-    // Stop Robot
-    case 42: disable(*this, *_client_set_mode); break;
-    
     // Not supported code
     default:
       RCLCPP_ERROR(get_logger(), "un suported code %i.", msg->code);
