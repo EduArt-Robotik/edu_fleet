@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <rclcpp/client.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/twist.hpp>
@@ -12,6 +13,7 @@
 #include <std_msgs/msg/bool.hpp>
 
 #include <edu_robot/msg/set_lighting_color.hpp>
+#include <edu_robot/srv/set_mode.hpp>
 
 #include <sick_lidar_localization/msg/code_measurement_message0304.hpp>
 
@@ -44,6 +46,7 @@ private:
   std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>> _pub_lighting_color;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>> _sub_code;
+  std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
 };
 
