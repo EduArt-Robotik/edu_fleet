@@ -1,7 +1,7 @@
-image_name = eduart-fleet:0.3.0
+image_name = eduart-fleet:0.3.1
 
 download-sources:
-	git clone --branch 0.3.0 git@github.com:EduArt-Robotik/edu_swarm.git
+	git clone --branch 0.3.1 git@github.com:EduArt-Robotik/edu_swarm.git
 	git clone --branch master https://github.com/SICKAG/sick_lidar_localization.git	
 
 build-docker:

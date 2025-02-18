@@ -17,7 +17,7 @@
     # controller
     pid:
       angular:
-        kp: 1.0
+        kp: 1.5
         limit: 1.5707963267948966
       linear:
         kp: 1.0
