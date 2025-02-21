@@ -68,6 +68,7 @@ set(TARGET_NODE_LIST
   fleet_localization_node
   robot_localization_node
   collision_avoidance_lidar_node
+  collision_avoidance_lidar_field_node
 )
 if (${sick_lidar_localization_FOUND})
   set(TARGET_NODE_LIST

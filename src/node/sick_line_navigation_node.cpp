@@ -104,6 +104,29 @@ static void disable(rclcpp::Node& node, rclcpp::Client<edu_robot::srv::SetMode>&
   );
 }
 
+static void enable(rclcpp::Node& node, rclcpp::Client<edu_robot::srv::SetMode>& service_client)
+{
+  using ResponseFuture = rclcpp::Client<edu_robot::srv::SetMode>::SharedFutureWithRequest;
+
+  auto request = std::make_shared<edu_robot::srv::SetMode::Request>();
+  request->mode.mode = edu_robot::msg::Mode::AUTONOMOUS;
+
+  RCLCPP_INFO(node.get_logger(), "Send set mode request mode = INACTIVE.");
+  service_client.async_send_request(
+    request,
+    [logger = node.get_logger()](ResponseFuture future) {
+      const auto response = future.get();
+
+      if ((response.second->state.mode.mode & response.first->mode.mode) == false) {
+        RCLCPP_ERROR_STREAM(logger, "Can't disable robot! Robot is in mode = " << get_mode_string(response.second->state.mode));
+        return;
+      }
+
+      RCLCPP_INFO(logger, "Set mode INACTIVE successfully.");
+      RCLCPP_INFO(logger, "Current mode of the robot is = %s", get_mode_string(response.second->state.mode).c_str());      
+    }
+  );
+}
 
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
@@ -201,6 +224,7 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     // Stop/Halt for given time
     case 20: 
       _processing_data.stop_active = true;
+      disable(*this, *_client_set_mode);
       set_lighting_stop(*_pub_lighting_color);
       _timer_process_stopping = create_timer(
         std::chrono::round<std::chrono::milliseconds>(std::chrono::duration<float>(_parameter.stop_time)),
@@ -230,6 +254,7 @@ void SickLineNavigation::callbackFieldEvaluation(std::shared_ptr<const edu_perce
 void SickLineNavigation::deactivateStop()
 {
   _processing_data.stop_active = false;
+  enable(*this, *_client_set_mode);
   // cancel timer so we get single shot behaviour
   _timer_process_stopping->cancel();
 }
