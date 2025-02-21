@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    # ROS related parameter
+    start_type_description_service: true
+    use_sim_time: false
+
+    # Field definitions
+    field_index:
+      - 0
+      - 2
+    field_name:
+      - warnfeld
+      - schutzfeld
+
+    # Lidar Connection
+    lidar_ip_address: 192.168.0.70
+    lidar_port: 2111

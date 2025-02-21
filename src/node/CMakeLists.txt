@@ -46,6 +46,7 @@ if (${sick_lidar_localization_FOUND})
     "geometry_msgs"
     "sick_lidar_localization"
     "edu_robot"
+    "edu_perception"
   )
 
 endif()
