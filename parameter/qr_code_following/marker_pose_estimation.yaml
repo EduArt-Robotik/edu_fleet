@@ -1,0 +1,16 @@
+/**:
+  ros__parameters:
+    # general ros parameter
+    start_type_description_service: true
+    use_sim_time: false
+
+    invert_pose: true
+    marker:
+      frame_id: ['none']
+      id: ['Markus ist ein Lump!']
+      size: [0.17]
+    std_dev:
+      orientation: 0.7853981852531433
+      position: 0.5
+    transform_into_world: false
+    world_frame_id: map

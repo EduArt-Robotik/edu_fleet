@@ -1,0 +1,39 @@
+/**:
+  ros__parameters:
+    auto_white_balance: true
+    autoexposure: true
+    autofocus: false
+    brightness: 30
+    camera_info_url: 'package://edu_fleet/parameter/qr_code_following/camera_calibration.yaml'
+    camera_name: marker_camera
+    contrast: -1
+    exposure: 80
+    focus: -1
+    frame_id: eduard/green/marker_camera
+    framerate: 24.0
+    gain: -1
+    image_width: 800
+    image_height: 600
+    image_raw:
+      format: jpeg
+      jpeg_quality: 95
+      png_level: 3
+      tiff:
+        res_unit: inch
+        xdpi: -1
+        ydpi: -1
+    io_method: mmap
+    #pixel_format: yuyv2rgb
+    pixel_format: mjpeg2rgb
+    qos_overrides:
+      /parameter_events:
+        publisher:
+          depth: 1000
+          durability: volatile
+          history: keep_last
+          reliability: reliable
+    saturation: -1
+    sharpness: -1
+    use_sim_time: false
+    video_device: /dev/video0
+    white_balance: 4000
