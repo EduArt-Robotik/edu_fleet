@@ -1,7 +1,7 @@
 import os
 
 from launch import LaunchContext, LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, IncludeLaunchDescription, ExecuteProcess
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 
@@ -74,6 +74,15 @@ def generate_launch_description():
     namespace=edu_robot_namespace,
     output='screen'
   )
+  tf_camera_transform = Node(
+    package='tf2_ros',
+    executable='static_transform_publisher',
+    arguments=[
+      '0.2', '0.0', '0.085', '0.0', '0', '0',
+      PathJoinSubstitution([edu_robot_namespace, 'base_link']),
+      PathJoinSubstitution([edu_robot_namespace, 'marker_camera'])
+    ]    
+  )
 
   # Kalman Filter for Pose Filtering
   robot_localization_parameter = PathJoinSubstitution([
@@ -100,7 +109,42 @@ def generate_launch_description():
     namespace=edu_robot_namespace,
     # prefix=['gdbserver localhost:3000'],
     output='screen'
-  )  
+  )
+
+  # Pose Controller
+  pose_controller_parameter_file = PathJoinSubstitution([
+    FindPackageShare('edu_fleet'),
+    'parameter',
+    'qr_code_following',
+    'pose_control.yaml'
+  ])
+
+  pose_controller = Node(
+    package='edu_fleet',
+    executable='pose_controller',
+    name='pose_controller',
+    namespace=edu_robot_namespace,
+    parameters=[
+      pose_controller_parameter_file,
+      {'use_sim_time': use_sim_time}
+    ],
+    remappings=[
+      ('pose_feedback', 'localization'),
+      ('pose_target', 'target_pose'),
+      ('twist_output', 'autonomous/cmd_vel')
+    ],
+    # prefix=['gdbserver localhost:3000'],
+    output='screen'
+  )
+
+  # Publishing Target Pose
+  ExecuteProcess(cmd=[
+    'ros2',
+    'topic',
+    'pub',
+    PathJoinSubstitution([edu_robot_namespace, 'target_pose']),
+    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: map}, pose: {position: {x: 1.0}}}'
+  ])
 
   return LaunchDescription([
     edu_robot_namespace_arg,
@@ -108,5 +152,7 @@ def generate_launch_description():
     camera_node,
     marker_pose_estimation,
     qr_code_deteciton,
-    robot_localization
+    robot_localization,
+    tf_camera_transform,
+    pose_controller
   ])

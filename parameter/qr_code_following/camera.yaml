@@ -9,7 +9,7 @@
     contrast: -1
     exposure: 80
     focus: -1
-    frame_id: eduard/green/marker_camera
+    frame_id: eduard/blue/marker_camera
     framerate: 24.0
     gain: -1
     image_width: 800
