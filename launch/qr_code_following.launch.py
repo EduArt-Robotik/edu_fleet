@@ -42,7 +42,8 @@ def generate_launch_description():
     ],
     parameters=[
       camera_parameter_file,
-      { 'use_sim_time': use_sim_time }          
+      { 'use_sim_time': use_sim_time },
+      { 'frame_id': PathJoinSubstitution([edu_robot_namespace, 'marker_camera'])}    
     ],
     namespace=edu_robot_namespace,
     output='screen'
