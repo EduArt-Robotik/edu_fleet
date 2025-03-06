@@ -19,31 +19,48 @@ PoseController::Parameter PoseController::get_parameter(rclcpp::Node &ros_node)
 {
   PoseController::Parameter parameter;
 
+  // linear
   ros_node.declare_parameter<double>("pid.linear.kp", parameter.pid_linear.kp);
   ros_node.declare_parameter<double>("pid.linear.ki", parameter.pid_linear.ki);
   ros_node.declare_parameter<double>("pid.linear.kd", parameter.pid_linear.kd);
   ros_node.declare_parameter<bool>("pid.linear.use_anti_windup", parameter.pid_linear.use_anti_windup);
   ros_node.declare_parameter<double>("pid.linear.limit", parameter.pid_linear.limit);
   ros_node.declare_parameter<double>("pid.linear.input_filter_weight", parameter.pid_linear.input_filter_weight);
+  // angular
   ros_node.declare_parameter<double>("pid.angular.kp", parameter.pid_angular.kp);
   ros_node.declare_parameter<double>("pid.angular.ki", parameter.pid_angular.ki);
   ros_node.declare_parameter<double>("pid.angular.kd", parameter.pid_angular.kd);
   ros_node.declare_parameter<bool>("pid.angular.use_anti_windup", parameter.pid_angular.use_anti_windup);
   ros_node.declare_parameter<double>("pid.angular.limit", parameter.pid_angular.limit);
   ros_node.declare_parameter<double>("pid.angular.input_filter_weight", parameter.pid_angular.input_filter_weight);
+  // input filter
+  ros_node.declare_parameter<bool>("input.filter.enable", parameter.input_filter.enable);
+  ros_node.declare_parameter<double>("input.filter.weight", parameter.input_filter.weight);
+  // input timeout
+  ros_node.declare_parameter<bool>("input.timeout.enable", parameter.input_timeout.enable);
+  ros_node.declare_parameter<int>("input.timeout.value", parameter.input_timeout.timeout_ms.count());
 
+  // linear
   parameter.pid_linear.kp = ros_node.get_parameter("pid.linear.kp").as_double();
   parameter.pid_linear.ki = ros_node.get_parameter("pid.linear.ki").as_double();
   parameter.pid_linear.kd = ros_node.get_parameter("pid.linear.kd").as_double();
   parameter.pid_linear.use_anti_windup = ros_node.get_parameter("pid.linear.use_anti_windup").as_bool();
   parameter.pid_linear.limit = ros_node.get_parameter("pid.linear.limit").as_double();
   parameter.pid_linear.input_filter_weight = ros_node.get_parameter("pid.linear.input_filter_weight").as_double();
+  // angular
   parameter.pid_angular.kp = ros_node.get_parameter("pid.angular.kp").as_double();
   parameter.pid_angular.ki = ros_node.get_parameter("pid.angular.ki").as_double();
   parameter.pid_angular.kd = ros_node.get_parameter("pid.angular.kd").as_double();
   parameter.pid_angular.use_anti_windup = ros_node.get_parameter("pid.angular.use_anti_windup").as_bool();
   parameter.pid_angular.limit = ros_node.get_parameter("pid.angular.limit").as_double();
   parameter.pid_angular.input_filter_weight = ros_node.get_parameter("pid.angular.input_filter_weight").as_double();
+  // input filter
+  parameter.input_filter.enable = ros_node.get_parameter("input.filter.enable").as_bool();
+  parameter.input_filter.weight = ros_node.get_parameter("input.filter.weight").as_double();
+  // input timeout
+  parameter.input_timeout.enable = ros_node.get_parameter("input.timeout.enable").as_bool();
+  parameter.input_timeout.timeout_ms = std::chrono::milliseconds(
+    ros_node.get_parameter("input.timeout.value").as_int());
 
   return parameter;
 }
@@ -75,6 +92,16 @@ PoseController::PoseController()
   controller->reset();
   _controller[2] = std::move(controller);  
 
+
+  // input filter
+  _low_pass_orientation = std::make_unique<QuaternionLowPassFilter>(
+    QuaternionLowPassFilter::Parameter{_parameter.input_filter.weight}
+  );
+  _low_pass_position = std::make_unique<PositionLowPassFilter>(
+    PositionLowPassFilter::Parameter{_parameter.input_filter.weight}
+  );
+
+
   // creating subscriptions and publisher
   _sub_current_pose = create_subscription<nav_msgs::msg::Odometry>(
     "pose_feedback",
@@ -91,8 +118,16 @@ PoseController::PoseController()
   );
 
 
-  // initialize variables
+  // initialize
   _stamp_last_processed = get_clock()->now();
+
+
+  // input timeout
+  if (_parameter.input_timeout.enable) {
+    _timer_checking_timeout = create_timer(
+      50ms, std::bind(&PoseController::checkIfTimeoutOccurred, this)
+    );
+  }
 }
 
 PoseController::~PoseController()
@@ -108,7 +143,21 @@ void PoseController::callbackCurrentPose(std::shared_ptr<const nav_msgs::msg::Od
     return;
   }
 
-  *_feedback = odometry_msg->pose.pose;
+  // filter input if enabled
+  if (_parameter.input_filter.enable) {
+    // update filter
+    (*_low_pass_position)(odometry_msg->pose.pose.position);
+    (*_low_pass_orientation)(odometry_msg->pose.pose.orientation);
+
+    // use filter output as feedback
+    _feedback->position = _low_pass_position->getValue();
+    _feedback->orientation = _low_pass_orientation->getValue();
+  }
+  // default: use input as feedback
+  else {
+    *_feedback = odometry_msg->pose.pose;
+  }
+
   process();
 }
 
@@ -179,13 +228,30 @@ void PoseController::process()
   _output->linear.y = output.y();
 
   // \todo replace hack with proper implementation
-  if (std::abs(_output->linear.x)  < 0.01) _output->linear.x = 0.0;
-  if (std::abs(_output->linear.y)  < 0.01) _output->linear.y = 0.0;
+  if (std::abs(_output->linear.x)  < 0.01) _output->linear.x  = 0.0;
+  if (std::abs(_output->linear.y)  < 0.01) _output->linear.y  = 0.0;
   if (std::abs(_output->angular.z) < 0.01) _output->angular.z = 0.0;
 
   // Publishing Result
   _pub_twist->publish(*_output);
   _stamp_last_processed = now;
+}
+
+void PoseController::checkIfTimeoutOccurred()
+{
+  const auto now = get_clock()->now();
+  const auto timeout = rclcpp::Duration::from_nanoseconds(
+    _parameter.input_timeout.timeout_ms.count() /* convert ms into ns */ * 1000);
+
+  if (now - _stamp_last_processed > timeout) {
+    // timeout occurred --> reset output and publish it
+    // note: it will publish with the frequency this function is called until new input pose was processed.
+    _output->linear.x = 0.0;
+    _output->linear.y = 0.0;
+    _output->angular.z = 0.0;
+
+    _pub_twist->publish(*_output);
+  }
 }
 
 std::string PoseController::getRobotName() const
