@@ -1,7 +1,19 @@
 /**:
   ros__parameters:
+    # general ros parameter
     use_sim_time: false
+    start_type_description_service: true
 
+    # input filter settings (pose feedback)
+    input:
+      filter:
+        enable: false
+        weight: 0.5
+      timeout:
+        enable: false
+        value: 500
+
+    # pid controller for pose controlling
     pid:
       angular:
         kd: 0.0

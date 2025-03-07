@@ -85,34 +85,7 @@ def generate_launch_description():
     ]    
   )
 
-  # Kalman Filter for Pose Filtering
-  robot_localization_parameter = PathJoinSubstitution([
-    FindPackageShare('edu_fleet'),
-    'parameter',
-    'qr_code_following',
-    'robot_localization.yaml'
-  ])
-
-  robot_localization = Node(
-    package='edu_fleet',
-    executable='robot_localization_node',
-    name='robot_localization',
-    parameters=[
-      robot_localization_parameter,
-      {'use_sim_time': use_sim_time},
-      {'robot_name': edu_robot_namespace}
-    ],
-    remappings=[
-      ('imu', 'imu'),
-      ('odometry', 'odometry'),
-      ('pose', 'marker/pose')
-    ],
-    namespace=edu_robot_namespace,
-    # prefix=['gdbserver localhost:3000'],
-    output='screen'
-  )
-
-  # Pose Controller
+  # Pose Filtering and Controlling
   pose_controller_parameter_file = PathJoinSubstitution([
     FindPackageShare('edu_fleet'),
     'parameter',
@@ -127,10 +100,11 @@ def generate_launch_description():
     namespace=edu_robot_namespace,
     parameters=[
       pose_controller_parameter_file,
-      {'use_sim_time': use_sim_time}
+      {'use_sim_time': use_sim_time},
+      {'target_frame_id': PathJoinSubstitution([edu_robot_namespace, 'marker_camera'])} # todo: change to base_link
     ],
     remappings=[
-      ('pose_feedback', 'localization'),
+      ('pose_feedback', 'marker/pose'),
       ('pose_target', 'target_pose'),
       ('twist_output', 'autonomous/cmd_vel')
     ],
@@ -139,12 +113,12 @@ def generate_launch_description():
   )
 
   # Publishing Target Pose
-  ExecuteProcess(cmd=[
+  publish_target_pose = ExecuteProcess(cmd=[
     'ros2',
     'topic',
     'pub',
     PathJoinSubstitution([edu_robot_namespace, 'target_pose']),
-    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: map}, pose: {position: {x: 1.0}}}'
+    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/marker_camera}, pose: {position: {x: -1.0}}}'
   ])
 
   return LaunchDescription([
@@ -153,7 +127,7 @@ def generate_launch_description():
     camera_node,
     marker_pose_estimation,
     qr_code_deteciton,
-    robot_localization,
     tf_camera_transform,
-    pose_controller
+    pose_controller,
+    publish_target_pose
   ])
