@@ -85,6 +85,7 @@ private:
   std::unique_ptr<geometry_msgs::msg::Twist> _output;
   rclcpp::Time _stamp_last_processed;
   rclcpp::Time _stamp_last_feedback_received;
+  bool _timeout_active = false;
 
   std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_current_odometry;
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>> _sub_current_pose;

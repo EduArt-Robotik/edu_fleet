@@ -118,7 +118,7 @@ def generate_launch_description():
     'topic',
     'pub',
     PathJoinSubstitution([edu_robot_namespace, 'target_pose']),
-    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/marker_camera}, pose: {position: {x: -1.0}}}'
+    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/green/marker_camera}, pose: {position: {x: -1.0}}}'
   ])
 
   return LaunchDescription([

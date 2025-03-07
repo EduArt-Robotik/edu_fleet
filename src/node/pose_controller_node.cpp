@@ -138,6 +138,7 @@ PoseController::PoseController()
 
   // input timeout
   if (_parameter.input_timeout.enable) {
+    _stamp_last_feedback_received = get_clock()->now();
     _timer_checking_timeout = create_timer(
       50ms, std::bind(&PoseController::checkIfTimeoutOccurred, this)
     );
@@ -206,6 +207,11 @@ void PoseController::callbackTargetPose(std::shared_ptr<const geometry_msgs::msg
 
 void PoseController::process()
 {
+  if (_timeout_active) {
+    // do not process values
+    return;
+  }
+
   using sensor_model::message_converting;
 
   // start processing
@@ -250,7 +256,7 @@ void PoseController::process()
     // Linear X
     _controller[0]->process(0.0f, target_point.x(), dt),
     // Linear Y
-    _controller[1]->process(0.0f, target_point.y(), dt)
+    _controller[1]->process(0.0f, -target_point.y(), dt)
   );
   // rotate output in robot frame
   output = Eigen::Rotation2Df(-yaw_feedback) * output;
@@ -272,10 +278,10 @@ void PoseController::checkIfTimeoutOccurred()
 {
   const auto now = get_clock()->now();
   const auto timeout = rclcpp::Duration::from_nanoseconds(
-    _parameter.input_timeout.timeout_ms.count() /* convert ms into ns */ * 1000);
+    _parameter.input_timeout.timeout_ms.count() /* convert ms into ns */ * 1000000);
+  _timeout_active = (now - _stamp_last_feedback_received) > timeout;
 
-  if (now - _stamp_last_feedback_received > timeout) {
-    std::cout << "TIMEOUT!!!" << std::endl;
+  if (_timeout_active) {
     // timeout occurred --> reset output and publish it
     // note: it will publish with the frequency this function is called until new input pose was processed.
     _output->linear.x = 0.0;

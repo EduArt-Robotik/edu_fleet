@@ -7,11 +7,11 @@
     # input filter settings (pose feedback)
     input:
       filter:
-        enable: false
+        enable: true
         weight: 0.5
       timeout:
-        enable: false
-        value: 500
+        enable: true
+        value: 300
 
     # pid controller for pose controlling
     pid:
