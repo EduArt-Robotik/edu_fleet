@@ -10,7 +10,7 @@
     exposure: 80
     focus: -1
     frame_id: eduard/blue/marker_camera
-    framerate: 24.0
+    framerate: 10.0
     gain: -1
     image_width: 800
     image_height: 600
@@ -35,5 +35,5 @@
     saturation: -1
     sharpness: -1
     use_sim_time: false
-    video_device: /dev/video0
+    video_device: /dev/video2
     white_balance: 4000
