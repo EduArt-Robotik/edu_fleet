@@ -106,7 +106,7 @@ def generate_launch_description():
     remappings=[
       ('pose_feedback', 'marker/pose'),
       ('pose_target', 'target_pose'),
-      ('twist_output', 'autonomous/cmd_vel')
+      ('twist_output', 'pose_controller/cmd_vel')
     ],
     # prefix=['gdbserver localhost:3000'],
     output='screen'
@@ -121,6 +121,28 @@ def generate_launch_description():
     'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/green/base_link}, pose: {position: {x: -1.0}}}'
   ])
 
+  # Collision Avoidance
+  collision_avoidance_parameter_file = PathJoinSubstitution([
+    FindPackageShare('edu_fleet'),
+    'parameter',
+    'qr_code_following',
+    'collision_avoidance.yaml'    
+  ])
+
+  collsion_avoidance = Node(
+    package='edu_fleet',
+    executable='collision_avoidance_lidar_node',
+    name='collision_avoidance_lidar_node',
+    namespace=edu_robot_namespace,
+    parameters=[collision_avoidance_parameter_file],
+    remappings=[
+      ('in/scan', 'scan'),
+      ('in/cmd_vel', 'pose_controller/cmd_vel'),
+      ('out/cmd_vel', 'autonomous/cmd_vel')
+    ],
+    output='both'
+  )
+
   return LaunchDescription([
     edu_robot_namespace_arg,
     use_sim_time_arg,    
@@ -129,5 +151,6 @@ def generate_launch_description():
     qr_code_deteciton,
     tf_camera_transform,
     pose_controller,
-    publish_target_pose
+    publish_target_pose,
+    collsion_avoidance
   ])
