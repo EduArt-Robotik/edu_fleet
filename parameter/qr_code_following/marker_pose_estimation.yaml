@@ -6,9 +6,9 @@
 
     invert_pose: true
     marker:
-      frame_id: ['none']
+      frame_id: ['none', 'none']
       id: ['Markus ist ein Lump!', 'https://www.instagram.com/eduart_robotik?igsh=MTBhNnpkamtteTBqbA==']
-      size: [0.17, 0.178]
+      size: [0.17, 0.121]
     std_dev:
       orientation: 0.7853981852531433
       position: 0.5

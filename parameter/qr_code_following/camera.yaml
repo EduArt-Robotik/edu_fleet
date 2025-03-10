@@ -35,5 +35,5 @@
     saturation: -1
     sharpness: -1
     use_sim_time: false
-    video_device: /dev/video2
+    video_device: /dev/video0
     white_balance: 4000

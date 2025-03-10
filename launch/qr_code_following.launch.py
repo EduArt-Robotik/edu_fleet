@@ -79,7 +79,7 @@ def generate_launch_description():
     package='tf2_ros',
     executable='static_transform_publisher',
     arguments=[
-      '0.21', '0.0', '0.04', '0.0', '0', '0',
+      '0.0', '0.0', '0.0', '0.0', '0', '0',
       PathJoinSubstitution([edu_robot_namespace, 'base_link']),
       PathJoinSubstitution([edu_robot_namespace, 'marker_camera'])
     ]    
@@ -118,7 +118,7 @@ def generate_launch_description():
     'topic',
     'pub',
     PathJoinSubstitution([edu_robot_namespace, 'target_pose']),
-    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/green/base_link}, pose: {position: {x: -1.0}}}'
+    'geometry_msgs/msg/PoseStamped', '{header: {frame_id: eduard/green/base_link}, pose: {position: {x: -0.5}}}'
   ])
 
   # Collision Avoidance
@@ -154,3 +154,4 @@ def generate_launch_description():
     publish_target_pose,
     collsion_avoidance
   ])
+

@@ -8,7 +8,7 @@
     input:
       filter:
         enable: true
-        weight: 0.5
+        weight: 0.7
       timeout:
         enable: true
         value: 300
@@ -18,7 +18,7 @@
       angular:
         kd: 0.0
         ki: 0.0
-        kp: 0.75
+        kp: 1.5
         limit: 0.2
         input_filter_weight: 1.0
         use_anti_windup: true

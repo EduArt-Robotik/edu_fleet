@@ -256,7 +256,7 @@ void PoseController::process()
     // Linear X
     _controller[0]->process(0.0f, target_point.x(), dt),
     // Linear Y
-    _controller[1]->process(0.0f, -target_point.y(), dt)
+    _controller[1]->process(0.0f, target_point.y(), dt)
   );
   // rotate output in robot frame
   output = Eigen::Rotation2Df(-yaw_feedback) * output;
