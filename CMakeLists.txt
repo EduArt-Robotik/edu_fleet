@@ -19,7 +19,6 @@ find_package(tf2_sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(edu_robot REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(diagnostic_updater REQUIRED)
@@ -27,6 +26,9 @@ find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(laser_geometry REQUIRED)
+
+find_package(edu_robot REQUIRED)
+find_package(edu_perception REQUIRED)
 
 # optional packages
 find_package(sick_lidar_localization)
@@ -66,6 +68,7 @@ set(TARGET_NODE_LIST
   fleet_localization_node
   robot_localization_node
   collision_avoidance_lidar_node
+  collision_avoidance_lidar_field_node
 )
 if (${sick_lidar_localization_FOUND})
   set(TARGET_NODE_LIST

@@ -46,8 +46,8 @@ if (${sick_lidar_localization_FOUND})
     "geometry_msgs"
     "sick_lidar_localization"
     "edu_robot"
+    "edu_perception"
   )
-
 endif()
 
 ### Twist Accumulator
@@ -131,4 +131,17 @@ ament_target_dependencies(collision_avoidance_lidar_node
   "tf2_ros"
   "tf2_sensor_msgs"
   "laser_geometry"
+)
+
+### Collision Avoidance LiDAR
+add_executable(collision_avoidance_lidar_field_node
+  collision_avoidance_lidar_field_node.cpp
+)
+target_link_libraries(collision_avoidance_lidar_field_node
+
+)
+ament_target_dependencies(collision_avoidance_lidar_field_node
+  "rclcpp"
+  "geometry_msgs"
+  "edu_perception"
 )
