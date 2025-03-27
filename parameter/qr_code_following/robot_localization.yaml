@@ -1,0 +1,18 @@
+/**:
+  ros__parameters:
+    robot_name: eduard/blue
+    output_interval_ms: 10
+    input_delay_ms: 150
+
+    # standard deviation limits
+    imu:
+      std_dev:
+        min:
+          angular: 0.08726646259971647
+          linear: 0.2
+    odometry:
+      std_dev:
+        min:
+          angular: 0.4363323129985824
+          linear: 0.2
+

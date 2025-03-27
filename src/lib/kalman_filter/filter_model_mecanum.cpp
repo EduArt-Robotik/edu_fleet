@@ -262,8 +262,8 @@ void FilterModelMecanum::calculateSystemNoiseMatrixPushAndRotate(
   }
 
   // calculate system noise matrix
-  const Data cos_phi = std::cos(state->yaw());
-  const Data sin_phi = std::sin(state->yaw());
+  // const Data cos_phi = std::cos(state->yaw());
+  // const Data sin_phi = std::sin(state->yaw());
   // clear system noise matrix before add noise parts
   _system_noise_matrix.setConstant(0.0);
 

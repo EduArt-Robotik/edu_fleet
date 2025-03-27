@@ -2,8 +2,8 @@ version: "3.0"
 
 services:
     sick-line-navigation:
-        image: eduartrobotik/eduart-fleet:0.3.0
-        container_name: sick-line-navigation-3.0.0
+        image: eduartrobotik/eduart-fleet:0.3.1
+        container_name: sick-line-navigation-0.3.1
         user: root
         restart: always
         privileged: true
@@ -16,5 +16,22 @@ services:
             - CYCLONEDDS_URI=/home/user/ros/launch_content/cyclone_profile.xml         
         network_mode: "host"
         command: bash -c 'cd /home/user/ros/launch_content; ros2 launch sick-line-navigation.launch.py'
+        volumes:
+            - './launch_content:/home/user/ros/launch_content:r'
+
+    sick-lidar-custom-reader:
+        image: eduartrobotik/eduart-perception:0.4.1
+        container_name: sick-lidar-custom-reader-0.4.1
+        user: root
+        restart: always
+        privileged: true
+        ipc: host
+        pid: host
+        environment:
+            - EDU_ROBOT_NAMESPACE=${EDU_ROBOT_NAMESPACE}
+            - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+            - CYCLONEDDS_URI=/home/user/ros/launch_content/cyclone_profile.xml         
+        network_mode: "host"
+        command: bash -c 'cd /home/user/ros/launch_content; ros2 launch sick_lidar_custom_reader.launch.py'
         volumes:
             - './launch_content:/home/user/ros/launch_content:r'

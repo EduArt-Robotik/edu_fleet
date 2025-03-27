@@ -14,6 +14,7 @@
   <depend>rclcpp</depend>
   <depend>tf2</depend>
   <depend>edu_robot</depend>
+  <depend>edu_perception</depend>
   <depend>sensor_msgs</depend>
   <depend>std_srvs</depend>
   <depend>visualization_msgs</depend>

@@ -35,7 +35,7 @@ def generate_launch_description():
     ],
     namespace=edu_robot_namespace,
     # prefix=['gdbserver localhost:3000'],
-    output='screen'    
+    output={'both': 'screen'}    
   )
 
   ## Line Navigation
@@ -53,7 +53,8 @@ def generate_launch_description():
       ('out/cmd_vel', 'line_navigation/cmd_vel'),
       ('out/set_lighting_color', 'set_lighting_color'),      
       ('in/on_track', 'line_controller/on_track'),
-      ('in/code', '/localizationcontroller/out/code_measurement_message_0304')
+      ('in/code', '/localizationcontroller/out/code_measurement_message_0304'),
+      ('in/field_evaluation', 'field_evaluation')
     ],
     namespace=edu_robot_namespace,
     output='screen'
@@ -95,11 +96,27 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Collision Avoidance Lidar Field
+  collision_avoidance_lidar_field = Node(
+    package='edu_fleet',
+    executable='collision_avoidance_lidar_field_node',
+    name='collision_avoidance_lidar_field',
+    namespace=edu_robot_namespace,
+    # parameters=[],
+    remappings=[
+      ('in/twist', 'combined/cmd_vel'),
+      ('in/field', 'field_evaluation'),
+      ('out/twist', 'autonomous/cmd_vel')
+    ],
+    output='screen'
+  )
+
   return LaunchDescription([
     edu_robot_namespace_arg,
     line_controller,
     line_navigation,
     twist_accumulator,
-    collision_avoidance
+    # collision_avoidance
+    collision_avoidance_lidar_field
   ])
     

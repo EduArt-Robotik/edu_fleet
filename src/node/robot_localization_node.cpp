@@ -207,7 +207,7 @@ void RobotLocalization::callbackPose(std::shared_ptr<const geometry_msgs::msg::P
     // const auto pose_transformed = _tf_buffer->transform(
     //   *msg, _parameter.robot_name + "/base_link");
 
-    // Only uses translation! Maybe this doesn't cover all cases but anything lets go!
+    // Only uses translation! Maybe this doesn't cover all cases but however lets go!
     const auto transform = _tf_buffer->lookupTransform(
       _parameter.robot_name + "/base_link",
       msg->header.frame_id,
@@ -236,18 +236,18 @@ void RobotLocalization::callbackPose(std::shared_ptr<const geometry_msgs::msg::P
     std::cout << "yaw = " << _sensor_model_pose->measurement()[2] << std::endl;
 
     // debug via tf
-    geometry_msgs::msg::TransformStamped t_debug;
-    t_debug.header.stamp = msg->header.stamp;
-    t_debug.header.frame_id = _parameter.robot_name + "/base_link";
-    // t_debug.header.frame_id = msg->header.frame_id;
-    t_debug.child_frame_id = "pose_debug_out";
+    // geometry_msgs::msg::TransformStamped t_debug;
+    // t_debug.header.stamp = msg->header.stamp;
+    // t_debug.header.frame_id = _parameter.robot_name + "/base_link";
+    // // t_debug.header.frame_id = msg->header.frame_id;
+    // t_debug.child_frame_id = "pose_debug_out";
 
-    t_debug.transform.translation.x = pose_transformed.pose.pose.position.x;
-    t_debug.transform.translation.y = pose_transformed.pose.pose.position.y;
-    t_debug.transform.translation.z = pose_transformed.pose.pose.position.z;
+    // t_debug.transform.translation.x = pose_transformed.pose.pose.position.x;
+    // t_debug.transform.translation.y = pose_transformed.pose.pose.position.y;
+    // t_debug.transform.translation.z = pose_transformed.pose.pose.position.z;
 
-    t_debug.transform.rotation = pose_transformed.pose.pose.orientation;
-    _tf_broadcaster->sendTransform(t_debug);
+    // t_debug.transform.rotation = pose_transformed.pose.pose.orientation;
+    // _tf_broadcaster->sendTransform(t_debug);
 
     _kalman_filter->process(_sensor_model_pose);
     publishRobotState();

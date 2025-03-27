@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    # gerneal ros parameter
+    use_sim_time: false
+    start_type_description_service: true
+
+    # velocities
+    distance:
+      reduce_velocity: 0.4000000059604645
+      velocity_zero: 0.05000000074505806
+
+    # box around robot
+    size:
+      length: 0.42
+      width: 0.4
+
+    tf_frame_robot: base_link
