@@ -16,7 +16,7 @@
 #include <edu_robot/srv/set_mode.hpp>
 
 #include <edu_perception/msg/lidar_field_evaluation.hpp>
-
+#include <std_msgs/msg/string.hpp>
 #include <sick_lidar_localization/msg/code_measurement_message0304.hpp>
 
 namespace eduart {
@@ -57,6 +57,7 @@ private:
 
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
   std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>> _pub_lighting_color;
+  std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> _pub_drive_action;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Subscription<edu_perception::msg::LidarFieldEvaluation>> _sub_field_evaluation;

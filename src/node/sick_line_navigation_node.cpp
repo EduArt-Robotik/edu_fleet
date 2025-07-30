@@ -128,6 +128,14 @@ static void enable(rclcpp::Node& node, rclcpp::Client<edu_robot::srv::SetMode>& 
   );
 }
 
+static void send_drive_action(
+  std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>>& publisher, const std::string& action)
+{
+  std_msgs::msg::String msg;
+  msg.data = action;
+  publisher->publish(msg);
+}
+
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
@@ -160,6 +168,10 @@ SickLineNavigation::SickLineNavigation()
   );
   _pub_lighting_color = create_publisher<edu_robot::msg::SetLightingColor>(
     "out/set_lighting_color", 
+    rclcpp::QoS(2).reliable()
+  );
+  _pub_drive_action = create_publisher<std_msgs::msg::String>(
+    "out/drive_action",
     rclcpp::QoS(2).reliable()
   );
   _sub_on_track = create_subscription<std_msgs::msg::Bool>(
@@ -204,6 +216,9 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   // 11. schnell
   // 12. mittel schnell
   // 13. langsam
+  // 14. drive straight at next switch
+  // 15. drive left at next switch
+  // 16. drive right at next switch
   // 20. stop for given time
   
   switch (msg->code) {
@@ -219,6 +234,11 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 11: _processing_data.requested_velocity = _parameter.move_velocity_slow; break;
     case 12: _processing_data.requested_velocity = _parameter.move_velocity_middle; break;
     case 13: _processing_data.requested_velocity = _parameter.move_velocity_fast; break;
+
+    // Turning
+    case 14: send_drive_action(_pub_drive_action, "straight"); break;
+    case 15: send_drive_action(_pub_drive_action, "turn_left"); break;
+    case 16: send_drive_action(_pub_drive_action, "turn_right"); break;
 
     // Special Actions
     // Stop/Halt for given time

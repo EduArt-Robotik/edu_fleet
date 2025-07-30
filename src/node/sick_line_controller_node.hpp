@@ -21,13 +21,15 @@ namespace fleet {
 class SickLineController : public rclcpp::Node
 {
 public:
+  static inline constexpr std::size_t NUM_SENSORS = 3;
+
   struct Parameter {
     double d_x = 0.25f; // distance between line sensors in meter
     // double gain_yaw = 1.0f; // used to compensate yaw error
     double max_error_on_track = 0.1f; // defines the maximum allowed error between track on current robot pose
     double max_error_yaw = 25.0 * M_PI / 180.0;
-    std::vector<std::int64_t> source_ids = {1, 2, 3}; // contains all expected virtual line sensor source ids
-    std::vector<std::int64_t> front_source_ids = {1, 3};  // defines front sensors, one will be picked
+    std::vector<std::int64_t> source_ids = {1, 2}; // contains all expected virtual line sensor source ids
+    std::vector<std::int64_t> front_source_ids = {1};  // defines front sensors, one will be picked
     std::vector<std::int64_t> rear_source_ids = {2};          // defines rear sensors, one will be picked
     
     struct {
@@ -59,6 +61,7 @@ private:
   void callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg);
   void callbackAction(const std_msgs::msg::String& msg);
   void processDistances();
+  std::size_t getBestIndex(const std::vector<std::int64_t>& group_source_ids);
 
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Bool>> _pub_on_track;
@@ -66,12 +69,12 @@ private:
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> _sub_action;
 
   const Parameter _parameter;
-  static inline constexpr std::size_t NUM_SENSORS = 3;
 
   struct {
     std::array<bool, NUM_SENSORS> line_distance_received;
     std::array<double, NUM_SENSORS> line_distance;
     std::array<bool, NUM_SENSORS> valid_line_distance;
+    std::array<std::uint8_t, NUM_SENSORS> cnt_lpc;
     std::uint64_t current_telegram;
     std::shared_ptr<controller::ControllerInterface> stay_on_line;
     std::shared_ptr<controller::ControllerInterface> orientate_to_line;
