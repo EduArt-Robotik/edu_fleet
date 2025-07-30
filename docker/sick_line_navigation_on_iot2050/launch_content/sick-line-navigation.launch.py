@@ -32,6 +32,7 @@ def generate_launch_description():
       ('out/velocity', 'line_controller/cmd_vel'),
       ('out/on_track', 'line_controller/on_track'),
       ('in/line_detection', '/localizationcontroller/out/line_measurement_message_0404'),
+      ('in/drive_action', 'drive_action')
     ],
     namespace=edu_robot_namespace,
     # prefix=['gdbserver localhost:3000'],
@@ -51,7 +52,8 @@ def generate_launch_description():
     parameters=[line_navigation_parameter_file],
     remappings=[
       ('out/cmd_vel', 'line_navigation/cmd_vel'),
-      ('out/set_lighting_color', 'set_lighting_color'),      
+      ('out/set_lighting_color', 'set_lighting_color'),
+      ('out/drive_action', 'drive_action'),
       ('in/on_track', 'line_controller/on_track'),
       ('in/code', '/localizationcontroller/out/code_measurement_message_0304'),
       ('in/field_evaluation', 'field_evaluation')
