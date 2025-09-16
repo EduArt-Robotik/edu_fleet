@@ -159,3 +159,17 @@ ament_target_dependencies(collision_avoidance_lidar_field_node
   "geometry_msgs"
   "edu_perception"
 )
+
+### Robot Turn Node
+add_executable(robot_rotate_node
+  robot_rotate_node.cpp
+)
+target_link_libraries(robot_rotate_node
+  "${cpp_typesupport_target}"
+)
+ament_target_dependencies(robot_rotate_node
+  "rclcpp"
+  "geometry_msgs"
+  "edu_robot"
+  "rclcpp_lifecycle"
+)

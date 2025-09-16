@@ -39,6 +39,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # Messages
 # Services
   "srv/GetTransform.srv"
+# Actions
+  "action/RobotRotate.action"
   DEPENDENCIES
   "edu_robot"
 )
@@ -69,6 +71,7 @@ set(TARGET_NODE_LIST
   robot_localization_node
   collision_avoidance_lidar_node
   collision_avoidance_lidar_field_node
+  robot_rotate_node
 )
 if (${sick_lidar_localization_FOUND})
   set(TARGET_NODE_LIST
