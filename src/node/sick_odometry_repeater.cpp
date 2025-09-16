@@ -1,0 +1,42 @@
+#include "sick_odometry_repeater.hpp"
+
+namespace eduart {
+namespace fleet {
+
+SickOdometryRepeater::SickOdometryRepeater()
+: rclcpp::Node("sick_odometry_repeater")
+{
+  _sub_odometry = create_subscription<nav_msgs::msg::Odometry>(
+    "in/odom", rclcpp::QoS(2).best_effort(),
+    std::bind(&SickOdometryRepeater::callbackOdometry, this, std::placeholders::_1)
+  );
+
+  _pub_odometry = create_publisher<sick_lidar_localization::msg::OdometryMessage0104>(
+    "out/odom", rclcpp::QoS(2).reliable()
+  );
+}
+
+void SickOdometryRepeater::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg)
+{
+  sick_lidar_localization::msg::OdometryMessage0104 odom;
+
+  odom.header = msg->header;
+  odom.telegram_count = _telegram_counter++;
+  odom.timestamp = static_cast<uint64_t>(msg->header.stamp.sec) * 1000000 + msg->header.stamp.nanosec / 1000; // in µs
+
+  odom.x_velocity = msg->twist.twist.linear.x;
+  odom.y_velocity = msg->twist.twist.linear.y;
+  odom.angular_velocity = msg->twist.twist.angular.z;
+}
+
+} // end namespace fleet
+} // end namespace eduart
+
+int main(int argc, char** argv)
+{
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<eduart::fleet::SickOdometryRepeater>());
+  rclcpp::shutdown();
+
+  return 0;
+}

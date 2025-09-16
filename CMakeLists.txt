@@ -74,7 +74,8 @@ if (${sick_lidar_localization_FOUND})
   set(TARGET_NODE_LIST
     ${TARGET_NODE_LIST}
     sick_line_controller_node
-    sick_line_navigation_node    
+    sick_line_navigation_node
+    sick_odometry_repeater_node
   )
 endif()
 
