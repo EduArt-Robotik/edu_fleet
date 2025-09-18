@@ -43,7 +43,12 @@ rclcpp_action::GoalResponse RobotRotateNode::callbackAcceptGoal(
   (void)uuid;
   (void)goal;
 
-  RCLCPP_INFO(get_logger(), "Received goal request");
+  if (_data.is_executing) {
+    RCLCPP_WARN(get_logger(), "already executing rotation, rejecting new goal");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+
+  RCLCPP_INFO(get_logger(), "received goal request, accepting and executing. Robot will rotate by %.2f radian", goal->relative_yaw);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -64,27 +69,27 @@ void RobotRotateNode::executeRotate(
 
   
 
-  for (int i = 1; (i <= 10) && rclcpp::ok(); ++i) {
-    if (goal_handle->is_canceling()) {
-      result->total_angle_rotated = feedback->partial_angle_rotated;
-      goal_handle->canceled(result);
-      RCLCPP_INFO(get_logger(), "Goal canceled");
-      return;
-    }
+  // for (int i = 1; (i <= 10) && rclcpp::ok(); ++i) {
+  //   if (goal_handle->is_canceling()) {
+  //     result->total_angle_rotated = feedback->partial_angle_rotated;
+  //     goal_handle->canceled(result);
+  //     RCLCPP_INFO(get_logger(), "Goal canceled");
+  //     return;
+  //   }
 
-    feedback->partial_angle_rotated = i * (goal->angle / 10.0);
-    goal_handle->publish_feedback(feedback);
-    RCLCPP_INFO(get_logger(), "Published feedback: %.2f", feedback->partial_angle_rotated);
-    loop_rate.sleep();
-  }
+  //   feedback->partial_angle_rotated = i * (goal->angle / 10.0);
+  //   goal_handle->publish_feedback(feedback);
+  //   RCLCPP_INFO(get_logger(), "Published feedback: %.2f", feedback->partial_angle_rotated);
+  //   loop_rate.sleep();
+  // }
 
-  if (rclcpp::ok()) {
-    result->total_angle_rotated = feedback->partial_angle_rotated;
-    goal_handle->succeed(result);
-    RCLCPP_INFO(get_logger(), "Goal succeeded");
-  } else {
-    RCLCPP_INFO(get_logger(), "Goal aborted");
-  }
+  // if (rclcpp::ok()) {
+  //   result->total_angle_rotated = feedback->partial_angle_rotated;
+  //   goal_handle->succeed(result);
+  //   RCLCPP_INFO(get_logger(), "Goal succeeded");
+  // } else {
+  //   RCLCPP_INFO(get_logger(), "Goal aborted");
+  // }
 }
 
 } // end namespace fleet

@@ -45,7 +45,8 @@ private:
     robot::AnglePiToPi yaw;
     robot::AnglePiToPi start_yaw;
     robot::AnglePiToPi end_yaw;
-  } _processing;
+    std::atomic_bool is_executing{false};
+  } _data;
 };
   
 } // end namespace fleet
