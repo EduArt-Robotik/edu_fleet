@@ -166,6 +166,7 @@ add_executable(robot_rotate_node
 )
 target_link_libraries(robot_rotate_node
   "${cpp_typesupport_target}"
+  eduart-fleet-controller
 )
 ament_target_dependencies(robot_rotate_node
   "rclcpp"

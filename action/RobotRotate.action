@@ -1,5 +1,7 @@
 float32 relative_yaw # rotates the robot by given relative yaw angle
+float32 yaw_rate     # rotation velocity of the robot
 ---
 float32 current_yaw # already rotated yaw angle
+float32 error_yaw   # remaining yaw error
 ---
 bool succeeded # indicates if the rotation was successfully finished
