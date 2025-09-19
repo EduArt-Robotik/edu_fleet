@@ -169,7 +169,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
 {
   // Start new measurement cycle if telegram number changed.
   if (msg.telegram_count != _processing_data.current_telegram) {
-    RCLCPP_INFO(get_logger(), "start new line measurement set.");
+    // RCLCPP_INFO(get_logger(), "start new line measurement set.");
     _processing_data.current_telegram = msg.telegram_count;
     _processing_data.line_distance_received.fill(false);
     _processing_data.line_distance.fill(0.0);
@@ -179,7 +179,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
 
   // Assign line measurement.
   const auto index = get_index_from_source_id(_parameter.source_ids, msg.source_id);
-  RCLCPP_INFO(get_logger(), "process source id %u.", msg.source_id);
+  // RCLCPP_INFO(get_logger(), "process source id %u.", msg.source_id);
 
   if (index.has_value() == false) {
     // not source id found
@@ -199,7 +199,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
         _processing_data.valid_line_distance[*index] = true;
         _processing_data.line_distance[*index] = -msg.lcp2 / 1000.0f; // convert into meter
         _processing_data.track[*index] = Track::MIDDLE;
-        RCLCPP_INFO(get_logger(), "drive straight");
+        // RCLCPP_INFO(get_logger(), "drive straight");
       }
       break;
 
@@ -208,7 +208,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
         if (_processing_data.track[*index] == Track::MIDDLE) {
           // still on middle --> turning not started yet
           _processing_data.track[*index] = Track::MIDDLE;
-          RCLCPP_INFO(get_logger(), "still on middle --> turning left not started yet");
+          // RCLCPP_INFO(get_logger(), "still on middle --> turning left not started yet");
         }
         else if (_processing_data.track[*index] == Track::LEFT) {
           // turing left is finished --> going back to middle track
@@ -237,7 +237,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
       if (is_right(msg.cnt_lpc) == false && is_middle(msg.cnt_lpc) == true) {
         if (_processing_data.track[*index] == Track::MIDDLE) {
           // still on middle --> turning not started yet
-          RCLCPP_INFO(get_logger(), "still on middle --> turning right not started yet");
+          // RCLCPP_INFO(get_logger(), "still on middle --> turning right not started yet");
           _processing_data.track[*index] = Track::MIDDLE;
         }
         else if (_processing_data.track[*index] == Track::RIGHT) {
@@ -268,8 +268,8 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
     break;
   }
 
-  RCLCPP_INFO(get_logger(), "source id %u, action %u, track %u.", msg.source_id,
-    static_cast<unsigned int>(_processing_data.action[*index]), static_cast<unsigned int>(_processing_data.track[*index]));
+  // RCLCPP_INFO(get_logger(), "source id %u, action %u, track %u.", msg.source_id,
+    // static_cast<unsigned int>(_processing_data.action[*index]), static_cast<unsigned int>(_processing_data.track[*index]));
 
 
   // Check if all needed measurements are received.
@@ -288,12 +288,15 @@ void SickLineController::callbackAction(const std_msgs::msg::String& msg)
   // \todo clarify if a active action should be canceled?
   if (msg.data == "turn_left") {
     _processing_data.action.fill(Action::TURN_LEFT);
+    RCLCPP_INFO(get_logger(), "turn left command received.");
   }
   else if (msg.data == "turn_right") {
     _processing_data.action.fill(Action::TURN_RIGHT);
+    RCLCPP_INFO(get_logger(), "turn right command received.");
   }
   else if (msg.data == "straight") {
     _processing_data.action.fill(Action::STRAIGHT);
+    RCLCPP_INFO(get_logger(), "drive straight command received.");
   }
 }
 

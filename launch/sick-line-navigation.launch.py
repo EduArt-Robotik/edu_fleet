@@ -51,7 +51,10 @@ def generate_launch_description():
     package='edu_fleet',
     executable='sick_line_navigation_node',
     name='sick_line_navigation',
-    parameters=[line_navigation_parameter_file],
+    parameters=[
+      line_navigation_parameter_file,
+      {'line_controller_node_name': 'sick_line_controller'}
+    ],
     remappings=[
       ('out/cmd_vel', 'line_navigation/cmd_vel'),
       ('out/set_lighting_color', 'set_lighting_color'),
@@ -141,11 +144,10 @@ def generate_launch_description():
 
   return LaunchDescription([
     edu_robot_namespace_arg,
-#    line_controller,
-#    line_navigation,
+    line_controller,
+    line_navigation,
     rotate_robot,
     twist_accumulator,
     # collision_avoidance,
     collision_avoidance_lidar_field
   ])
-    

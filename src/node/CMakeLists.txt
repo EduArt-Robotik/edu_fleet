@@ -29,10 +29,12 @@ if (${sick_lidar_localization_FOUND})
   )
   target_link_libraries(sick_line_controller_node
     eduart-fleet-controller
+    "${cpp_typesupport_target}"
   )
   ament_target_dependencies(sick_line_controller_node
     "rclcpp"
     "rclcpp_lifecycle"
+    "rclcpp_action"
     "geometry_msgs"
     "sick_lidar_localization"
   )
@@ -42,14 +44,16 @@ if (${sick_lidar_localization_FOUND})
     sick_line_navigation_node.cpp
   )
   target_link_libraries(sick_line_navigation_node
-
+    "${cpp_typesupport_target}"
   )
   ament_target_dependencies(sick_line_navigation_node
     "rclcpp"
+    "rclcpp_action"
     "geometry_msgs"
     "sick_lidar_localization"
     "edu_robot"
     "edu_perception"
+    "lifecycle_msgs"
   )
 
   # Odometry Repeater Node
@@ -171,6 +175,7 @@ target_link_libraries(robot_rotate_node
 )
 ament_target_dependencies(robot_rotate_node
   "rclcpp"
+  "rclcpp_action"
   "geometry_msgs"
   "edu_robot"
 )
