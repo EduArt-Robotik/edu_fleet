@@ -24,7 +24,7 @@ USER $USER
 COPY ./edu_swarm /home/$USER/ros/src/edu_fleet
 COPY ./sick_lidar_localization /home/$USER/ros/src/sick_lidar_localization
 USER root
-RUN cp -f /home/$USER/ros/src/sick_lidar_localization/package_ros2.xml /home/$USER/ros/src/sick_lidar_localization/package.xml
+RUN cp -f /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_driver/package_ros2.xml /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_driver/package.xml
 USER $USER
 
 # build EduArt packages nodes
