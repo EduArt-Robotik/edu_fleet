@@ -8,6 +8,8 @@
 #include <edu_fleet/controller/pid.hpp>
 
 #include <rclcpp/node.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 #include <sick_lidar_localization/msg/line_measurement_message0404.hpp>
 
@@ -18,7 +20,7 @@
 namespace eduart {
 namespace fleet {
 
-class SickLineController : public rclcpp::Node
+class SickLineController : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   static inline constexpr std::size_t NUM_SENSORS = 3;
@@ -43,7 +45,19 @@ public:
   SickLineController();
   ~SickLineController() override = default;
 
-  static Parameter get_parameter(const Parameter& default_parameter, rclcpp::Node& ros_node);
+  static Parameter get_parameter(const Parameter& default_parameter, rclcpp_lifecycle::LifecycleNode& ros_node);
+
+protected:
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
+    const rclcpp_lifecycle::State& previous_state) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_activate(
+    const rclcpp_lifecycle::State& previous_state) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_deactivate(
+    const rclcpp_lifecycle::State& previous_state) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_cleanup(
+    const rclcpp_lifecycle::State& previous_state) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_shutdown(
+    const rclcpp_lifecycle::State& previous_state) override;
 
 private:
   enum class Action {
@@ -63,10 +77,11 @@ private:
   void processDistances();
   std::size_t getBestIndex(const std::vector<std::int64_t>& group_source_ids);
 
-  std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
-  std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Bool>> _pub_on_track;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>> _pub_velocity;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>> _pub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::LineMeasurementMessage0404>> _sub_line_sensor;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> _sub_action;
+  // std::shared_ptr<rclcpp_action::Server<typename ActionT>>
 
   const Parameter _parameter;
 

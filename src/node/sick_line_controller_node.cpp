@@ -30,7 +30,7 @@ static std::optional<std::size_t> get_index_from_source_id(
 }
 
 SickLineController::Parameter SickLineController::get_parameter(
-  const Parameter &default_parameter, rclcpp::Node &ros_node)
+  const Parameter &default_parameter, rclcpp_lifecycle::LifecycleNode &ros_node)
 {
   ros_node.declare_parameter<double>("d_x", default_parameter.d_x);
   ros_node.declare_parameter<double>("max_error_on_track", default_parameter.max_error_on_track);
@@ -68,9 +68,18 @@ SickLineController::Parameter SickLineController::get_parameter(
 }
 
 SickLineController::SickLineController()
-  : rclcpp::Node("line_controller")
+  : rclcpp_lifecycle::LifecycleNode("line_controller")
   , _parameter(get_parameter({}, *this))
 {
+
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_configure(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "configuring node.");
+
   // Configuring ROS Topics and Services
   _pub_velocity = create_publisher<geometry_msgs::msg::Twist>(
     "out/velocity", rclcpp::QoS(2).reliable()
@@ -107,6 +116,53 @@ SickLineController::SickLineController()
   _processing_data.track.fill(Track::MIDDLE);
 
   // Ready for Processing
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_cleanup(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "cleaning up node.");
+
+  // Destroying ROS Publishers and Services
+  _pub_velocity.reset();
+  _pub_on_track.reset();
+  _sub_line_sensor.reset();
+  _sub_action.reset();
+
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_shutdown(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "shutting down node.");
+
+  // Destroying ROS Publishers and Services
+  _pub_velocity.reset();
+  _pub_on_track.reset();
+  _sub_line_sensor.reset();
+  _sub_action.reset();
+
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_activate(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  RCLCPP_INFO(get_logger(), "activating node.");
+  (void)previous_state;
+  return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_deactivate(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  RCLCPP_INFO(get_logger(), "deactivating node.");
+  (void)previous_state;
+  return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
 }
 
 void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg)
@@ -331,7 +387,8 @@ std::size_t SickLineController::getBestIndex(const std::vector<std::int64_t>& gr
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<eduart::fleet::SickLineController>());
+  auto node = std::make_shared<eduart::fleet::SickLineController>();
+  rclcpp::spin(node->get_node_base_interface());
   rclcpp::shutdown();
 
   return 0;

@@ -32,6 +32,7 @@ if (${sick_lidar_localization_FOUND})
   )
   ament_target_dependencies(sick_line_controller_node
     "rclcpp"
+    "rclcpp_lifecycle"
     "geometry_msgs"
     "sick_lidar_localization"
   )
@@ -172,5 +173,4 @@ ament_target_dependencies(robot_rotate_node
   "rclcpp"
   "geometry_msgs"
   "edu_robot"
-  "rclcpp_lifecycle"
 )
