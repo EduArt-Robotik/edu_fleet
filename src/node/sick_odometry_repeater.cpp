@@ -1,5 +1,7 @@
 #include "sick_odometry_repeater.hpp"
 
+#include <edu_robot/angle.hpp>
+
 namespace eduart {
 namespace fleet {
 
@@ -24,9 +26,11 @@ void SickOdometryRepeater::callbackOdometry(std::shared_ptr<const nav_msgs::msg:
   odom.telegram_count = _telegram_counter++;
   odom.timestamp = static_cast<uint64_t>(msg->header.stamp.sec) * 1000000 + msg->header.stamp.nanosec / 1000; // in µs
 
-  odom.x_velocity = msg->twist.twist.linear.x;
-  odom.y_velocity = msg->twist.twist.linear.y;
-  odom.angular_velocity = msg->twist.twist.angular.z;
+  odom.x_velocity = msg->twist.twist.linear.x * 1000; // in mm/s
+  odom.y_velocity = msg->twist.twist.linear.y * 1000; // in mm/s 
+  odom.angular_velocity = robot::AnglePiToPi(msg->twist.twist.angular.z).degree() * 1000; // in mdeg/s
+
+  _pub_odometry->publish(odom);
 }
 
 } // end namespace fleet

@@ -66,6 +66,7 @@ if (${sick_lidar_localization_FOUND})
     "rclcpp"
     "nav_msgs"
     "sick_lidar_localization"
+    "edu_robot"
   )
 endif()
 

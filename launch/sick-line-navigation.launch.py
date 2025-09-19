@@ -67,6 +67,19 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Odometry Repeater for improving sick line navigation performance
+  odometry_repeater = Node(
+    package='edu_fleet',
+    executable='sick_odometry_repeater_node',
+    name='sick_odometry_repeater',
+    namespace=edu_robot_namespace,
+    remappings=[
+      ('in/odom', 'odometry'),
+      ('out/odom', '/localizationcontroller/in/odometry_message_0104')
+    ],
+    output='screen'
+  )
+
   ## Rotate Robot Action Server
   # rotate_robot_parameter_file = PathJoinSubstitution([
   #   FindPackageShare('edu_fleet'),
@@ -146,6 +159,7 @@ def generate_launch_description():
     edu_robot_namespace_arg,
     line_controller,
     line_navigation,
+    odometry_repeater,
     rotate_robot,
     twist_accumulator,
     # collision_avoidance,
