@@ -178,6 +178,10 @@ void SickLineNavigation::performFullTurn()
   send_lifecycle_node_transition(
     _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
   );
+  // stop robot before turning
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+  const auto drive_velocity = _processing_data.requested_velocity;
+  _processing_data.requested_velocity = 0.0;
 
   // activate action by sending goal
   auto goal_msg = edu_fleet::action::RobotRotate::Goal();
@@ -185,7 +189,7 @@ void SickLineNavigation::performFullTurn()
   goal_msg.yaw_rate = _parameter.turning_velocity;
 
   auto send_goal_options = rclcpp_action::Client<edu_fleet::action::RobotRotate>::SendGoalOptions();
-  send_goal_options.result_callback = [this](
+  send_goal_options.result_callback = [this, drive_velocity](
     const rclcpp_action::ClientGoalHandle<edu_fleet::action::RobotRotate>::WrappedResult & result) 
     {
       switch (result.code) {
@@ -208,6 +212,9 @@ void SickLineNavigation::performFullTurn()
       send_lifecycle_node_transition(
         _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
       );
+      // restore previous velocity
+      std::lock_guard<std::mutex> lock(_processing_data.mutex);
+      _processing_data.requested_velocity = drive_velocity;
     };
 
   _action_client_rotate->async_send_goal(goal_msg, send_goal_options);
@@ -339,9 +346,24 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
     // Moving Velocity
     case 10: disable(*this, *_client_set_mode); break;
-    case 11: _processing_data.requested_velocity = _parameter.move_velocity_slow; break;
-    case 12: _processing_data.requested_velocity = _parameter.move_velocity_middle; break;
-    case 13: _processing_data.requested_velocity = _parameter.move_velocity_fast; break;
+    // Velocity Slow
+    case 11: { 
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_slow;
+      }
+      break;
+    // Velocity Middle
+    case 12: {
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_middle;
+      }
+      break;
+    // Velocity Fast
+    case 13: {
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_fast;
+      }
+      break;
     case 14: _processing_data.drive_backwards = false; break;
     case 15: _processing_data.drive_backwards = true; break;
 
@@ -409,10 +431,12 @@ void SickLineNavigation::process()
   // no collision with an object
   else if (_processing_data.warnfeld_active) {
     // some object is in Warnfeld --> slow down
+    std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _parameter.move_velocity_slow;
   }
   // no close object around robot
   else {
+    std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _processing_data.requested_velocity;
   }
 

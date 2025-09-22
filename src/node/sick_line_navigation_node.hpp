@@ -56,12 +56,13 @@ private:
   const Parameter _parameter;
 
   struct {
-    bool on_track = false;
-    bool warnfeld_active = false;
-    bool schutzfeld_active = false;
-    bool stop_active = false;
-    bool drive_backwards = false;
+    std::atomic_bool on_track = false;
+    std::atomic_bool warnfeld_active = false;
+    std::atomic_bool schutzfeld_active = false;
+    std::atomic_bool stop_active = false;
+    std::atomic_bool drive_backwards = false;
     float requested_velocity = 0.0;
+    std::mutex mutex;
   } _processing_data;
 
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
