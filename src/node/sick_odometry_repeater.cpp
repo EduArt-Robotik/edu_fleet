@@ -13,14 +13,14 @@ SickOdometryRepeater::SickOdometryRepeater()
     std::bind(&SickOdometryRepeater::callbackOdometry, this, std::placeholders::_1)
   );
 
-  _pub_odometry = create_publisher<sick_lidar_localization::msg::OdometryMessage0104>(
+  _pub_odometry = create_publisher<sick_lidar_localization_msgs::msg::OdometryMessage0104>(
     "out/odom", rclcpp::QoS(2).reliable()
   );
 }
 
 void SickOdometryRepeater::callbackOdometry(std::shared_ptr<const nav_msgs::msg::Odometry> msg)
 {
-  sick_lidar_localization::msg::OdometryMessage0104 odom;
+  sick_lidar_localization_msgs::msg::OdometryMessage0104 odom;
 
   odom.header = msg->header;
   odom.telegram_count = _telegram_counter++;

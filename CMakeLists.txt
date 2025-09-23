@@ -31,7 +31,7 @@ find_package(edu_robot REQUIRED)
 find_package(edu_perception REQUIRED)
 
 # optional packages
-find_package(sick_lidar_localization)
+find_package(sick_lidar_localization_msgs)
 
 
 ## Build Defined ROS Messages
@@ -73,7 +73,7 @@ set(TARGET_NODE_LIST
   collision_avoidance_lidar_field_node
   robot_rotate_node
 )
-if (${sick_lidar_localization_FOUND})
+if (${sick_lidar_localization_msgs_FOUND})
   set(TARGET_NODE_LIST
     ${TARGET_NODE_LIST}
     sick_line_controller_node

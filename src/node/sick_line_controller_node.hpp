@@ -11,7 +11,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
-#include <sick_lidar_localization/msg/line_measurement_message0404.hpp>
+#include <sick_lidar_localization_msgs/msg/line_measurement_message0404.hpp>
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -72,14 +72,14 @@ private:
     RIGHT,
   };
 
-  void callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg);
+  void callbackLineSensor(const sick_lidar_localization_msgs::msg::LineMeasurementMessage0404& msg);
   void callbackAction(const std_msgs::msg::String& msg);
   void processDistances();
   std::size_t getBestIndex(const std::vector<std::int64_t>& group_source_ids);
 
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>> _pub_velocity;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>> _pub_on_track;
-  std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::LineMeasurementMessage0404>> _sub_line_sensor;
+  std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::LineMeasurementMessage0404>> _sub_line_sensor;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> _sub_action;
 
   const Parameter _parameter;

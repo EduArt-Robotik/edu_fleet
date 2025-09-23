@@ -88,7 +88,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
     "out/on_track", 
     rclcpp::QoS(2).transient_local()
   );
-  _sub_line_sensor = create_subscription<sick_lidar_localization::msg::LineMeasurementMessage0404>(
+  _sub_line_sensor = create_subscription<sick_lidar_localization_msgs::msg::LineMeasurementMessage0404>(
     "in/line_detection",
     rclcpp::QoS(10).reliable(),
     std::bind(&SickLineController::callbackLineSensor, this, std::placeholders::_1)
@@ -165,7 +165,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
   return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
 }
 
-void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg)
+void SickLineController::callbackLineSensor(const sick_lidar_localization_msgs::msg::LineMeasurementMessage0404& msg)
 {
   // Start new measurement cycle if telegram number changed.
   if (msg.telegram_count != _processing_data.current_telegram) {

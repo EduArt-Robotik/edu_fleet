@@ -266,7 +266,7 @@ SickLineNavigation::SickLineNavigation()
     rclcpp::QoS(2).transient_local(), 
     std::bind(&SickLineNavigation::callbackOnTrack, this, std::placeholders::_1)
   );
-  _sub_code = create_subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>(
+  _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
     "in/code", 
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
@@ -315,7 +315,7 @@ void SickLineNavigation::callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bo
   _processing_data.on_track = msg->data;
 }
 
-void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localization::msg::CodeMeasurementMessage0304> msg)
+void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg)
 {
   RCLCPP_INFO(get_logger(), "received code \"%i\".", msg->code);
   // Following codes were defined:

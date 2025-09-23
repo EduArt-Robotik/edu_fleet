@@ -20,7 +20,7 @@ ament_target_dependencies(pose_controller
 
 ### Line Controller
 ### Optional
-if (${sick_lidar_localization_FOUND})
+if (${sick_lidar_localization_msgs_FOUND})
   message(STATUS "Building Line Controller for Sick Line Follower")
 
   # Line Controller Node
@@ -36,7 +36,7 @@ if (${sick_lidar_localization_FOUND})
     "rclcpp_lifecycle"
     "rclcpp_action"
     "geometry_msgs"
-    "sick_lidar_localization"
+    "sick_lidar_localization_msgs"
   )
 
   # Line Navigation Node
@@ -50,7 +50,7 @@ if (${sick_lidar_localization_FOUND})
     "rclcpp"
     "rclcpp_action"
     "geometry_msgs"
-    "sick_lidar_localization"
+    "sick_lidar_localization_msgs"
     "edu_robot"
     "edu_perception"
     "lifecycle_msgs"
@@ -65,7 +65,7 @@ if (${sick_lidar_localization_FOUND})
   ament_target_dependencies(sick_odometry_repeater_node
     "rclcpp"
     "nav_msgs"
-    "sick_lidar_localization"
+    "sick_lidar_localization_msgs"
     "edu_robot"
   )
 endif()
