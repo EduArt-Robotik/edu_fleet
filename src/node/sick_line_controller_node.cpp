@@ -30,7 +30,7 @@ static std::optional<std::size_t> get_index_from_source_id(
 }
 
 SickLineController::Parameter SickLineController::get_parameter(
-  const Parameter &default_parameter, rclcpp::Node &ros_node)
+  const Parameter &default_parameter, rclcpp_lifecycle::LifecycleNode &ros_node)
 {
   ros_node.declare_parameter<double>("d_x", default_parameter.d_x);
   ros_node.declare_parameter<double>("max_error_on_track", default_parameter.max_error_on_track);
@@ -68,9 +68,18 @@ SickLineController::Parameter SickLineController::get_parameter(
 }
 
 SickLineController::SickLineController()
-  : rclcpp::Node("line_controller")
+  : rclcpp_lifecycle::LifecycleNode("line_controller")
   , _parameter(get_parameter({}, *this))
 {
+
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_configure(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "configuring node.");
+
   // Configuring ROS Topics and Services
   _pub_velocity = create_publisher<geometry_msgs::msg::Twist>(
     "out/velocity", rclcpp::QoS(2).reliable()
@@ -79,7 +88,7 @@ SickLineController::SickLineController()
     "out/on_track", 
     rclcpp::QoS(2).transient_local()
   );
-  _sub_line_sensor = create_subscription<sick_lidar_localization::msg::LineMeasurementMessage0404>(
+  _sub_line_sensor = create_subscription<sick_lidar_localization_msgs::msg::LineMeasurementMessage0404>(
     "in/line_detection",
     rclcpp::QoS(10).reliable(),
     std::bind(&SickLineController::callbackLineSensor, this, std::placeholders::_1)
@@ -107,13 +116,60 @@ SickLineController::SickLineController()
   _processing_data.track.fill(Track::MIDDLE);
 
   // Ready for Processing
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::LineMeasurementMessage0404& msg)
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_cleanup(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "cleaning up node.");
+
+  // Destroying ROS Publishers and Services
+  _pub_velocity.reset();
+  _pub_on_track.reset();
+  _sub_line_sensor.reset();
+  _sub_action.reset();
+
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_shutdown(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  (void)previous_state;
+  RCLCPP_INFO(get_logger(), "shutting down node.");
+
+  // Destroying ROS Publishers and Services
+  _pub_velocity.reset();
+  _pub_on_track.reset();
+  _sub_line_sensor.reset();
+  _sub_action.reset();
+
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_activate(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  RCLCPP_INFO(get_logger(), "activating node.");
+  (void)previous_state;
+  return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLineController::on_deactivate(
+  const rclcpp_lifecycle::State& previous_state)
+{
+  RCLCPP_INFO(get_logger(), "deactivating node.");
+  (void)previous_state;
+  return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
+}
+
+void SickLineController::callbackLineSensor(const sick_lidar_localization_msgs::msg::LineMeasurementMessage0404& msg)
 {
   // Start new measurement cycle if telegram number changed.
   if (msg.telegram_count != _processing_data.current_telegram) {
-    RCLCPP_INFO(get_logger(), "start new line measurement set.");
+    // RCLCPP_INFO(get_logger(), "start new line measurement set.");
     _processing_data.current_telegram = msg.telegram_count;
     _processing_data.line_distance_received.fill(false);
     _processing_data.line_distance.fill(0.0);
@@ -123,7 +179,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
 
   // Assign line measurement.
   const auto index = get_index_from_source_id(_parameter.source_ids, msg.source_id);
-  RCLCPP_INFO(get_logger(), "process source id %u.", msg.source_id);
+  // RCLCPP_INFO(get_logger(), "process source id %u.", msg.source_id);
 
   if (index.has_value() == false) {
     // not source id found
@@ -143,7 +199,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
         _processing_data.valid_line_distance[*index] = true;
         _processing_data.line_distance[*index] = -msg.lcp2 / 1000.0f; // convert into meter
         _processing_data.track[*index] = Track::MIDDLE;
-        RCLCPP_INFO(get_logger(), "drive straight");
+        // RCLCPP_INFO(get_logger(), "drive straight");
       }
       break;
 
@@ -152,7 +208,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
         if (_processing_data.track[*index] == Track::MIDDLE) {
           // still on middle --> turning not started yet
           _processing_data.track[*index] = Track::MIDDLE;
-          RCLCPP_INFO(get_logger(), "still on middle --> turning left not started yet");
+          // RCLCPP_INFO(get_logger(), "still on middle --> turning left not started yet");
         }
         else if (_processing_data.track[*index] == Track::LEFT) {
           // turing left is finished --> going back to middle track
@@ -181,7 +237,7 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
       if (is_right(msg.cnt_lpc) == false && is_middle(msg.cnt_lpc) == true) {
         if (_processing_data.track[*index] == Track::MIDDLE) {
           // still on middle --> turning not started yet
-          RCLCPP_INFO(get_logger(), "still on middle --> turning right not started yet");
+          // RCLCPP_INFO(get_logger(), "still on middle --> turning right not started yet");
           _processing_data.track[*index] = Track::MIDDLE;
         }
         else if (_processing_data.track[*index] == Track::RIGHT) {
@@ -212,8 +268,8 @@ void SickLineController::callbackLineSensor(const sick_lidar_localization::msg::
     break;
   }
 
-  RCLCPP_INFO(get_logger(), "source id %u, action %u, track %u.", msg.source_id,
-    static_cast<unsigned int>(_processing_data.action[*index]), static_cast<unsigned int>(_processing_data.track[*index]));
+  // RCLCPP_INFO(get_logger(), "source id %u, action %u, track %u.", msg.source_id,
+    // static_cast<unsigned int>(_processing_data.action[*index]), static_cast<unsigned int>(_processing_data.track[*index]));
 
 
   // Check if all needed measurements are received.
@@ -232,12 +288,15 @@ void SickLineController::callbackAction(const std_msgs::msg::String& msg)
   // \todo clarify if a active action should be canceled?
   if (msg.data == "turn_left") {
     _processing_data.action.fill(Action::TURN_LEFT);
+    RCLCPP_INFO(get_logger(), "turn left command received.");
   }
   else if (msg.data == "turn_right") {
     _processing_data.action.fill(Action::TURN_RIGHT);
+    RCLCPP_INFO(get_logger(), "turn right command received.");
   }
   else if (msg.data == "straight") {
     _processing_data.action.fill(Action::STRAIGHT);
+    RCLCPP_INFO(get_logger(), "drive straight command received.");
   }
 }
 
@@ -331,7 +390,8 @@ std::size_t SickLineController::getBestIndex(const std::vector<std::int64_t>& gr
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<eduart::fleet::SickLineController>());
+  auto node = std::make_shared<eduart::fleet::SickLineController>();
+  rclcpp::spin(node->get_node_base_interface());
   rclcpp::shutdown();
 
   return 0;

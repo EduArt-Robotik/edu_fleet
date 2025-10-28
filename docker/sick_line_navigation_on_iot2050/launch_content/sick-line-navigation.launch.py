@@ -62,16 +62,52 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Odometry Repeater for improving sick line navigation performance
+  odometry_repeater = Node(
+    package='edu_fleet',
+    executable='sick_odometry_repeater_node',
+    name='sick_odometry_repeater',
+    namespace=edu_robot_namespace,
+    remappings=[
+      ('in/odom', 'odometry'),
+      ('out/odom', '/localizationcontroller/in/odometry_message_0104')
+    ],
+    output='screen'
+  )
+
+  ## Rotate Robot Action Server
+  # rotate_robot_parameter_file = PathJoinSubstitution([
+  #   FindPackageShare('edu_fleet'),
+  #   'parameter',
+  #   'rotate_robot.yaml'
+  # ])
+
+  rotate_robot = Node(
+    package='edu_fleet',
+    executable='robot_rotate_node',
+    name='robot_rotate',
+    namespace=edu_robot_namespace,
+    # parameters=[rotate_robot_parameter_file],
+    remappings=[
+      ('in/odometry', 'odometry'),
+      ('out/cmd_vel', 'rotate_robot/cmd_vel'),
+    ],
+    output='screen'
+  )  
+
   ## Twist Accumulation
   twist_accumulator = Node(
     package='edu_fleet',
     executable='twist_accumulator',
     name='twist_accumulator',
     namespace=edu_robot_namespace,
-    # parameter=[parameter_file],
+    parameters=[
+      {'num_subscription': 3}
+    ],
     remappings=[
       ('twist/input_0', 'line_controller/cmd_vel'),
       ('twist/input_1', 'line_navigation/cmd_vel'),
+      ('twist/input_2', 'rotate_robot/cmd_vel'),
       ('twist/output', 'combined/cmd_vel')
     ],
     # prefix=['gdbserver localhost:3000'],
@@ -117,6 +153,8 @@ def generate_launch_description():
     edu_robot_namespace_arg,
     line_controller,
     line_navigation,
+    odometry_repeater,
+    rotate_robot,
     twist_accumulator,
     # collision_avoidance
     collision_avoidance_lidar_field

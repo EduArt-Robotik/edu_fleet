@@ -20,33 +20,53 @@ ament_target_dependencies(pose_controller
 
 ### Line Controller
 ### Optional
-if (${sick_lidar_localization_FOUND})
+if (${sick_lidar_localization_msgs_FOUND})
   message(STATUS "Building Line Controller for Sick Line Follower")
 
+  # Line Controller Node
   add_executable(sick_line_controller_node
     sick_line_controller_node.cpp
   )
   target_link_libraries(sick_line_controller_node
     eduart-fleet-controller
+    "${cpp_typesupport_target}"
   )
   ament_target_dependencies(sick_line_controller_node
     "rclcpp"
+    "rclcpp_lifecycle"
+    "rclcpp_action"
     "geometry_msgs"
-    "sick_lidar_localization"
+    "sick_lidar_localization_msgs"
   )
 
+  # Line Navigation Node
   add_executable(sick_line_navigation_node
     sick_line_navigation_node.cpp
   )
   target_link_libraries(sick_line_navigation_node
-
+    "${cpp_typesupport_target}"
   )
   ament_target_dependencies(sick_line_navigation_node
     "rclcpp"
+    "rclcpp_action"
     "geometry_msgs"
-    "sick_lidar_localization"
+    "sick_lidar_localization_msgs"
     "edu_robot"
     "edu_perception"
+    "lifecycle_msgs"
+  )
+
+  # Odometry Repeater Node
+  add_executable(sick_odometry_repeater_node
+    sick_odometry_repeater.cpp
+  )
+  target_link_libraries(sick_odometry_repeater_node
+  )
+  ament_target_dependencies(sick_odometry_repeater_node
+    "rclcpp"
+    "nav_msgs"
+    "sick_lidar_localization_msgs"
+    "edu_robot"
   )
 endif()
 
@@ -144,4 +164,19 @@ ament_target_dependencies(collision_avoidance_lidar_field_node
   "rclcpp"
   "geometry_msgs"
   "edu_perception"
+)
+
+### Robot Turn Node
+add_executable(robot_rotate_node
+  robot_rotate_node.cpp
+)
+target_link_libraries(robot_rotate_node
+  "${cpp_typesupport_target}"
+  eduart-fleet-controller
+)
+ament_target_dependencies(robot_rotate_node
+  "rclcpp"
+  "rclcpp_action"
+  "geometry_msgs"
+  "edu_robot"
 )

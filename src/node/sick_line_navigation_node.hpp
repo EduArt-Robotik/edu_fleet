@@ -7,17 +7,22 @@
 
 #include <rclcpp/client.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 
 #include <geometry_msgs/msg/twist.hpp>
 
+#include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/bool.hpp>
+
+#include <lifecycle_msgs/srv/change_state.hpp>
 
 #include <edu_robot/msg/set_lighting_color.hpp>
 #include <edu_robot/srv/set_mode.hpp>
 
 #include <edu_perception/msg/lidar_field_evaluation.hpp>
-#include <std_msgs/msg/string.hpp>
-#include <sick_lidar_localization/msg/code_measurement_message0304.hpp>
+#include <sick_lidar_localization_msgs/msg/code_measurement_message0304.hpp>
+
+#include "edu_fleet/action/robot_rotate.hpp"
 
 namespace eduart {
 namespace fleet {
@@ -29,39 +34,46 @@ public:
     float move_velocity_slow = 0.15f;
     float move_velocity_middle = 0.3f;
     float move_velocity_fast = 0.5f;
+    float turning_velocity = M_PI / 4.0f; // 45 degree per second
     float stop_time = 5.0f;
+    std::string line_controller_node_name = "sick_line_controller";
   };
 
   SickLineNavigation();
-  ~SickLineNavigation() override = default;
+  ~SickLineNavigation() override;
 
   static Parameter get_parameter(const Parameter &default_parameter, rclcpp::Node &ros_node);
 
 private:
   void callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bool> msg);
-  void callbackCode(std::shared_ptr<const sick_lidar_localization::msg::CodeMeasurementMessage0304> msg);
+  void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
   void callbackFieldEvaluation(std::shared_ptr<const edu_perception::msg::LidarFieldEvaluation> msg);
   void deactivateStop();
+  void performFullTurn();
 
   void process();
 
   const Parameter _parameter;
 
   struct {
-    bool on_track = false;
-    bool warnfeld_active = false;
-    bool schutzfeld_active = false;
-    bool stop_active = false;
+    std::atomic_bool on_track = false;
+    std::atomic_bool warnfeld_active = false;
+    std::atomic_bool schutzfeld_active = false;
+    std::atomic_bool stop_active = false;
+    std::atomic_bool drive_backwards = false;
     float requested_velocity = 0.0;
+    std::mutex mutex;
   } _processing_data;
 
   std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_velocity;
   std::shared_ptr<rclcpp::Publisher<edu_robot::msg::SetLightingColor>> _pub_lighting_color;
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> _pub_drive_action;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
-  std::shared_ptr<rclcpp::Subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>> _sub_code;
+  std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Subscription<edu_perception::msg::LidarFieldEvaluation>> _sub_field_evaluation;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_change_state;
+  std::shared_ptr<rclcpp_action::Client<edu_fleet::action::RobotRotate>> _action_client_rotate;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
   std::shared_ptr<rclcpp::TimerBase> _timer_process_stopping;
 };

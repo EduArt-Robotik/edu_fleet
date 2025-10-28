@@ -136,6 +136,90 @@ static void send_drive_action(
   publisher->publish(msg);
 }
 
+static void send_lifecycle_node_transition(
+  const std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> client,
+  const rclcpp::Logger& logger,
+  lifecycle_msgs::msg::Transition::_id_type transition)
+{
+  const std::string service_name = client->get_service_name();
+  const std::string node_name = service_name.substr(0, service_name.find("/change_state"));
+
+  // guarantee that service is available
+  if (client->wait_for_service(5s) == false) {
+    RCLCPP_ERROR(logger, "service %s not available.", client->get_service_name());
+  }
+
+  // request transition for lifecycle node
+  auto change_state_request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
+  change_state_request->transition.id = transition;
+
+  client->async_send_request(
+    change_state_request,
+    [node_name, logger](rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture future) {
+      auto response = future.get();
+
+      if (response->success) {
+        RCLCPP_INFO(logger, "successfully changed state of node %s.", node_name.c_str());
+      } else {
+        RCLCPP_ERROR(logger, "failed to change state of node %s.", node_name.c_str());
+      }
+    }
+  );
+}
+
+void SickLineNavigation::performFullTurn()
+{
+  if (_action_client_rotate->wait_for_action_server(5s) == false) {
+    RCLCPP_ERROR(get_logger(), "action server not available after waiting");
+    return;
+  }
+
+  // disable driving while turning
+  send_lifecycle_node_transition(
+    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  );
+  // stop robot before turning
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+  const auto drive_velocity = _processing_data.requested_velocity;
+  _processing_data.requested_velocity = 0.0;
+
+  // activate action by sending goal
+  auto goal_msg = edu_fleet::action::RobotRotate::Goal();
+  goal_msg.relative_yaw = M_PI; // 180 degree
+  goal_msg.yaw_rate = _parameter.turning_velocity;
+
+  auto send_goal_options = rclcpp_action::Client<edu_fleet::action::RobotRotate>::SendGoalOptions();
+  send_goal_options.result_callback = [this, drive_velocity](
+    const rclcpp_action::ClientGoalHandle<edu_fleet::action::RobotRotate>::WrappedResult & result) 
+    {
+      switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+          RCLCPP_INFO(get_logger(), "action succeeded");
+          RCLCPP_INFO(get_logger(), "remaining yaw error: %f", result.result->error_yaw);
+          break;
+        case rclcpp_action::ResultCode::ABORTED:
+          RCLCPP_ERROR(get_logger(), "action was aborted");
+          break;
+        case rclcpp_action::ResultCode::CANCELED:
+          RCLCPP_ERROR(get_logger(), "action was canceled");
+          break;
+        default:
+          RCLCPP_ERROR(get_logger(), "unknown result code");
+          break;
+      }
+
+      // after turn enable driving again
+      send_lifecycle_node_transition(
+        _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      );
+      // restore previous velocity
+      std::lock_guard<std::mutex> lock(_processing_data.mutex);
+      _processing_data.requested_velocity = drive_velocity;
+    };
+
+  _action_client_rotate->async_send_goal(goal_msg, send_goal_options);
+}
+
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
@@ -145,11 +229,14 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   ros_node.declare_parameter<double>("move_velocity.middle", default_parameter.move_velocity_middle);
   ros_node.declare_parameter<double>("move_velocity.fast", default_parameter.move_velocity_fast);
   ros_node.declare_parameter<double>("stop_time", default_parameter.stop_time);
+  ros_node.declare_parameter<std::string>(
+    "line_controller_node_name", default_parameter.line_controller_node_name);
 
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
   parameter.move_velocity_middle = ros_node.get_parameter("move_velocity.middle").as_double();
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
   parameter.stop_time = ros_node.get_parameter("stop_time").as_double();
+  parameter.line_controller_node_name = ros_node.get_parameter("line_controller_node_name").as_string();
 
   return parameter;
 }
@@ -179,7 +266,7 @@ SickLineNavigation::SickLineNavigation()
     rclcpp::QoS(2).transient_local(), 
     std::bind(&SickLineNavigation::callbackOnTrack, this, std::placeholders::_1)
   );
-  _sub_code = create_subscription<sick_lidar_localization::msg::CodeMeasurementMessage0304>(
+  _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
     "in/code", 
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
@@ -192,9 +279,34 @@ SickLineNavigation::SickLineNavigation()
 
   // Services
   _client_set_mode = create_client<edu_robot::srv::SetMode>("set_mode");
+  _client_change_state = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.line_controller_node_name + "/change_state"
+  );
+
+  // Activate line controller node
+  send_lifecycle_node_transition(
+    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
+  );
+  send_lifecycle_node_transition(
+    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+
+  // Actions
+  _action_client_rotate = rclcpp_action::create_client<edu_fleet::action::RobotRotate>(this, "robot_rotate");
 
   // Starting Timer --> Starting Processing
   _timer_processing = create_timer(100ms, std::bind(&SickLineNavigation::process, this));
+}
+
+SickLineNavigation::~SickLineNavigation()
+{
+  // Deactivate line controller node
+  send_lifecycle_node_transition(
+    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
+  );
 }
 
 void SickLineNavigation::callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bool> msg)
@@ -203,7 +315,7 @@ void SickLineNavigation::callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bo
   _processing_data.on_track = msg->data;
 }
 
-void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localization::msg::CodeMeasurementMessage0304> msg)
+void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg)
 {
   RCLCPP_INFO(get_logger(), "received code \"%i\".", msg->code);
   // Following codes were defined:
@@ -216,9 +328,12 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   // 11. schnell
   // 12. mittel schnell
   // 13. langsam
-  // 14. drive straight at next switch
-  // 15. drive left at next switch
-  // 16. drive right at next switch
+  // 14. vorwärts fahren
+  // 15. rückwärts fahren
+  // 30. drive straight at next switch
+  // 31. drive left at next switch
+  // 32. drive right at next switch
+  // 33. 180 degree turn
   // 20. stop for given time
   
   switch (msg->code) {
@@ -231,14 +346,32 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
     // Moving Velocity
     case 10: disable(*this, *_client_set_mode); break;
-    case 11: _processing_data.requested_velocity = _parameter.move_velocity_slow; break;
-    case 12: _processing_data.requested_velocity = _parameter.move_velocity_middle; break;
-    case 13: _processing_data.requested_velocity = _parameter.move_velocity_fast; break;
+    // Velocity Slow
+    case 11: { 
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_slow;
+      }
+      break;
+    // Velocity Middle
+    case 12: {
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_middle;
+      }
+      break;
+    // Velocity Fast
+    case 13: {
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+        _processing_data.requested_velocity = _parameter.move_velocity_fast;
+      }
+      break;
+    case 14: _processing_data.drive_backwards = false; break;
+    case 15: _processing_data.drive_backwards = true; break;
 
     // Turning
-    case 14: send_drive_action(_pub_drive_action, "straight"); break;
-    case 15: send_drive_action(_pub_drive_action, "turn_left"); break;
-    case 16: send_drive_action(_pub_drive_action, "turn_right"); break;
+    case 30: send_drive_action(_pub_drive_action, "straight"); break;
+    case 31: send_drive_action(_pub_drive_action, "turn_left"); break;
+    case 32: send_drive_action(_pub_drive_action, "turn_right"); break;
+    case 33: performFullTurn(); break;
 
     // Special Actions
     // Stop/Halt for given time
@@ -298,11 +431,18 @@ void SickLineNavigation::process()
   // no collision with an object
   else if (_processing_data.warnfeld_active) {
     // some object is in Warnfeld --> slow down
+    std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _parameter.move_velocity_slow;
   }
   // no close object around robot
   else {
+    std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _processing_data.requested_velocity;
+  }
+
+  // handle backwards driving
+  if (_processing_data.drive_backwards) {
+    twist.linear.x = -twist.linear.x;
   }
   
   _pub_velocity->publish(twist);
