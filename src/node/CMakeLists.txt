@@ -58,13 +58,27 @@ if (${sick_lidar_localization_msgs_FOUND})
 
   # Odometry Repeater Node
   add_executable(sick_odometry_repeater_node
-    sick_odometry_repeater.cpp
+    sick_odometry_repeater_node.cpp
   )
   target_link_libraries(sick_odometry_repeater_node
   )
   ament_target_dependencies(sick_odometry_repeater_node
     "rclcpp"
     "nav_msgs"
+    "sick_lidar_localization_msgs"
+    "edu_robot"
+  )
+
+  # Localization Pose Repeater Node
+  add_executable(sick_localization_pose_repeater_node
+    sick_localization_pose_repeater_node.cpp
+  )
+  target_link_libraries(sick_localization_pose_repeater_node
+    eduart-fleet-controller
+  )
+  ament_target_dependencies(sick_localization_pose_repeater_node
+    "rclcpp"
+    "geometry_msgs"
     "sick_lidar_localization_msgs"
     "edu_robot"
   )
@@ -177,6 +191,20 @@ target_link_libraries(robot_rotate_node
 ament_target_dependencies(robot_rotate_node
   "rclcpp"
   "rclcpp_action"
+  "geometry_msgs"
+  "edu_robot"
+)
+
+### Triton Line Following Controller
+add_executable(triton_line_following_controller_node
+  triton_line_following_controller_node.cpp
+)
+target_link_libraries(triton_line_following_controller_node
+  eduart-fleet-controller
+)
+ament_target_dependencies(triton_line_following_controller_node
+  "rclcpp"
+  "rclcpp_lifecycle"
   "geometry_msgs"
   "edu_robot"
 )

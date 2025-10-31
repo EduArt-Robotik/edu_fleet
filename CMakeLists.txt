@@ -72,6 +72,7 @@ set(TARGET_NODE_LIST
   collision_avoidance_lidar_node
   collision_avoidance_lidar_field_node
   robot_rotate_node
+  triton_line_following_controller_node
 )
 if (${sick_lidar_localization_msgs_FOUND})
   set(TARGET_NODE_LIST
@@ -79,6 +80,7 @@ if (${sick_lidar_localization_msgs_FOUND})
     sick_line_controller_node
     sick_line_navigation_node
     sick_odometry_repeater_node
+    sick_localization_pose_repeater_node
   )
 endif()
 

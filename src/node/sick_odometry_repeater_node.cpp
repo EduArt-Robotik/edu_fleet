@@ -1,4 +1,4 @@
-#include "sick_odometry_repeater.hpp"
+#include "sick_odometry_repeater_node.hpp"
 
 #include <edu_robot/angle.hpp>
 
