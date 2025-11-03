@@ -12,6 +12,10 @@
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 namespace eduart {
 namespace fleet {
@@ -29,6 +33,8 @@ public:
       controller::Pid::Parameter heading = {
          1.0, 0.0, 0.0, M_PI_2, 1.0, true};
     } pid;
+    std::string target_frame_id = "eduard/blue/base_link";
+    std::string sensor_frame_id = "eduard/blue/triton";
   };
 
   TritonLineFollowingController();
@@ -55,6 +61,14 @@ private:
 
   std::shared_ptr<controller::Pid> _pid_y;
   std::shared_ptr<controller::Pid> _pid_heading;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>> _pub_twist;
+  std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseArray>> _sub_line_following;
+  std::shared_ptr<tf2_ros::Buffer> _tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
+
+  struct {
+    rclcpp::Time stamp_last_processing;
+  } _data;
 };
 
 } // end namespace fleet

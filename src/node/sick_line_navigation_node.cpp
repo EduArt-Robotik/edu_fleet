@@ -167,6 +167,16 @@ static void send_lifecycle_node_transition(
   );
 }
 
+static std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> get_lifecycle_node_state(
+  const std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> client)
+{
+  // request state for lifecycle node
+  auto get_state_request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
+  auto future = client->async_send_request(get_state_request);
+
+  return future.share();
+}
+
 void SickLineNavigation::performFullTurn()
 {
   if (_action_client_rotate->wait_for_action_server(5s) == false) {
@@ -176,7 +186,7 @@ void SickLineNavigation::performFullTurn()
 
   // disable driving while turning
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
   );
   // stop robot before turning
   std::lock_guard<std::mutex> lock(_processing_data.mutex);
@@ -210,7 +220,7 @@ void SickLineNavigation::performFullTurn()
 
       // after turn enable driving again
       send_lifecycle_node_transition(
-        _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+        _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
       );
       // restore previous velocity
       std::lock_guard<std::mutex> lock(_processing_data.mutex);
@@ -231,12 +241,15 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   ros_node.declare_parameter<double>("stop_time", default_parameter.stop_time);
   ros_node.declare_parameter<std::string>(
     "line_controller_node_name", default_parameter.line_controller_node_name);
+  ros_node.declare_parameter<std::string>(
+    "docking_controller_node_name", default_parameter.docking_controller_node_name);
 
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
   parameter.move_velocity_middle = ros_node.get_parameter("move_velocity.middle").as_double();
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
   parameter.stop_time = ros_node.get_parameter("stop_time").as_double();
   parameter.line_controller_node_name = ros_node.get_parameter("line_controller_node_name").as_string();
+  parameter.docking_controller_node_name = ros_node.get_parameter("docking_controller_node_name").as_string();
 
   return parameter;
 }
@@ -279,16 +292,24 @@ SickLineNavigation::SickLineNavigation()
 
   // Services
   _client_set_mode = create_client<edu_robot::srv::SetMode>("set_mode");
-  _client_change_state = create_client<lifecycle_msgs::srv::ChangeState>(
+  _client_state_line_controller = create_client<lifecycle_msgs::srv::ChangeState>(
     _parameter.line_controller_node_name + "/change_state"
+  );
+  _client_state_docking_controller = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.docking_controller_node_name + "/change_state"
   );
 
   // Activate line controller node
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
   );
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+
+  // Configure docking controller node, but do not activate it yet
+  send_lifecycle_node_transition(
+    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
   );
 
   // Actions
@@ -302,10 +323,18 @@ SickLineNavigation::~SickLineNavigation()
 {
   // Deactivate line controller node
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
   );
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
+  );
+
+  // Deactivate docking controller node
+  send_lifecycle_node_transition(
+    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
   );
 }
 
@@ -330,11 +359,12 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   // 13. langsam
   // 14. vorwärts fahren
   // 15. rückwärts fahren
+  // 20. stop for given time
   // 30. drive straight at next switch
   // 31. drive left at next switch
   // 32. drive right at next switch
   // 33. 180 degree turn
-  // 20. stop for given time
+  // 4X. drive into docking station using cluster id X
   
   switch (msg->code) {
     // Lighting
@@ -372,6 +402,24 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 31: send_drive_action(_pub_drive_action, "turn_left"); break;
     case 32: send_drive_action(_pub_drive_action, "turn_right"); break;
     case 33: performFullTurn(); break;
+
+    // Docking
+    case 40: {
+        std::cout << "start docking" << std::endl;
+        // Activate docking controller
+        std::lock_guard<std::mutex> lock(_processing_data.mutex);
+
+        send_lifecycle_node_transition(
+          _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+        );
+        send_lifecycle_node_transition(
+          _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+        );
+        _processing_data.stamp_last_docking_state_request = get_clock()->now();
+        _processing_data.docking_controller_state = get_lifecycle_node_state(_client_get_state_docking_controller);
+        _processing_data.docking_active = true;
+      } 
+      break;
 
     // Special Actions
     // Stop/Halt for given time
@@ -416,7 +464,46 @@ void SickLineNavigation::process()
 {
   geometry_msgs::msg::Twist twist;
 
+  // handle docking
+  if (_processing_data.docking_active) {
+    // docking is active --> stop line navigation
+    twist.linear.x = 0.0;
+    _pub_velocity->publish(twist);
+
+    if (_processing_data.docking_controller_state.wait_for(0s) != std::future_status::ready) {
+      if (_processing_data.stamp_last_docking_state_request + rclcpp::Duration(1s) > get_clock()->now()) {
+        // state request was not answered --> go back to line navigation
+        RCLCPP_WARN(get_logger(), "docking controller state request timed out --> resume line navigation");
+        _processing_data.docking_active = false;
+        send_lifecycle_node_transition(
+          _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
+        );
+      }
+      return;
+    }
+
+    const auto docking_state_response = _processing_data.docking_controller_state.get()->current_state;
+
+    if (docking_state_response.id == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      // request new state from docking controller
+      _processing_data.stamp_last_docking_state_request = get_clock()->now();
+      _processing_data.docking_controller_state = get_lifecycle_node_state(_client_get_state_docking_controller);
+
+      // docking controller is still active --> do nothing
+      return;
+    }
+
+    // docking controller is not active anymore --> go back to line navigation
+    RCLCPP_INFO(get_logger(), "docking controller is not active anymore --> resume line navigation");
+    _processing_data.docking_active = false;
+    send_lifecycle_node_transition(
+      _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
+    );
+  }
+
+  // handle sick line navigation
   if (_processing_data.on_track == false) {
+    // robot is off track --> stop robot
     twist.linear.x = 0.0;
   }
   // robot is on track
@@ -424,17 +511,7 @@ void SickLineNavigation::process()
     // stop is active --> send velocity 0 until stop ended
     twist.linear.x = 0.0;
   }
-  else if (_processing_data.schutzfeld_active) {
-    // some object is in Schutzfeld --> stop
-    twist.linear.x = 0.0;
-  }
-  // no collision with an object
-  else if (_processing_data.warnfeld_active) {
-    // some object is in Warnfeld --> slow down
-    std::lock_guard<std::mutex> lock(_processing_data.mutex);
-    twist.linear.x = _parameter.move_velocity_slow;
-  }
-  // no close object around robot
+  // normal driving on track
   else {
     std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _processing_data.requested_velocity;

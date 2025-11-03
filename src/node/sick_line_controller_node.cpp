@@ -153,7 +153,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "activating node.");
-  (void)previous_state;
   return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
 }
 
@@ -161,7 +160,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "deactivating node.");
-  (void)previous_state;
   return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
 }
 

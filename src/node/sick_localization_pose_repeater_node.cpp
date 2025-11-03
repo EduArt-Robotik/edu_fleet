@@ -13,16 +13,10 @@ SickLocalizationPoseRepeater::Parameter SickLocalizationPoseRepeater::get_parame
   ros_node.declare_parameter<std::string>("tf_map_frame_id", default_parameter.tf_map_frame_id);
   ros_node.declare_parameter<std::string>("tf_robot_frame_id", default_parameter.tf_robot_frame_id);
 
-  std::cout << "default_parameter.tf_map_frame_id: " << default_parameter.tf_map_frame_id << "\n";
-  std::cout << "default_parameter.tf_robot_frame_id: " << default_parameter.tf_robot_frame_id << "\n";
-
   Parameter parameter = default_parameter;
 
   parameter.tf_map_frame_id = ros_node.get_parameter("tf_map_frame_id").as_string();
   parameter.tf_robot_frame_id = ros_node.get_parameter("tf_robot_frame_id").as_string();
-
-  std::cout << "parameter.tf_map_frame_id: " << parameter.tf_map_frame_id << "\n";
-  std::cout << "parameter.tf_robot_frame_id: " << parameter.tf_robot_frame_id << "\n";
 
   return parameter;
 }
@@ -48,6 +42,7 @@ void SickLocalizationPoseRepeater::callbackOdometry(
   geometry_msgs::msg::PoseStamped pose_out;
 
   pose_out.header = msg->header;
+  pose_out.header.frame_id = _parameter.tf_map_frame_id;
 
   // position
   pose_out.pose.position.x = msg->x / 1000.0; // in m
@@ -70,10 +65,6 @@ void SickLocalizationPoseRepeater::callbackOdometry(
   tf_msg.header = pose_out.header;
   tf_msg.header.frame_id = _parameter.tf_map_frame_id;
   tf_msg.child_frame_id  = _parameter.tf_robot_frame_id;
-
-  // std::cout << "Broadcasting TF from '" << tf_msg.header.frame_id << "' to '" << tf_msg.child_frame_id << "'\n";
-  // std::cout << "parameter.tf_map_frame_id: " << std::hex << _parameter.tf_map_frame_id << "\n";
-  // std::cout << "parameter.tf_robot_frame_id: " << std::hex << _parameter.tf_robot_frame_id << "\n";
 
   tf_msg.transform.rotation = pose_out.pose.orientation;
   tf_msg.transform.translation.x = pose_out.pose.position.x;
