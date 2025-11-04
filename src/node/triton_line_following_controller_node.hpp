@@ -68,6 +68,7 @@ private:
 
   struct {
     rclcpp::Time stamp_last_processing;
+    bool docking_in = false;
   } _data;
 };
 

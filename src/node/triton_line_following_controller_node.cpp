@@ -39,6 +39,24 @@ static geometry_msgs::msg::PoseArray transform_poses(
   return poses_out;
 }
 
+static Eigen::Vector3d calculate_error_vector(
+  const geometry_msgs::msg::Pose& pose_feedback, const geometry_msgs::msg::Pose& pose_set_point)
+{
+  // given poses are in map frame --> transform into robot frame
+  // rotate coordinates in robot frame and subtract feedback from it
+  const Eigen::Vector2d position_feedback(pose_feedback.position.x, pose_feedback.position.y);
+  const Eigen::Vector2d position_set_point(pose_set_point.position.x, pose_set_point.position.y);
+  const robot::AnglePiToPi yaw_feedback  = robot::algorithm::quaternion_to_yaw(pose_feedback.orientation);
+  const robot::AnglePiToPi yaw_set_point = robot::algorithm::quaternion_to_yaw(pose_set_point.orientation);
+  const Eigen::Rotation2Dd R(-yaw_feedback);
+
+  // e = R * (set_point - feedback)
+  const Eigen::Vector2d position_error = R * (position_set_point - position_feedback);
+  const robot::AnglePiToPi yaw_error = yaw_set_point - yaw_feedback;
+
+  return Eigen::Vector3d(position_error.x(), position_error.y(), yaw_error.radian());
+}
+
 TritonLineFollowingController::Parameter TritonLineFollowingController::get_parameter(
   const Parameter& default_parameter, rclcpp_lifecycle::LifecycleNode& ros_node)
 {
@@ -99,11 +117,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "activating node.");
-  (void)previous_state;
 
-  _data.stamp_last_processing = get_clock()->now();
   _pid_y->reset();
   _pid_heading->reset();
+
+  _data.stamp_last_processing = get_clock()->now();
+  _data.docking_in = true;
 
   return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
 }
@@ -112,6 +131,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "deactivating node.");
+
+  _data.docking_in = false;
 
   // publish null velocity to stop pose controlling impact.
   _pub_twist->publish(geometry_msgs::msg::Twist());
@@ -169,12 +190,14 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
     yaw_target.radian()
   );
 
-  const double error_x = poses_transformed.poses[1].position.x - poses_transformed.poses[0].position.x;
-  const double error_y = poses_transformed.poses[1].position.y - poses_transformed.poses[0].position.y;
-  const double error_heading = (yaw_target - yaw_robot).radian();
+  const auto error_vector = calculate_error_vector(
+    poses_transformed.poses[0], poses_transformed.poses[1]);
+  const double error_x       = error_vector.x();
+  const double error_y       = error_vector.y();
+  const double error_heading = error_vector.z();
 
   const double vel_x    = (error_x > -0.01 ? 0.1 : 0.0);  // move forward only if target is in front of robot.
-  const double vel_y    = _pid_y->process(0.0, error_y, dt);
+  const double vel_y    = _pid_y->process(0.0, -error_y, dt);
   const double yaw_rate = _pid_heading->process(0.0, -error_heading, dt);
 
   RCLCPP_INFO(get_logger(), "error x direction = %f.", error_x);
@@ -182,6 +205,8 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   RCLCPP_INFO(get_logger(), "velocity x = %f.", vel_x);
   RCLCPP_INFO(get_logger(), "velocity y = %f.", vel_y);
   RCLCPP_INFO(get_logger(), "yaw rate = %f.", yaw_rate);
+
+  // if (error_x)
 
   // Finish processing.
   geometry_msgs::msg::Twist twist_out;

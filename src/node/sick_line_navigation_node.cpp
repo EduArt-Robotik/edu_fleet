@@ -298,6 +298,9 @@ SickLineNavigation::SickLineNavigation()
   _client_state_docking_controller = create_client<lifecycle_msgs::srv::ChangeState>(
     _parameter.docking_controller_node_name + "/change_state"
   );
+  _client_get_state_docking_controller = create_client<lifecycle_msgs::srv::GetState>(
+    _parameter.docking_controller_node_name + "/get_state"
+  );
 
   // Activate line controller node
   send_lifecycle_node_transition(
@@ -405,6 +408,11 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
     // Docking
     case 40: {
+        if (_processing_data.docking_active == true) {
+          // docking already active --> do nothing
+          break;
+        }
+
         std::cout << "start docking" << std::endl;
         // Activate docking controller
         std::lock_guard<std::mutex> lock(_processing_data.mutex);
@@ -475,6 +483,9 @@ void SickLineNavigation::process()
         // state request was not answered --> go back to line navigation
         RCLCPP_WARN(get_logger(), "docking controller state request timed out --> resume line navigation");
         _processing_data.docking_active = false;
+        send_lifecycle_node_transition(
+          _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+        );
         send_lifecycle_node_transition(
           _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
         );
