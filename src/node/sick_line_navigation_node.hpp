@@ -20,7 +20,6 @@
 #include <edu_robot/msg/set_lighting_color.hpp>
 #include <edu_robot/srv/set_mode.hpp>
 
-#include <edu_perception/msg/lidar_field_evaluation.hpp>
 #include <sick_lidar_localization_msgs/msg/code_measurement_message0304.hpp>
 
 #include "edu_fleet/action/robot_rotate.hpp"
@@ -49,7 +48,6 @@ public:
 private:
   void callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bool> msg);
   void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
-  void callbackFieldEvaluation(std::shared_ptr<const edu_perception::msg::LidarFieldEvaluation> msg);
   void deactivateStop();
   void performFullTurn();
 
@@ -75,7 +73,6 @@ private:
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> _pub_drive_action;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
-  std::shared_ptr<rclcpp::Subscription<edu_perception::msg::LidarFieldEvaluation>> _sub_field_evaluation;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_docking_controller;

@@ -1,6 +1,8 @@
 #include "triton_line_following_controller_node.hpp"
 
 #include <rclcpp/executors.hpp>
+#include <lifecycle_msgs/msg/state.hpp>
+
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <edu_robot/algorithm/rotation.hpp>
@@ -8,6 +10,9 @@
 namespace eduart {
 namespace fleet {
 
+/**
+ * \brief Transfrom poses into target frame, most likely the robot frame. 
+*/
 static geometry_msgs::msg::PoseArray transform_poses(
   const geometry_msgs::msg::PoseArray& poses_in, const std::string target_frame_id, const std::string& sensor_frame_id,
   const tf2_ros::Buffer& tf_buffer, const rclcpp::Logger& logger)
@@ -25,10 +30,6 @@ static geometry_msgs::msg::PoseArray transform_poses(
 
     for (const auto& pose_in : poses_in.poses) {
       tf2::doTransform(pose_in, pose_out, transform);
-
-      std::cout << "Transformed Pose: x = " << pose_out.position.x
-                << ", y = " << pose_out.position.y
-                << ", z = " << pose_out.position.z << std::endl;
       poses_out.poses.push_back(pose_out);
     }
   }
@@ -39,6 +40,9 @@ static geometry_msgs::msg::PoseArray transform_poses(
   return poses_out;
 }
 
+/**
+ * \brief Calculates error vector with pose_feedback as reference frame. Error vector is rotated into pose_feedback frame.
+ */
 static Eigen::Vector3d calculate_error_vector(
   const geometry_msgs::msg::Pose& pose_feedback, const geometry_msgs::msg::Pose& pose_set_point)
 {
@@ -57,6 +61,19 @@ static Eigen::Vector3d calculate_error_vector(
   return Eigen::Vector3d(position_error.x(), position_error.y(), yaw_error.radian());
 }
 
+static double determine_velocity_x(const bool docking_in, const bool docking_out, const double v_x)
+{
+  if (docking_in == true && docking_out == false) {
+    return v_x;
+  }
+  else if (docking_in == false && docking_out == true) {
+    return -v_x;
+  }
+  else {
+    return 0.0;
+  }
+}
+
 TritonLineFollowingController::Parameter TritonLineFollowingController::get_parameter(
   const Parameter& default_parameter, rclcpp_lifecycle::LifecycleNode& ros_node)
 {
@@ -64,6 +81,10 @@ TritonLineFollowingController::Parameter TritonLineFollowingController::get_para
   ros_node.declare_parameter<double>("pid.y.limit", default_parameter.pid.y.limit);
   ros_node.declare_parameter<double>("pid.heading.kp", default_parameter.pid.heading.kp);
   ros_node.declare_parameter<double>("pid.heading.limit", default_parameter.pid.heading.limit);
+
+  ros_node.declare_parameter<double>("docking_end_error", default_parameter.docking_end_error);
+  ros_node.declare_parameter<double>("v_x", default_parameter.v_x);
+  ros_node.declare_parameter<int>("stop_time", static_cast<int>(default_parameter.stop_time.count()));
 
   ros_node.declare_parameter<std::string>("target_frame_id", default_parameter.target_frame_id);
   ros_node.declare_parameter<std::string>("sensor_frame_id", default_parameter.sensor_frame_id);
@@ -74,6 +95,10 @@ TritonLineFollowingController::Parameter TritonLineFollowingController::get_para
   parameter.pid.y.limit = ros_node.get_parameter("pid.y.limit").as_double();
   parameter.pid.heading.kp = ros_node.get_parameter("pid.heading.kp").as_double();
   parameter.pid.heading.limit = ros_node.get_parameter("pid.heading.limit").as_double();
+
+  parameter.docking_end_error = ros_node.get_parameter("docking_end_error").as_double();
+  parameter.v_x = ros_node.get_parameter("v_x").as_double();
+  parameter.stop_time = std::chrono::milliseconds(ros_node.get_parameter("stop_time").as_int());
 
   parameter.target_frame_id = ros_node.get_parameter("target_frame_id").as_string();
   parameter.sensor_frame_id = ros_node.get_parameter("sensor_frame_id").as_string();
@@ -106,6 +131,14 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
     rclcpp::QoS(2).best_effort(),
     std::bind(&TritonLineFollowingController::callbackLineFollowingPoses, this, std::placeholders::_1)
   );
+  _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
+    "in/code", 
+    rclcpp::QoS(10).reliable(), 
+    std::bind(&TritonLineFollowingController::callbackCode, this, std::placeholders::_1)
+  );
+  _client_set_line_following = create_client<accerion_driver_msgs::srv::SetClusterMode>(
+    "set_line_following_mode"
+  );
   _data.stamp_last_processing = get_clock()->now();
 
   RCLCPP_INFO(get_logger(), "configured node.");
@@ -123,6 +156,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
 
   _data.stamp_last_processing = get_clock()->now();
   _data.docking_in = true;
+  _data.docking_out = false;
+  _data.at_endposition = false;
+
+  enableLineFollowingMode(_data.active_cluster_id);
+
+  RCLCPP_INFO(get_logger(), "started docking in.");
 
   return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
 }
@@ -133,6 +172,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
   RCLCPP_INFO(get_logger(), "deactivating node.");
 
   _data.docking_in = false;
+  _data.docking_out = false;
+  _data.at_endposition = false;
 
   // publish null velocity to stop pose controlling impact.
   _pub_twist->publish(geometry_msgs::msg::Twist());
@@ -156,9 +197,30 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
   return rclcpp_lifecycle::LifecycleNode::on_shutdown(previous_state);
 }
 
+void TritonLineFollowingController::callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg)
+{
+  if (msg->code <= 40 || msg->code > 49) {
+    // invalid cluster id --> ignore message
+    return;
+  }
+  
+  // set active cluster id based on received code message
+  // _data.active_cluster_id = static_cast<std::uint8_t>(msg->code - 40);
+  _data.active_cluster_id = 8; //> TODO temporary fix, only cluster 8 is used for line following
+}
+
 void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<const geometry_msgs::msg::PoseArray> msg)
 {
-  std::cout << __PRETTY_FUNCTION__ << std::endl;
+  // cancel processing if node is inactive
+  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    return;
+  }
+
+  // only process message with two poses (robot pose and target pose)
+  if (msg->poses.size() != 2) {
+    RCLCPP_ERROR(get_logger(), "received poses do not contain correct number of poses for line following control.");
+    return;
+  }
 
   // transform poses into robot base frame
   const auto poses_transformed = transform_poses(
@@ -166,47 +228,45 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
     *_tf_buffer, get_logger()
   );
 
-  if (poses_transformed.poses.size() != 2) {
-    RCLCPP_ERROR(get_logger(), "Received poses do not contain correct number of poses for line following control.");
-    return;
-  }
-
   // start processing
   const auto stamp_now = get_clock()->now();
   const double dt = std::min(0.1, (stamp_now - _data.stamp_last_processing).seconds());
   const robot::AnglePiToPi yaw_robot = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[0].orientation);
   const robot::AnglePiToPi yaw_target = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[1].orientation);
 
-  RCLCPP_INFO(
-    get_logger(), "robot pose x = %f, y = %f, yaw = %f.",
-    poses_transformed.poses[0].position.x,
-    poses_transformed.poses[0].position.y,
-    yaw_robot.radian()
-  );
-  RCLCPP_INFO(
-    get_logger(), "target pose x = %f, y = %f, yaw = %f.",
-    poses_transformed.poses[1].position.x,
-    poses_transformed.poses[1].position.y,
-    yaw_target.radian()
-  );
+  // RCLCPP_INFO(
+  //   get_logger(), "robot pose x = %f, y = %f, yaw = %f.",
+  //   poses_transformed.poses[0].position.x,
+  //   poses_transformed.poses[0].position.y,
+  //   yaw_robot.radian()
+  // );
+  // RCLCPP_INFO(
+  //   get_logger(), "target pose x = %f, y = %f, yaw = %f.",
+  //   poses_transformed.poses[1].position.x,
+  //   poses_transformed.poses[1].position.y,
+  //   yaw_target.radian()
+  // );
 
+  // calculate errors
   const auto error_vector = calculate_error_vector(
     poses_transformed.poses[0], poses_transformed.poses[1]);
   const double error_x       = error_vector.x();
   const double error_y       = error_vector.y();
   const double error_heading = error_vector.z();
 
-  const double vel_x    = (error_x > -0.01 ? 0.1 : 0.0);  // move forward only if target is in front of robot.
+  // determine docking state (docking in / docking out / finished)
+  determineDockingState(error_x);
+
+  // calculate control commands
+  const double vel_x    = determine_velocity_x(_data.docking_in, _data.docking_out, _parameter.v_x);
   const double vel_y    = _pid_y->process(0.0, -error_y, dt);
   const double yaw_rate = _pid_heading->process(0.0, -error_heading, dt);
 
-  RCLCPP_INFO(get_logger(), "error x direction = %f.", error_x);
-  RCLCPP_INFO(get_logger(), "error in y direction = %f.", error_y);
-  RCLCPP_INFO(get_logger(), "velocity x = %f.", vel_x);
-  RCLCPP_INFO(get_logger(), "velocity y = %f.", vel_y);
-  RCLCPP_INFO(get_logger(), "yaw rate = %f.", yaw_rate);
-
-  // if (error_x)
+  // RCLCPP_INFO(get_logger(), "error x direction = %f.", error_x);
+  // RCLCPP_INFO(get_logger(), "error in y direction = %f.", error_y);
+  // RCLCPP_INFO(get_logger(), "velocity x = %f.", vel_x);
+  // RCLCPP_INFO(get_logger(), "velocity y = %f.", vel_y);
+  // RCLCPP_INFO(get_logger(), "yaw rate = %f.", yaw_rate);
 
   // Finish processing.
   geometry_msgs::msg::Twist twist_out;
@@ -218,6 +278,98 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   _pub_twist->publish(twist_out);
 
   _data.stamp_last_processing = stamp_now;
+}
+
+void TritonLineFollowingController::determineDockingState(const double error_x)
+{
+  if (_data.docking_in == true && _data.docking_out == false && _data.at_endposition == false) {
+    // docking in
+    if (std::abs(error_x) >= _parameter.docking_end_error) {
+      RCLCPP_INFO(get_logger(), "docking in finished.");
+      _data.docking_in = false;
+      _data.at_endposition = true;
+      _data.stamp_endposition_reached = get_clock()->now();
+    }
+  }
+  else if (_data.docking_in == false && _data.docking_out == false && _data.at_endposition == true) {
+    // reached endposition, waiting before docking out
+    const auto time_at_endposition = get_clock()->now() - _data.stamp_endposition_reached;
+    if (time_at_endposition >= rclcpp::Duration(_parameter.stop_time)) {
+      RCLCPP_INFO(get_logger(), "starting docking out.");
+      _data.docking_out = true;
+    }
+  }
+  else if (_data.docking_in == false && _data.docking_out == true && _data.at_endposition == true) {
+    // at endposition, docking out started
+    if (std::abs(error_x) < 0.03) { // \todo replace magic number
+      RCLCPP_INFO(get_logger(), "left endposition.");
+      _data.at_endposition = false;
+    }
+  }
+  else if (_data.docking_in == false && _data.docking_out == true && _data.at_endposition == false) {
+    // docking out
+    if (std::abs(error_x) >= _parameter.docking_end_error) {
+      RCLCPP_INFO(get_logger(), "docking out finished.");
+      _data.docking_out = false;
+
+      // deactivate node after docking out finished --> stop line following control
+      disableLineFollowingMode(_data.active_cluster_id);
+      _data.active_cluster_id = 0;
+      trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+    }
+  }
+}
+
+void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t cluster_id)
+{
+  if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
+    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> deactivate node");
+    trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+    return;
+  }
+
+  // enable line following mode for given cluster id
+  auto request = std::make_shared<accerion_driver_msgs::srv::SetClusterMode::Request>();
+  request->cluster_id = cluster_id;
+  request->command = true;
+
+  auto result_future = _client_set_line_following->async_send_request(
+    request, [this, cluster_id](rclcpp::Client<accerion_driver_msgs::srv::SetClusterMode>::SharedFuture future) {
+      auto response = future.get();
+      if (response->success == false) {
+        RCLCPP_ERROR(get_logger(), "could not enable line following mode for cluster id %u. --> deactivate node", cluster_id);
+        trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+      }
+      else {
+        RCLCPP_INFO(get_logger(), "enabled line following mode for cluster id %u.", cluster_id);
+      }
+  });
+}
+
+void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t cluster_id)
+{
+  if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
+    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> deactivate node");
+    trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+    return;
+  }
+
+  // disable line following mode for given cluster id
+  auto request = std::make_shared<accerion_driver_msgs::srv::SetClusterMode::Request>();
+  request->cluster_id = cluster_id;
+  request->command = false;
+
+  auto result_future = _client_set_line_following->async_send_request(
+    request, [this, cluster_id](rclcpp::Client<accerion_driver_msgs::srv::SetClusterMode>::SharedFuture future) {
+      auto response = future.get();
+      if (response->success == false) {
+        RCLCPP_ERROR(get_logger(), "could not disable line following mode for cluster id %u. --> deactivate node", cluster_id);
+        trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+      }
+      else {
+        RCLCPP_INFO(get_logger(), "disabled line following mode for cluster id %u.", cluster_id);
+      }
+  });
 }
 
 } // end namespace fleet

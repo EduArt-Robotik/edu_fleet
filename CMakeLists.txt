@@ -32,6 +32,7 @@ find_package(edu_perception REQUIRED)
 
 # optional packages
 find_package(sick_lidar_localization_msgs)
+find_package(accerion_driver_msgs)
 
 
 ## Build Defined ROS Messages
@@ -72,15 +73,15 @@ set(TARGET_NODE_LIST
   collision_avoidance_lidar_node
   collision_avoidance_lidar_field_node
   robot_rotate_node
-  triton_line_following_controller_node
 )
-if (${sick_lidar_localization_msgs_FOUND})
+if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   set(TARGET_NODE_LIST
     ${TARGET_NODE_LIST}
     sick_line_controller_node
     sick_line_navigation_node
     sick_odometry_repeater_node
     sick_localization_pose_repeater_node
+    triton_line_following_controller_node
   )
 endif()
 

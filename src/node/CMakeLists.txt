@@ -20,7 +20,7 @@ ament_target_dependencies(pose_controller
 
 ### Line Controller
 ### Optional
-if (${sick_lidar_localization_msgs_FOUND})
+if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   message(STATUS "Building Line Controller for Sick Line Follower")
 
   # Line Controller Node
@@ -82,6 +82,22 @@ if (${sick_lidar_localization_msgs_FOUND})
     "sick_lidar_localization_msgs"
     "edu_robot"
   )
+
+  ### Triton Line Following Controller
+  add_executable(triton_line_following_controller_node
+    triton_line_following_controller_node.cpp
+  )
+  target_link_libraries(triton_line_following_controller_node
+    eduart-fleet-controller
+  )
+  ament_target_dependencies(triton_line_following_controller_node
+    "rclcpp"
+    "rclcpp_lifecycle"
+    "geometry_msgs"
+    "edu_robot"
+    "accerion_driver_msgs"
+    "sick_lidar_localization_msgs"
+  )  
 endif()
 
 ### Twist Accumulator
@@ -191,20 +207,6 @@ target_link_libraries(robot_rotate_node
 ament_target_dependencies(robot_rotate_node
   "rclcpp"
   "rclcpp_action"
-  "geometry_msgs"
-  "edu_robot"
-)
-
-### Triton Line Following Controller
-add_executable(triton_line_following_controller_node
-  triton_line_following_controller_node.cpp
-)
-target_link_libraries(triton_line_following_controller_node
-  eduart-fleet-controller
-)
-ament_target_dependencies(triton_line_following_controller_node
-  "rclcpp"
-  "rclcpp_lifecycle"
   "geometry_msgs"
   "edu_robot"
 )

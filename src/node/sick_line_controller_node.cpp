@@ -1,6 +1,7 @@
 #include "sick_line_controller_node.hpp"
 
 #include <rclcpp/executors.hpp>
+#include <lifecycle_msgs/msg/state.hpp>
 
 namespace eduart {
 namespace fleet {
@@ -300,6 +301,11 @@ void SickLineController::callbackAction(const std_msgs::msg::String& msg)
 
 void SickLineController::processDistances()
 {
+  // Cancel processing if node is inactive.
+  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    return;
+  }
+
   // Check if all measurements are valid.
   for (const auto valid : _processing_data.valid_line_distance) {
     if (valid == false) {

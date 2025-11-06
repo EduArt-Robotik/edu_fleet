@@ -284,11 +284,6 @@ SickLineNavigation::SickLineNavigation()
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
   );
-  _sub_field_evaluation = create_subscription<edu_perception::msg::LidarFieldEvaluation>(
-    "in/field_evaluation", 
-    rclcpp::QoS(1).reliable().transient_local(), 
-    std::bind(&SickLineNavigation::callbackFieldEvaluation, this, std::placeholders::_1)
-  );
 
   // Services
   _client_set_mode = create_client<edu_robot::srv::SetMode>("set_mode");
@@ -413,7 +408,6 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
           break;
         }
 
-        std::cout << "start docking" << std::endl;
         // Activate docking controller
         std::lock_guard<std::mutex> lock(_processing_data.mutex);
 
@@ -448,18 +442,6 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   }
 }
 
-void SickLineNavigation::callbackFieldEvaluation(std::shared_ptr<const edu_perception::msg::LidarFieldEvaluation> msg)
-{
-  for (const auto& field : msg->fields) {
-    if (field.name == "warnfeld") {
-      _processing_data.warnfeld_active = field.state == edu_perception::msg::LidarField::INFRINGED; 
-    }
-    else if (field.name == "schutzfeld") {
-      _processing_data.schutzfeld_active = field.state == edu_perception::msg::LidarField::INFRINGED;
-    }
-  }
-}
-
 void SickLineNavigation::deactivateStop()
 {
   _processing_data.stop_active = false;
@@ -479,17 +461,17 @@ void SickLineNavigation::process()
     _pub_velocity->publish(twist);
 
     if (_processing_data.docking_controller_state.wait_for(0s) != std::future_status::ready) {
-      if (_processing_data.stamp_last_docking_state_request + rclcpp::Duration(1s) > get_clock()->now()) {
-        // state request was not answered --> go back to line navigation
-        RCLCPP_WARN(get_logger(), "docking controller state request timed out --> resume line navigation");
-        _processing_data.docking_active = false;
-        send_lifecycle_node_transition(
-          _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-        );
-        send_lifecycle_node_transition(
-          _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
-        );
-      }
+      // if (_processing_data.stamp_last_docking_state_request + rclcpp::Duration(10s) > get_clock()->now()) {
+      //   // state request was not answered --> go back to line navigation
+      //   RCLCPP_WARN(get_logger(), "docking controller state request timed out --> resume line navigation");
+      //   _processing_data.docking_active = false;
+      //   send_lifecycle_node_transition(
+      //     _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+      //   );
+      //   send_lifecycle_node_transition(
+      //     _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
+      //   );
+      // }
       return;
     }
 
@@ -508,7 +490,7 @@ void SickLineNavigation::process()
     RCLCPP_INFO(get_logger(), "docking controller is not active anymore --> resume line navigation");
     _processing_data.docking_active = false;
     send_lifecycle_node_transition(
-      _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
+      _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
     );
   }
 
