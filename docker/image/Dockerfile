@@ -23,6 +23,8 @@ USER $USER
 # copy in needed software sources
 COPY ./edu_swarm /home/$USER/ros/src/edu_fleet
 COPY ./sick_lidar_localization /home/$USER/ros/src/sick_lidar_localization
+COPY ./accerion-ros-node/accerion_driver_msgs /home/$USER/ros/src/accerion_driver_msgs
+
 USER root
 RUN cp -f /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_driver/package_ros2.xml /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_driver/package.xml
 RUN cp -f /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_msgs/package_ros2.xml /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_msgs/package.xml
