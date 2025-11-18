@@ -42,6 +42,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetTransform.srv"
 # Actions
   "action/RobotRotate.action"
+  "action/TritonDocking.action"
   DEPENDENCIES
   "edu_robot"
 )

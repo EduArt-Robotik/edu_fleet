@@ -6,10 +6,10 @@
 #pragma once
 
 #include "edu_fleet/controller/pid.hpp"
+#include "edu_fleet/action/triton_docking.hpp"
 
 #include <rclcpp/node.hpp>
-#include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -24,7 +24,7 @@
 namespace eduart {
 namespace fleet {
 
-class TritonLineFollowingController : public rclcpp_lifecycle::LifecycleNode
+class TritonLineFollowingController : public rclcpp::Node
 {
 public:
   static inline constexpr std::size_t NUM_SENSORS = 3;
@@ -47,24 +47,18 @@ public:
   TritonLineFollowingController();
   ~TritonLineFollowingController() override = default;
 
-  static Parameter get_parameter(const Parameter& default_parameter, rclcpp_lifecycle::LifecycleNode& ros_node);
-
-protected:
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
-    const rclcpp_lifecycle::State& previous_state) override;
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_activate(
-    const rclcpp_lifecycle::State& previous_state) override;
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_deactivate(
-    const rclcpp_lifecycle::State& previous_state) override;
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_cleanup(
-    const rclcpp_lifecycle::State& previous_state) override;
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_shutdown(
-    const rclcpp_lifecycle::State& previous_state) override;
+  static Parameter get_parameter(const Parameter& default_parameter, rclcpp::Node& ros_node);
 
 private:
+  // callbacks
   void callbackLineFollowingPoses(std::shared_ptr<const geometry_msgs::msg::PoseArray> msg);
-  void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
+  rclcpp_action::GoalResponse callbackAcceptDocking(
+    const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const edu_fleet::action::TritonDocking::Goal> goal);
+  void callbackDocking(const std::shared_ptr<rclcpp_action::ServerGoalHandle<edu_fleet::action::TritonDocking>> goal_handle);
+
+  // methods
   void determineDockingState(const double error_x);
+  void cancelDocking();
   void enableLineFollowingMode(const std::uint8_t cluster_id);
   void disableLineFollowingMode(const std::uint8_t cluster_id);
 
@@ -72,20 +66,21 @@ private:
 
   std::shared_ptr<controller::Pid> _pid_y;
   std::shared_ptr<controller::Pid> _pid_heading;
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>> _pub_twist;
+  std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Twist>> _pub_twist;
   std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseArray>> _sub_line_following;
-  std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Client<accerion_driver_msgs::srv::SetClusterMode>> _client_set_line_following;
+  std::shared_ptr<rclcpp_action::Server<edu_fleet::action::TritonDocking>> _action_server;
   std::shared_ptr<tf2_ros::Buffer> _tf_buffer;
   std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
 
   struct {
     rclcpp::Time stamp_last_processing;
     rclcpp::Time stamp_endposition_reached;
-    bool docking_in = false;
-    bool docking_out = false;
-    bool at_endposition = false;
-    std::uint8_t active_cluster_id = 8; //> 0 means no cluster selected
+    std::atomic_bool docking_in = false;
+    std::atomic_bool docking_out = false;
+    std::atomic_bool at_endposition = false;
+    std::uint32_t active_cluster_id = 8; //> 0 means no cluster selected
+    std::shared_ptr<rclcpp_action::ServerGoalHandle<edu_fleet::action::TritonDocking>> goal_handle = nullptr;
   } _data;
 };
 

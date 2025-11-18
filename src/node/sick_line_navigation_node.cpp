@@ -167,15 +167,6 @@ static void send_lifecycle_node_transition(
   );
 }
 
-static std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> get_lifecycle_node_state(
-  const std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> client)
-{
-  // request state for lifecycle node
-  auto get_state_request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
-  auto future = client->async_send_request(get_state_request);
-
-  return future.share();
-}
 
 void SickLineNavigation::performFullTurn()
 {
@@ -230,6 +221,72 @@ void SickLineNavigation::performFullTurn()
   _action_client_rotate->async_send_goal(goal_msg, send_goal_options);
 }
 
+void SickLineNavigation::performDocking(const uint32_t cluster_id)
+{
+  if (_action_client_docking->wait_for_action_server(5s) == false) {
+    RCLCPP_ERROR(get_logger(), "docking action server not available after waiting");
+    return;
+  }
+
+  // stop robot before docking
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+  const auto drive_velocity = _processing_data.requested_velocity;
+  _processing_data.requested_velocity = 0.0;
+  _processing_data.docking_active = true;
+
+  // activate docking action by sending goal
+  auto goal_msg = edu_fleet::action::TritonDocking::Goal();
+  goal_msg.cluster_id = cluster_id;
+
+  auto send_goal_options = rclcpp_action::Client<edu_fleet::action::TritonDocking>::SendGoalOptions();
+
+  // callback for result
+  send_goal_options.result_callback = [this, drive_velocity](
+    const rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>::WrappedResult & result) 
+    {
+      switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+          RCLCPP_INFO(get_logger(), "docking action succeeded");
+          break;
+        case rclcpp_action::ResultCode::ABORTED:
+          RCLCPP_ERROR(get_logger(), "docking action was aborted");
+          break;
+        case rclcpp_action::ResultCode::CANCELED:
+          RCLCPP_ERROR(get_logger(), "docking action was canceled");
+          break;
+        default:
+          RCLCPP_ERROR(get_logger(), "unknown result code");
+          break;
+      }
+
+      // after docking enable driving again
+      send_lifecycle_node_transition(
+        _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      );
+      // restore previous velocity
+      std::lock_guard<std::mutex> lock(_processing_data.mutex);
+      _processing_data.requested_velocity = drive_velocity;
+      _processing_data.docking_active = false;
+    };
+
+  // callback for feedback
+  send_goal_options.feedback_callback = [this](
+    rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>::SharedPtr,
+    const std::shared_ptr<const edu_fleet::action::TritonDocking::Feedback> feedback)
+    {
+      if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_IN) {
+        set_lighting(*_pub_lighting_color, "all", 0, 34, 34, edu_robot::msg::SetLightingColor::FLASH);
+      }
+      else if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_OUT) {
+        set_lighting(*_pub_lighting_color, "all", 0, 17, 34, edu_robot::msg::SetLightingColor::FLASH);
+      }
+    };
+
+  // sending goal
+  RCLCPP_INFO(get_logger(), "sending docking goal for cluster id %u.", cluster_id);
+  _action_client_docking->async_send_goal(goal_msg, send_goal_options);
+}
+
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
 {
@@ -280,7 +337,7 @@ SickLineNavigation::SickLineNavigation()
     std::bind(&SickLineNavigation::callbackOnTrack, this, std::placeholders::_1)
   );
   _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
-    "in/code", 
+    "in/code",
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
   );
@@ -289,12 +346,6 @@ SickLineNavigation::SickLineNavigation()
   _client_set_mode = create_client<edu_robot::srv::SetMode>("set_mode");
   _client_state_line_controller = create_client<lifecycle_msgs::srv::ChangeState>(
     _parameter.line_controller_node_name + "/change_state"
-  );
-  _client_state_docking_controller = create_client<lifecycle_msgs::srv::ChangeState>(
-    _parameter.docking_controller_node_name + "/change_state"
-  );
-  _client_get_state_docking_controller = create_client<lifecycle_msgs::srv::GetState>(
-    _parameter.docking_controller_node_name + "/get_state"
   );
 
   // Activate line controller node
@@ -305,13 +356,9 @@ SickLineNavigation::SickLineNavigation()
     _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
   );
 
-  // Configure docking controller node, but do not activate it yet
-  send_lifecycle_node_transition(
-    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
-  );
-
   // Actions
   _action_client_rotate = rclcpp_action::create_client<edu_fleet::action::RobotRotate>(this, "robot_rotate");
+  _action_client_docking = rclcpp_action::create_client<edu_fleet::action::TritonDocking>(this, "docking");
 
   // Starting Timer --> Starting Processing
   _timer_processing = create_timer(100ms, std::bind(&SickLineNavigation::process, this));
@@ -325,14 +372,6 @@ SickLineNavigation::~SickLineNavigation()
   );
   send_lifecycle_node_transition(
     _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
-  );
-
-  // Deactivate docking controller node
-  send_lifecycle_node_transition(
-    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-  );
-  send_lifecycle_node_transition(
-    _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
   );
 }
 
@@ -402,24 +441,27 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 33: performFullTurn(); break;
 
     // Docking
-    case 40: {
-        if (_processing_data.docking_active == true) {
+    case 40:
+    case 41:
+    case 42:
+    case 43:
+    case 44:
+    case 45: 
+    case 46:
+    case 47:
+    case 48:
+    case 49: {
+        if (_processing_data.docking_active == true || _processing_data.docking_cluster_id == static_cast<std::uint32_t>(msg->code - 39)) {
           // docking already active --> do nothing
+          // or docking for this cluster id was done last time --> do nothing
           break;
         }
 
         // Activate docking controller
-        std::lock_guard<std::mutex> lock(_processing_data.mutex);
-
         send_lifecycle_node_transition(
           _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
         );
-        send_lifecycle_node_transition(
-          _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-        );
-        _processing_data.stamp_last_docking_state_request = get_clock()->now();
-        _processing_data.docking_controller_state = get_lifecycle_node_state(_client_get_state_docking_controller);
-        _processing_data.docking_active = true;
+        performDocking(msg->code - 39); // code 40 --> cluster id 1
       } 
       break;
 
@@ -460,38 +502,7 @@ void SickLineNavigation::process()
     twist.linear.x = 0.0;
     _pub_velocity->publish(twist);
 
-    if (_processing_data.docking_controller_state.wait_for(0s) != std::future_status::ready) {
-      // if (_processing_data.stamp_last_docking_state_request + rclcpp::Duration(10s) > get_clock()->now()) {
-      //   // state request was not answered --> go back to line navigation
-      //   RCLCPP_WARN(get_logger(), "docking controller state request timed out --> resume line navigation");
-      //   _processing_data.docking_active = false;
-      //   send_lifecycle_node_transition(
-      //     _client_state_docking_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-      //   );
-      //   send_lifecycle_node_transition(
-      //     _client_state_line_controller, get_logger(), lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING
-      //   );
-      // }
-      return;
-    }
-
-    const auto docking_state_response = _processing_data.docking_controller_state.get()->current_state;
-
-    if (docking_state_response.id == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-      // request new state from docking controller
-      _processing_data.stamp_last_docking_state_request = get_clock()->now();
-      _processing_data.docking_controller_state = get_lifecycle_node_state(_client_get_state_docking_controller);
-
-      // docking controller is still active --> do nothing
-      return;
-    }
-
-    // docking controller is not active anymore --> go back to line navigation
-    RCLCPP_INFO(get_logger(), "docking controller is not active anymore --> resume line navigation");
-    _processing_data.docking_active = false;
-    send_lifecycle_node_transition(
-      _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-    );
+    return;
   }
 
   // handle sick line navigation

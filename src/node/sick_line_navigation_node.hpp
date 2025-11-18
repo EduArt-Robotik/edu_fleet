@@ -23,6 +23,7 @@
 #include <sick_lidar_localization_msgs/msg/code_measurement_message0304.hpp>
 
 #include "edu_fleet/action/robot_rotate.hpp"
+#include "edu_fleet/action/triton_docking.hpp"
 
 namespace eduart {
 namespace fleet {
@@ -50,6 +51,7 @@ private:
   void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
   void deactivateStop();
   void performFullTurn();
+  void performDocking(const uint32_t cluster_id);
 
   void process();
 
@@ -64,7 +66,7 @@ private:
     std::atomic_bool docking_active = false;
     float requested_velocity = 0.0;
     std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> docking_controller_state;
-    rclcpp::Time stamp_last_docking_state_request;
+    std::atomic_uint32_t docking_cluster_id = 0;
     std::mutex mutex;
   } _processing_data;
 
@@ -75,9 +77,9 @@ private:
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
-  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_docking_controller;
-  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> _client_get_state_docking_controller;
+  // std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> _client_get_state_docking_controller;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::RobotRotate>> _action_client_rotate;
+  std::shared_ptr<rclcpp_action::Client<edu_fleet::action::TritonDocking>> _action_client_docking;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
   std::shared_ptr<rclcpp::TimerBase> _timer_process_stopping;
 };

@@ -75,7 +75,7 @@ static double determine_velocity_x(const bool docking_in, const bool docking_out
 }
 
 TritonLineFollowingController::Parameter TritonLineFollowingController::get_parameter(
-  const Parameter& default_parameter, rclcpp_lifecycle::LifecycleNode& ros_node)
+  const Parameter& default_parameter, rclcpp::Node& ros_node)
 {
   ros_node.declare_parameter<double>("pid.y.kp", default_parameter.pid.y.kp);
   ros_node.declare_parameter<double>("pid.y.limit", default_parameter.pid.y.limit);
@@ -107,22 +107,13 @@ TritonLineFollowingController::Parameter TritonLineFollowingController::get_para
 }
 
 TritonLineFollowingController::TritonLineFollowingController()
-  : rclcpp_lifecycle::LifecycleNode("triton_line_following_controller")
+  : rclcpp::Node("triton_line_following_controller")
   , _parameter(get_parameter(Parameter(), *this))
   , _pid_y(std::make_shared<controller::Pid>(_parameter.pid.y))
   , _pid_heading(std::make_shared<controller::Pid>(_parameter.pid.heading))
   , _tf_buffer(std::make_shared<tf2_ros::Buffer>(get_clock()))
   , _tf_listener(std::make_shared<tf2_ros::TransformListener>(*_tf_buffer))
 {
-
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn TritonLineFollowingController::on_configure(
-  const rclcpp_lifecycle::State& previous_state)
-{
-  RCLCPP_INFO(get_logger(), "configuring node.");
-  (void)previous_state;
-
   _pub_twist = create_publisher<geometry_msgs::msg::Twist>(
     "out/cmd_vel", rclcpp::QoS(2).reliable()
   );
@@ -131,26 +122,36 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
     rclcpp::QoS(2).best_effort(),
     std::bind(&TritonLineFollowingController::callbackLineFollowingPoses, this, std::placeholders::_1)
   );
-  _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
-    "in/code", 
-    rclcpp::QoS(10).reliable(), 
-    std::bind(&TritonLineFollowingController::callbackCode, this, std::placeholders::_1)
-  );
   _client_set_line_following = create_client<accerion_driver_msgs::srv::SetClusterMode>(
     "set_line_following_mode"
   );
+  _action_server = rclcpp_action::create_server<edu_fleet::action::TritonDocking>(
+    this,
+    "docking",
+    std::bind(&TritonLineFollowingController::callbackAcceptDocking, this, std::placeholders::_1, std::placeholders::_2),
+    [&](const std::shared_ptr<rclcpp_action::ServerGoalHandle<edu_fleet::action::TritonDocking>> goal_handle) {
+      // accept all cancel requests
+      (void)goal_handle;
+
+      RCLCPP_INFO(get_logger(), "received goal cancel request");
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    std::bind(&TritonLineFollowingController::callbackDocking, this, std::placeholders::_1)
+  );
   _data.stamp_last_processing = get_clock()->now();
-
-  RCLCPP_INFO(get_logger(), "configured node.");
-
-  return rclcpp_lifecycle::LifecycleNode::on_configure(previous_state);
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn TritonLineFollowingController::on_activate(
-  const rclcpp_lifecycle::State& previous_state)
+rclcpp_action::GoalResponse TritonLineFollowingController::callbackAcceptDocking(
+  const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const edu_fleet::action::TritonDocking::Goal> goal)
 {
-  RCLCPP_INFO(get_logger(), "activating node.");
+  (void)uuid;
 
+  if (_data.docking_in == true || _data.docking_out == true || _data.at_endposition == true) {
+    RCLCPP_WARN(get_logger(), "cannot accept new docking goal, docking is already in progress.");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+
+  RCLCPP_INFO(get_logger(), "activating node.");
   _pid_y->reset();
   _pid_heading->reset();
 
@@ -159,60 +160,23 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Triton
   _data.docking_out = false;
   _data.at_endposition = false;
 
-  enableLineFollowingMode(_data.active_cluster_id);
-
+  enableLineFollowingMode(goal->cluster_id);
+  _data.active_cluster_id = goal->cluster_id;
   RCLCPP_INFO(get_logger(), "started docking in.");
 
-  return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
+  return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn TritonLineFollowingController::on_deactivate(
-  const rclcpp_lifecycle::State& previous_state)
+void TritonLineFollowingController::callbackDocking(
+  const std::shared_ptr<rclcpp_action::ServerGoalHandle<edu_fleet::action::TritonDocking>> goal_handle)
 {
-  RCLCPP_INFO(get_logger(), "deactivating node.");
-
-  _data.docking_in = false;
-  _data.docking_out = false;
-  _data.at_endposition = false;
-
-  // publish null velocity to stop pose controlling impact.
-  _pub_twist->publish(geometry_msgs::msg::Twist());
-
-  return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn TritonLineFollowingController::on_cleanup(
-  const rclcpp_lifecycle::State& previous_state)
-{
-  RCLCPP_INFO(get_logger(), "cleaning up node.");
-
-  return rclcpp_lifecycle::LifecycleNode::on_cleanup(previous_state);
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn TritonLineFollowingController::on_shutdown(
-  const rclcpp_lifecycle::State& previous_state)
-{
-  RCLCPP_INFO(get_logger(), "shutting down node.");
-
-  return rclcpp_lifecycle::LifecycleNode::on_shutdown(previous_state);
-}
-
-void TritonLineFollowingController::callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg)
-{
-  if (msg->code <= 40 || msg->code > 49) {
-    // invalid cluster id --> ignore message
-    return;
-  }
-  
-  // set active cluster id based on received code message
-  // _data.active_cluster_id = static_cast<std::uint8_t>(msg->code - 40);
-  _data.active_cluster_id = 8; //> TODO temporary fix, only cluster 8 is used for line following
+  _data.goal_handle = goal_handle;
 }
 
 void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<const geometry_msgs::msg::PoseArray> msg)
 {
-  // cancel processing if node is inactive
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  if (_data.goal_handle == nullptr) {
+    // no docking in progress --> do not process line following poses
     return;
   }
 
@@ -229,10 +193,35 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   );
 
   // start processing
+  // take goal handle copy to prevent that it is deleted meanwhile
+  auto goal_handle = _data.goal_handle;
+
+  if (goal_handle == nullptr) {
+    // error occurred meanwhile and goal handle is no longer valid
+    return;
+  }
+  if (goal_handle->is_canceling()) {
+    // goal was canceled --> stop processing
+    RCLCPP_INFO(get_logger(), "goal canceled. Stop docking.");
+
+    // stop robot and reset data
+    geometry_msgs::msg::Twist twist_out;
+    _pub_twist->publish(twist_out);
+
+    auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
+    result->succeeded = false;
+    goal_handle->canceled(result);
+    cancelDocking();
+    disableLineFollowingMode(_data.active_cluster_id);
+    _data.active_cluster_id = 0;
+    
+    return;
+  }
+
   const auto stamp_now = get_clock()->now();
   const double dt = std::min(0.1, (stamp_now - _data.stamp_last_processing).seconds());
-  const robot::AnglePiToPi yaw_robot = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[0].orientation);
-  const robot::AnglePiToPi yaw_target = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[1].orientation);
+  // const robot::AnglePiToPi yaw_robot = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[0].orientation);
+  // const robot::AnglePiToPi yaw_target = robot::algorithm::quaternion_to_yaw(poses_transformed.poses[1].orientation);
 
   // RCLCPP_INFO(
   //   get_logger(), "robot pose x = %f, y = %f, yaw = %f.",
@@ -309,22 +298,62 @@ void TritonLineFollowingController::determineDockingState(const double error_x)
   else if (_data.docking_in == false && _data.docking_out == true && _data.at_endposition == false) {
     // docking out
     if (std::abs(error_x) >= _parameter.docking_end_error) {
+      // docking out finished --> disable line following mode
       RCLCPP_INFO(get_logger(), "docking out finished.");
       _data.docking_out = false;
 
-      // deactivate node after docking out finished --> stop line following control
+      if (_data.goal_handle != nullptr) {
+        auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
+        result->succeeded = true;
+        _data.goal_handle->succeed(result);
+      }
+
       disableLineFollowingMode(_data.active_cluster_id);
       _data.active_cluster_id = 0;
-      trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
     }
   }
+
+  // send feedback if goal handle is valid
+  if (_data.goal_handle != nullptr) {
+    auto feedback = std::make_shared<edu_fleet::action::TritonDocking::Feedback>();
+
+    if (_data.docking_in == true && _data.docking_out == false && _data.at_endposition == false) {
+      feedback->state = edu_fleet::action::TritonDocking::Feedback::DOCKING_IN;
+    }
+    else if (_data.docking_in == false && _data.docking_out == false && _data.at_endposition == true) {
+      feedback->state = edu_fleet::action::TritonDocking::Feedback::END_POSITION;
+    } 
+    else if (_data.docking_in == false && _data.docking_out == true && _data.at_endposition == false) {
+      feedback->state = edu_fleet::action::TritonDocking::Feedback::DOCKING_OUT;
+    }
+    else {
+      feedback->state = edu_fleet::action::TritonDocking::Feedback::NONE;
+    }
+    
+    _data.goal_handle->publish_feedback(feedback);
+  }
+}
+
+void TritonLineFollowingController::cancelDocking()
+{
+  if (_data.goal_handle != nullptr) {
+    auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
+    result->succeeded = false;
+    _data.goal_handle->canceled(result);
+    RCLCPP_INFO(get_logger(), "docking goal canceled.");
+  }
+
+  _data.docking_in = false;
+  _data.docking_out = false;
+  _data.at_endposition = false;
+  _data.goal_handle = nullptr;
 }
 
 void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t cluster_id)
 {
   if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
-    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> deactivate node");
-    trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> cancel docking");
+    cancelDocking();
     return;
   }
 
@@ -338,7 +367,7 @@ void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t c
       auto response = future.get();
       if (response->success == false) {
         RCLCPP_ERROR(get_logger(), "could not enable line following mode for cluster id %u. --> deactivate node", cluster_id);
-        trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+        cancelDocking();
       }
       else {
         RCLCPP_INFO(get_logger(), "enabled line following mode for cluster id %u.", cluster_id);
@@ -350,7 +379,7 @@ void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t 
 {
   if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
     RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> deactivate node");
-    trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+    cancelDocking();
     return;
   }
 
@@ -364,7 +393,7 @@ void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t 
       auto response = future.get();
       if (response->success == false) {
         RCLCPP_ERROR(get_logger(), "could not disable line following mode for cluster id %u. --> deactivate node", cluster_id);
-        trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+        cancelDocking();
       }
       else {
         RCLCPP_INFO(get_logger(), "disabled line following mode for cluster id %u.", cluster_id);

@@ -89,6 +89,7 @@ if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   )
   target_link_libraries(triton_line_following_controller_node
     eduart-fleet-controller
+    "${cpp_typesupport_target}"
   )
   ament_target_dependencies(triton_line_following_controller_node
     "rclcpp"
