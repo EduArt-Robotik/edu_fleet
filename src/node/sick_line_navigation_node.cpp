@@ -288,6 +288,8 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id)
       else if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_OUT) {
         set_lighting(*_pub_lighting_color, "all", 0, 17, 34, edu_robot::msg::SetLightingColor::FLASH);
       }
+
+      _processing_data.docking_state = feedback->state;
     };
 
   // sending goal

@@ -3,7 +3,7 @@ image_name = eduart-fleet:0.3.2
 download-sources:
 	git clone --branch 0.3.2 git@github.com:EduArt-Robotik/edu_swarm.git
 	git clone --branch v6.0.0 https://github.com/SICKAG/sick_lidar_localization.git	
-	git clone https://gitlab.com/accerion/accerion-ros-node.git
+	git clone https://gitlab.com/accerion/accerion-ros2.git
 
 build-docker:
 	docker build -t $(image_name) .
