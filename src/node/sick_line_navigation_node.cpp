@@ -263,10 +263,13 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id)
       send_lifecycle_node_transition(
         _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
       );
-      // restore previous velocity
+      // change lighting to default
+      set_lighting_default(*_pub_lighting_color);
+      // restore previous velocity and reset docking variables
       std::lock_guard<std::mutex> lock(_processing_data.mutex);
       _processing_data.requested_velocity = drive_velocity;
       _processing_data.docking_active = false;
+      _processing_data.docking_state = 0;
     };
 
   // callback for feedback
@@ -274,6 +277,11 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id)
     rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>::SharedPtr,
     const std::shared_ptr<const edu_fleet::action::TritonDocking::Feedback> feedback)
     {
+      if (_processing_data.docking_state == feedback->state) {
+        // no state change --> do nothing
+        return;
+      }
+
       if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_IN) {
         set_lighting(*_pub_lighting_color, "all", 0, 34, 34, edu_robot::msg::SetLightingColor::FLASH);
       }
@@ -451,9 +459,9 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 47:
     case 48:
     case 49: {
-        if (_processing_data.docking_active == true || _processing_data.docking_cluster_id == static_cast<std::uint32_t>(msg->code - 39)) {
+        if (_processing_data.docking_active == true || _processing_data.last_code == msg->code) {
           // docking already active --> do nothing
-          // or docking for this cluster id was done last time --> do nothing
+          // or code was done last time --> do nothing
           break;
         }
 
@@ -479,9 +487,11 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
     // Not supported code
     default:
-      RCLCPP_ERROR(get_logger(), "un suported code %i.", msg->code);
+      RCLCPP_ERROR(get_logger(), "unsupported code %i.", msg->code);
       break;
   }
+
+  _processing_data.last_code = msg->code;
 }
 
 void SickLineNavigation::deactivateStop()

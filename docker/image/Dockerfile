@@ -21,7 +21,7 @@ RUN apt-get update \
 USER $USER
 
 # copy in needed software sources
-COPY ./edu_swarm /home/$USER/ros/src/edu_fleet
+COPY ./edu_fleet /home/$USER/ros/src/edu_fleet
 COPY ./sick_lidar_localization /home/$USER/ros/src/sick_lidar_localization
 COPY ./accerion-ros-node/accerion_driver_msgs /home/$USER/ros/src/accerion_driver_msgs
 

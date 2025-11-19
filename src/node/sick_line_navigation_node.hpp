@@ -64,9 +64,10 @@ private:
     std::atomic_bool stop_active = false;
     std::atomic_bool drive_backwards = false;
     std::atomic_bool docking_active = false;
+    int last_code = 0;
     float requested_velocity = 0.0;
     std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> docking_controller_state;
-    std::atomic_uint32_t docking_cluster_id = 0;
+    std::atomic_uint8_t docking_state = 0;
     std::mutex mutex;
   } _processing_data;
 
@@ -77,7 +78,6 @@ private:
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
-  // std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::GetState>> _client_get_state_docking_controller;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::RobotRotate>> _action_client_rotate;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::TritonDocking>> _action_client_docking;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
