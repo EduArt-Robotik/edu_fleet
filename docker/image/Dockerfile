@@ -20,8 +20,8 @@ RUN apt-get update \
 # work with user user
 USER $USER
 
-# copy in needed software sources
-COPY ./edu_fleet /home/$USER/ros/src/edu_fleet
+# building dependent packages first
+## copy in needed software sources
 COPY ./sick_lidar_localization /home/$USER/ros/src/sick_lidar_localization
 COPY ./accerion-ros2/accerion_driver_msgs /home/$USER/ros/src/accerion_driver_msgs
 
@@ -30,12 +30,13 @@ RUN cp -f /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_dr
 RUN cp -f /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_msgs/package_ros2.xml /home/$USER/ros/src/sick_lidar_localization/sick_lidar_localization_msgs/package.xml
 USER $USER
 
-# build EduArt packages nodes
 RUN source /opt/ros/$ROS_DISTRO/setup.bash \
     && source /home/$USER/.bashrc \
     && cd /home/$USER/ros/ \
     && colcon build --packages-select accerion_driver_msgs sick_lidar_localization_driver sick_lidar_localization_msgs --symlink-install --event-handlers console_direct+ --cmake-args -DCMAKE_BUILD_TYPE=Release -DROS_VERSION=2
 
+# building edu_fleet package
+COPY ./edu_fleet /home/$USER/ros/src/edu_fleet
 RUN echo "building edu_fleet" \
     && source install/setup.bash \
     && cd /home/$USER/ros/ \
