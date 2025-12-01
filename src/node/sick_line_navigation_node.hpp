@@ -38,6 +38,8 @@ public:
     float turning_velocity = M_PI / 4.0f; // 45 degree per second
     float stop_time = 5.0f;
     std::string line_controller_node_name = "sick_line_controller";
+    std::string sick_pose_repeater_node_name = "sick_localization_pose_repeater";
+    std::string triton_pose_repeater_node_name = "triton_pose_repeater_node";
     std::string docking_controller_node_name = "triton_line_following_controller";
   };
 
@@ -51,7 +53,7 @@ private:
   void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
   void deactivateStop();
   void performFullTurn();
-  void performDocking(const uint32_t cluster_id);
+  void performDocking(const uint32_t cluster_id, const float velocity);
 
   void process();
 
@@ -78,6 +80,8 @@ private:
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_sick_pose_repeater;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_triton_pose_repeater;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::RobotRotate>> _action_client_rotate;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::TritonDocking>> _action_client_docking;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;

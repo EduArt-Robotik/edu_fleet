@@ -83,7 +83,6 @@ TritonLineFollowingController::Parameter TritonLineFollowingController::get_para
   ros_node.declare_parameter<double>("pid.heading.limit", default_parameter.pid.heading.limit);
 
   ros_node.declare_parameter<double>("docking_end_error", default_parameter.docking_end_error);
-  ros_node.declare_parameter<double>("v_x", default_parameter.v_x);
   ros_node.declare_parameter<int>("stop_time", static_cast<int>(default_parameter.stop_time.count()));
 
   ros_node.declare_parameter<std::string>("target_frame_id", default_parameter.target_frame_id);
@@ -97,7 +96,6 @@ TritonLineFollowingController::Parameter TritonLineFollowingController::get_para
   parameter.pid.heading.limit = ros_node.get_parameter("pid.heading.limit").as_double();
 
   parameter.docking_end_error = ros_node.get_parameter("docking_end_error").as_double();
-  parameter.v_x = ros_node.get_parameter("v_x").as_double();
   parameter.stop_time = std::chrono::milliseconds(ros_node.get_parameter("stop_time").as_int());
 
   parameter.target_frame_id = ros_node.get_parameter("target_frame_id").as_string();
@@ -247,7 +245,7 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   determineDockingState(error_x);
 
   // calculate control commands
-  const double vel_x    = determine_velocity_x(_data.docking_in, _data.docking_out, _parameter.v_x);
+  const double vel_x    = determine_velocity_x(_data.docking_in, _data.docking_out, goal_handle->get_goal()->velocity);
   const double vel_y    = _pid_y->process(0.0, -error_y, dt);
   const double yaw_rate = _pid_heading->process(0.0, -error_heading, dt);
 

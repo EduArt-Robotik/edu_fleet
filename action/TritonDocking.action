@@ -1,4 +1,5 @@
 uint32 cluster_id # cluster id of the Triton line following cluster
+float32 velocity  # used velocity for docking
 ---
 bool succeeded # indicates if the docking was successfully finished
 ---

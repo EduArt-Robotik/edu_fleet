@@ -81,6 +81,7 @@ if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
     "geometry_msgs"
     "sick_lidar_localization_msgs"
     "edu_robot"
+    "rclcpp_lifecycle"
   )
 
   ### Triton Line Following Controller
@@ -98,7 +99,21 @@ if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
     "edu_robot"
     "accerion_driver_msgs"
     "sick_lidar_localization_msgs"
-  )  
+  )
+
+  ### Triton Pose Repeater
+  add_executable(triton_pose_repeater_node
+    triton_pose_repeater_node.cpp
+  )
+  target_link_libraries(triton_pose_repeater_node
+
+  )
+  ament_target_dependencies(triton_pose_repeater_node
+    "rclcpp"
+    "rclcpp_lifecycle"
+    "geometry_msgs"
+    "edu_robot"
+  )
 endif()
 
 ### Twist Accumulator

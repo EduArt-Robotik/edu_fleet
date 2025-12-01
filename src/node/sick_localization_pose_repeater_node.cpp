@@ -7,8 +7,7 @@ namespace eduart {
 namespace fleet {
 
 SickLocalizationPoseRepeater::Parameter SickLocalizationPoseRepeater::get_parameter(
-  const Parameter &default_parameter,
-  rclcpp::Node &ros_node)
+  const Parameter &default_parameter, rclcpp_lifecycle::LifecycleNode &ros_node)
 {
   ros_node.declare_parameter<std::string>("tf_map_frame_id", default_parameter.tf_map_frame_id);
   ros_node.declare_parameter<std::string>("tf_robot_frame_id", default_parameter.tf_robot_frame_id);
@@ -22,7 +21,7 @@ SickLocalizationPoseRepeater::Parameter SickLocalizationPoseRepeater::get_parame
 }
 
 SickLocalizationPoseRepeater::SickLocalizationPoseRepeater()
-  : rclcpp::Node("sick_localization_pose_repeater")
+  : rclcpp_lifecycle::LifecycleNode("sick_localization_pose_repeater")
   ,  _parameter(get_parameter(Parameter(), *this))
   , _tf_broadcaster(std::make_shared<tf2_ros::TransformBroadcaster>(*this))
 {
@@ -83,7 +82,7 @@ int main(int argc, char **argv)
 
   auto node = std::make_shared<eduart::fleet::SickLocalizationPoseRepeater>();
 
-  rclcpp::spin(node);
+  rclcpp::spin(node->get_node_base_interface());
   rclcpp::shutdown();
 
   return 0;

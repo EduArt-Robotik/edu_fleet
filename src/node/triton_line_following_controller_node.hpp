@@ -38,7 +38,6 @@ public:
          1.0, 0.0, 0.0, M_PI_2, 1.0, true};
     } pid;
     double docking_end_error = 0.07;
-    double v_x = 0.1;  // constant forward velocity during line following
     std::chrono::milliseconds stop_time{5000};  // time to stop at the end position, before docking out
     std::string target_frame_id = "eduard/blue/base_link";
     std::string sensor_frame_id = "eduard/blue/triton";

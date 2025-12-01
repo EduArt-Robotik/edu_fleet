@@ -98,6 +98,19 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Triton Pose Repeater
+  triton_pose_repeater = Node(
+    package='edu_fleet',
+    executable='triton_pose_repeater_node',
+    name='triton_pose_repeater',
+    namespace=edu_robot_namespace,
+    remappings=[
+      ('in/odometry', 'odometry'),
+      ('out/pose', 'localization/pose')
+    ],
+    output='screen'
+  )
+
   ## Triton Docking Controller
   triton_docking_controller = Node(
     package='edu_fleet',
@@ -195,6 +208,7 @@ def generate_launch_description():
     line_navigation,
     odometry_repeater,
     localization_pose_repeater,
+    triton_pose_repeater,
     triton_docking_controller,
     rotate_robot,
     twist_accumulator,

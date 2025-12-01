@@ -221,7 +221,7 @@ void SickLineNavigation::performFullTurn()
   _action_client_rotate->async_send_goal(goal_msg, send_goal_options);
 }
 
-void SickLineNavigation::performDocking(const uint32_t cluster_id)
+void SickLineNavigation::performDocking(const uint32_t cluster_id, const float velocity)
 {
   if (_action_client_docking->wait_for_action_server(5s) == false) {
     RCLCPP_ERROR(get_logger(), "docking action server not available after waiting");
@@ -237,6 +237,7 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id)
   // activate docking action by sending goal
   auto goal_msg = edu_fleet::action::TritonDocking::Goal();
   goal_msg.cluster_id = cluster_id;
+  goal_msg.velocity = velocity;
 
   auto send_goal_options = rclcpp_action::Client<edu_fleet::action::TritonDocking>::SendGoalOptions();
 
@@ -309,6 +310,10 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   ros_node.declare_parameter<std::string>(
     "line_controller_node_name", default_parameter.line_controller_node_name);
   ros_node.declare_parameter<std::string>(
+    "sick_pose_repeater_node_name", default_parameter.sick_pose_repeater_node_name);
+  ros_node.declare_parameter<std::string>(
+    "triton_pose_repeater_node_name", default_parameter.triton_pose_repeater_node_name);
+  ros_node.declare_parameter<std::string>(
     "docking_controller_node_name", default_parameter.docking_controller_node_name);
 
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
@@ -316,6 +321,8 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
   parameter.stop_time = ros_node.get_parameter("stop_time").as_double();
   parameter.line_controller_node_name = ros_node.get_parameter("line_controller_node_name").as_string();
+  parameter.sick_pose_repeater_node_name = ros_node.get_parameter("sick_pose_repeater_node_name").as_string();
+  parameter.triton_pose_repeater_node_name = ros_node.get_parameter("triton_pose_repeater_node_name").as_string();
   parameter.docking_controller_node_name = ros_node.get_parameter("docking_controller_node_name").as_string();
 
   return parameter;
@@ -357,6 +364,12 @@ SickLineNavigation::SickLineNavigation()
   _client_state_line_controller = create_client<lifecycle_msgs::srv::ChangeState>(
     _parameter.line_controller_node_name + "/change_state"
   );
+  _client_sick_pose_repeater = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.sick_pose_repeater_node_name + "/change_state"
+  );
+  _client_triton_pose_repeater = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.triton_pose_repeater_node_name + "/change_state"
+  );
 
   // Activate line controller node
   send_lifecycle_node_transition(
@@ -364,6 +377,17 @@ SickLineNavigation::SickLineNavigation()
   );
   send_lifecycle_node_transition(
     _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+
+  // Activate pose repeater nodes
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
+  );
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
   );
 
   // Actions
@@ -471,7 +495,7 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
         send_lifecycle_node_transition(
           _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
         );
-        performDocking(msg->code - 39); // code 40 --> cluster id 1
+        performDocking(msg->code - 39, _processing_data.requested_velocity); // code 40 --> cluster id 1
       } 
       break;
 
