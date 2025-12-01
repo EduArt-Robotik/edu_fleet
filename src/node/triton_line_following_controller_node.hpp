@@ -27,8 +27,6 @@ namespace fleet {
 class TritonLineFollowingController : public rclcpp::Node
 {
 public:
-  static inline constexpr std::size_t NUM_SENSORS = 3;
-
   struct Parameter {
     
     struct {

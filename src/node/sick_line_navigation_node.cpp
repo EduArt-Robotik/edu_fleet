@@ -234,6 +234,14 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
   _processing_data.requested_velocity = 0.0;
   _processing_data.docking_active = true;
 
+  // getting poses from triton pose repeater instead of sick pose repeater
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+
   // activate docking action by sending goal
   auto goal_msg = edu_fleet::action::TritonDocking::Goal();
   goal_msg.cluster_id = cluster_id;
@@ -260,10 +268,19 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
           break;
       }
 
+      // switching back to sick pose repeater
+      send_lifecycle_node_transition(
+        _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+      );
+      send_lifecycle_node_transition(
+        _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      );
+
       // after docking enable driving again
       send_lifecycle_node_transition(
         _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
       );
+      
       // change lighting to default
       set_lighting_default(*_pub_lighting_color);
       // restore previous velocity and reset docking variables
