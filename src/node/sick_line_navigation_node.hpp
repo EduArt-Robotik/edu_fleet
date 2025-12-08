@@ -18,6 +18,7 @@
 #include <lifecycle_msgs/srv/get_state.hpp>
 
 #include <edu_robot/msg/set_lighting_color.hpp>
+#include <edu_robot/msg/robot_status_report.hpp>
 #include <edu_robot/srv/set_mode.hpp>
 
 #include <sick_lidar_localization_msgs/msg/code_measurement_message0304.hpp>
@@ -39,7 +40,7 @@ public:
     float stop_time = 5.0f;
     std::string line_controller_node_name = "sick_line_controller";
     std::string sick_pose_repeater_node_name = "sick_localization_pose_repeater";
-    std::string triton_pose_repeater_node_name = "triton_pose_repeater_node";
+    std::string triton_pose_repeater_node_name = "triton_pose_repeater";
     std::string docking_controller_node_name = "triton_line_following_controller";
   };
 
@@ -51,9 +52,11 @@ public:
 private:
   void callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bool> msg);
   void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
+  void callbackStatusReport(std::shared_ptr<const edu_robot::msg::RobotStatusReport> msg);
   void deactivateStop();
   void performFullTurn();
   void performDocking(const uint32_t cluster_id, const float velocity);
+  void cancelDocking();
 
   void process();
 
@@ -70,6 +73,7 @@ private:
     float requested_velocity = 0.0;
     std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> docking_controller_state;
     std::atomic_uint8_t docking_state = 0;
+    std::shared_future<std::shared_ptr<rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>>> docking_goal_handle;
     std::mutex mutex;
   } _processing_data;
 
@@ -78,6 +82,7 @@ private:
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> _pub_drive_action;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
+  std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>> _sub_status_report;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
   std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_sick_pose_repeater;

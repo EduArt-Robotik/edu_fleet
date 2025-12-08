@@ -47,7 +47,7 @@ Some pre-defined QR codes (virtual, placed with Sick Mapping Tool) are available
 |31.| drive left at next switch | When path forks, the robot will continue on left track. |
 |32.| drive right at next switch | When path forks, the robot will continue on right track. |
 |33.| 180 degree turn | robot will turn by 180 degree |
-|4X.| drive into docking station using cluster id X+1 | The robot will perform a docking maneuver with the Triton sensor. X is a placeholder for the cluster ID. The code must be placed exactly at the beginning of the docking path. For more details, please refer to the following sections.
+|4X.| drive into docking station using cluster id X | The robot will perform a docking maneuver with the Triton sensor. X is a placeholder for the cluster ID. The code must be placed exactly at the beginning of the docking path. For more details, please refer to the following sections.
 
 # Docking with Triton
 

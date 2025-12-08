@@ -364,7 +364,7 @@ void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t c
     request, [this, cluster_id](rclcpp::Client<accerion_driver_msgs::srv::SetClusterMode>::SharedFuture future) {
       auto response = future.get();
       if (response->success == false) {
-        RCLCPP_ERROR(get_logger(), "could not enable line following mode for cluster id %u. --> deactivate node", cluster_id);
+        RCLCPP_ERROR(get_logger(), "could not enable line following mode for cluster id %u. --> cancel docking", cluster_id);
         cancelDocking();
       }
       else {
@@ -376,7 +376,7 @@ void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t c
 void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t cluster_id)
 {
   if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
-    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> deactivate node");
+    RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> nothing");
     cancelDocking();
     return;
   }
@@ -390,7 +390,7 @@ void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t 
     request, [this, cluster_id](rclcpp::Client<accerion_driver_msgs::srv::SetClusterMode>::SharedFuture future) {
       auto response = future.get();
       if (response->success == false) {
-        RCLCPP_ERROR(get_logger(), "could not disable line following mode for cluster id %u. --> deactivate node", cluster_id);
+        RCLCPP_ERROR(get_logger(), "could not disable line following mode for cluster id %u. --> nothing", cluster_id);
         cancelDocking();
       }
       else {

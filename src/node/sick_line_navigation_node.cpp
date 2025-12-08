@@ -235,12 +235,12 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
   _processing_data.docking_active = true;
 
   // getting poses from triton pose repeater instead of sick pose repeater
-  send_lifecycle_node_transition(
-    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-  );
-  send_lifecycle_node_transition(
-    _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-  );
+  // send_lifecycle_node_transition(
+  //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  // );
+  // send_lifecycle_node_transition(
+  //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  // );
 
   // activate docking action by sending goal
   auto goal_msg = edu_fleet::action::TritonDocking::Goal();
@@ -269,12 +269,12 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
       }
 
       // switching back to sick pose repeater
-      send_lifecycle_node_transition(
-        _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-      );
-      send_lifecycle_node_transition(
-        _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-      );
+      // send_lifecycle_node_transition(
+      //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+      // );
+      // send_lifecycle_node_transition(
+      //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      // );
 
       // after docking enable driving again
       send_lifecycle_node_transition(
@@ -312,8 +312,34 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
 
   // sending goal
   RCLCPP_INFO(get_logger(), "sending docking goal for cluster id %u.", cluster_id);
-  _action_client_docking->async_send_goal(goal_msg, send_goal_options);
+  _processing_data.docking_goal_handle = _action_client_docking->async_send_goal(goal_msg, send_goal_options);
 }
+
+void SickLineNavigation::cancelDocking()
+{
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+
+  if (_processing_data.docking_active == false) {
+    // no docking ongoing
+    return;
+  }
+  if (_processing_data.docking_goal_handle.valid() == false) {
+    // no shared future available --> no docking ongoing
+    return;
+  }
+  if (_processing_data.docking_goal_handle.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    // future not ready yet --> do nothing
+    return;
+  }
+  
+  // cancel docking using goal handle
+  auto goal_handle = _processing_data.docking_goal_handle.get();
+
+  if (goal_handle != nullptr) {
+    auto cancel_future = _action_client_docking->async_cancel_goal(goal_handle);
+    RCLCPP_INFO(get_logger(), "sent cancel request for docking goal.");
+  }
+} 
 
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
@@ -374,6 +400,11 @@ SickLineNavigation::SickLineNavigation()
     "in/code",
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
+  );
+  _sub_status_report = create_subscription<edu_robot::msg::RobotStatusReport>(
+    "status_report",
+    rclcpp::QoS(2).best_effort(),
+    std::bind(&SickLineNavigation::callbackStatusReport, this, std::placeholders::_1)
   );
 
   // Services
@@ -512,7 +543,7 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
         send_lifecycle_node_transition(
           _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
         );
-        performDocking(msg->code - 39, _processing_data.requested_velocity); // code 40 --> cluster id 1
+        performDocking(msg->code - 40, _processing_data.requested_velocity); // code 40 --> cluster id 0
       } 
       break;
 
@@ -535,6 +566,20 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   }
 
   _processing_data.last_code = msg->code;
+}
+
+void SickLineNavigation::callbackStatusReport(std::shared_ptr<const edu_robot::msg::RobotStatusReport> msg)
+{
+  std::cout << __PRETTY_FUNCTION__ << std::endl;
+  // cancel docking if robot becomes inactive
+  if (msg->robot_state.mode.mode == edu_robot::msg::Mode::INACTIVE) {
+    std::cout << "inactive mode detected" << std::endl;
+    if (_processing_data.docking_active) {
+      std::cout << "docking active" << std::endl;
+      RCLCPP_WARN(get_logger(), "robot is INACTIVE --> disabling docking if active.");
+      cancelDocking();
+    }
+  }
 }
 
 void SickLineNavigation::deactivateStop()
