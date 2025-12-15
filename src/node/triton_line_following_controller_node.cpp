@@ -143,6 +143,7 @@ rclcpp_action::GoalResponse TritonLineFollowingController::callbackAcceptDocking
   const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const edu_fleet::action::TritonDocking::Goal> goal)
 {
   (void)uuid;
+  std::lock_guard lock(_data.mutex);
 
   if (_data.docking_in == true || _data.docking_out == true || _data.at_endposition == true) {
     RCLCPP_WARN(get_logger(), "cannot accept new docking goal, docking is already in progress.");
@@ -168,11 +169,14 @@ rclcpp_action::GoalResponse TritonLineFollowingController::callbackAcceptDocking
 void TritonLineFollowingController::callbackDocking(
   const std::shared_ptr<rclcpp_action::ServerGoalHandle<edu_fleet::action::TritonDocking>> goal_handle)
 {
+  std::lock_guard lock(_data.mutex);
   _data.goal_handle = goal_handle;
 }
 
 void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<const geometry_msgs::msg::PoseArray> msg)
 {
+  std::lock_guard lock(_data.mutex);
+
   if (_data.goal_handle == nullptr) {
     // no docking in progress --> do not process line following poses
     return;
@@ -191,14 +195,7 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   );
 
   // start processing
-  // take goal handle copy to prevent that it is deleted meanwhile
-  auto goal_handle = _data.goal_handle;
-
-  if (goal_handle == nullptr) {
-    // error occurred meanwhile and goal handle is no longer valid
-    return;
-  }
-  if (goal_handle->is_canceling()) {
+  if (_data.goal_handle->is_canceling()) {
     // goal was canceled --> stop processing
     RCLCPP_INFO(get_logger(), "goal canceled. Stop docking.");
 
@@ -208,8 +205,8 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
 
     auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
     result->succeeded = false;
-    goal_handle->canceled(result);
-    cancelDocking();
+    _data.goal_handle->canceled(result);
+    resetDocking();
     disableLineFollowingMode(_data.active_cluster_id);
     _data.active_cluster_id = 0;
     
@@ -245,7 +242,7 @@ void TritonLineFollowingController::callbackLineFollowingPoses(std::shared_ptr<c
   determineDockingState(error_x);
 
   // calculate control commands
-  const double vel_x    = determine_velocity_x(_data.docking_in, _data.docking_out, goal_handle->get_goal()->velocity);
+  const double vel_x    = determine_velocity_x(_data.docking_in, _data.docking_out, _data.goal_handle->get_goal()->velocity);
   const double vel_y    = _pid_y->process(0.0, -error_y, dt);
   const double yaw_rate = _pid_heading->process(0.0, -error_heading, dt);
 
@@ -301,6 +298,7 @@ void TritonLineFollowingController::determineDockingState(const double error_x)
       _data.docking_out = false;
 
       if (_data.goal_handle != nullptr) {
+        // \todo: not so nice location for this goal handle call
         auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
         result->succeeded = true;
         _data.goal_handle->succeed(result);
@@ -332,26 +330,34 @@ void TritonLineFollowingController::determineDockingState(const double error_x)
   }
 }
 
-void TritonLineFollowingController::cancelDocking()
+// not thread safe!
+void TritonLineFollowingController::resetDocking()
 {
-  if (_data.goal_handle != nullptr) {
-    auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
-    result->succeeded = false;
-    _data.goal_handle->canceled(result);
-    RCLCPP_INFO(get_logger(), "docking goal canceled.");
-  }
-
+  // clearing data
   _data.docking_in = false;
   _data.docking_out = false;
   _data.at_endposition = false;
   _data.goal_handle = nullptr;
 }
 
+void TritonLineFollowingController::abortDocking()
+{
+  if (_data.goal_handle == nullptr) {
+    // no action active
+    return;
+  }
+
+  auto result = std::make_shared<edu_fleet::action::TritonDocking::Result>();
+
+  result->succeeded = false;        
+  _data.goal_handle->abort(result);
+}
+
 void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t cluster_id)
 {
   if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
     RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> cancel docking");
-    cancelDocking();
+    abortDocking();
     return;
   }
 
@@ -365,7 +371,7 @@ void TritonLineFollowingController::enableLineFollowingMode(const std::uint8_t c
       auto response = future.get();
       if (response->success == false) {
         RCLCPP_ERROR(get_logger(), "could not enable line following mode for cluster id %u. --> cancel docking", cluster_id);
-        cancelDocking();
+        abortDocking();
       }
       else {
         RCLCPP_INFO(get_logger(), "enabled line following mode for cluster id %u.", cluster_id);
@@ -377,7 +383,7 @@ void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t 
 {
   if (_client_set_line_following->wait_for_service(std::chrono::seconds(1)) == false  ) {
     RCLCPP_WARN(get_logger(), "Accerion set_line_following service is not available. --> nothing");
-    cancelDocking();
+    abortDocking();
     return;
   }
 
@@ -391,7 +397,7 @@ void TritonLineFollowingController::disableLineFollowingMode(const std::uint8_t 
       auto response = future.get();
       if (response->success == false) {
         RCLCPP_ERROR(get_logger(), "could not disable line following mode for cluster id %u. --> nothing", cluster_id);
-        cancelDocking();
+        abortDocking();
       }
       else {
         RCLCPP_INFO(get_logger(), "disabled line following mode for cluster id %u.", cluster_id);

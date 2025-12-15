@@ -83,6 +83,7 @@ if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
     sick_odometry_repeater_node
     sick_localization_pose_repeater_node
     triton_line_following_controller_node
+    triton_pose_repeater_node
   )
 endif()
 

@@ -235,12 +235,12 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
   _processing_data.docking_active = true;
 
   // getting poses from triton pose repeater instead of sick pose repeater
-  // send_lifecycle_node_transition(
-  //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-  // );
-  // send_lifecycle_node_transition(
-  //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-  // );
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
 
   // activate docking action by sending goal
   auto goal_msg = edu_fleet::action::TritonDocking::Goal();
@@ -269,12 +269,12 @@ void SickLineNavigation::performDocking(const uint32_t cluster_id, const float v
       }
 
       // switching back to sick pose repeater
-      // send_lifecycle_node_transition(
-      //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
-      // );
-      // send_lifecycle_node_transition(
-      //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
-      // );
+      send_lifecycle_node_transition(
+        _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+      );
+      send_lifecycle_node_transition(
+        _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      );
 
       // after docking enable driving again
       send_lifecycle_node_transition(
@@ -570,12 +570,9 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
 void SickLineNavigation::callbackStatusReport(std::shared_ptr<const edu_robot::msg::RobotStatusReport> msg)
 {
-  std::cout << __PRETTY_FUNCTION__ << std::endl;
   // cancel docking if robot becomes inactive
   if (msg->robot_state.mode.mode == edu_robot::msg::Mode::INACTIVE) {
-    std::cout << "inactive mode detected" << std::endl;
     if (_processing_data.docking_active) {
-      std::cout << "docking active" << std::endl;
       RCLCPP_WARN(get_logger(), "robot is INACTIVE --> disabling docking if active.");
       cancelDocking();
     }

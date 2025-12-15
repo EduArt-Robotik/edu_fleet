@@ -89,7 +89,8 @@ def generate_launch_description():
     namespace=edu_robot_namespace,
     parameters=[
       {'tf_map_frame_id': PathJoinSubstitution([edu_robot_namespace, 'map'])},
-      {'tf_robot_frame_id': PathJoinSubstitution([edu_robot_namespace, 'base_footprint'])}
+      {'tf_robot_frame_id': PathJoinSubstitution([edu_robot_namespace, 'base_link'])},
+      {'tf_target_frame_id': PathJoinSubstitution([edu_robot_namespace, 'triton'])}
     ],
     remappings=[
       ('in/localization', '/localizationcontroller/out/localizationcontroller_result_message_0502'),
@@ -105,7 +106,7 @@ def generate_launch_description():
     name='triton_pose_repeater',
     namespace=edu_robot_namespace,
     remappings=[
-      ('in/odometry', 'odometry'),
+      ('in/odometry', 'corrections'),
       ('out/pose', 'localization/pose')
     ],
     output='screen'

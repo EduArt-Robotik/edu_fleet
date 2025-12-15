@@ -55,7 +55,8 @@ private:
 
   // methods
   void determineDockingState(const double error_x);
-  void cancelDocking();
+  void resetDocking();
+  void abortDocking();
   void enableLineFollowingMode(const std::uint8_t cluster_id);
   void disableLineFollowingMode(const std::uint8_t cluster_id);
 
@@ -71,6 +72,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
 
   struct {
+    std::mutex mutex; // used for accessing this data
     rclcpp::Time stamp_last_processing;
     rclcpp::Time stamp_endposition_reached;
     std::atomic_bool docking_in = false;

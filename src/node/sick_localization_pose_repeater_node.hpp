@@ -13,6 +13,8 @@
 #include <sick_lidar_localization_msgs/msg/localization_controller_result_message0502.hpp>
 
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.hpp>
 
 namespace eduart {
 namespace fleet {
@@ -23,6 +25,7 @@ public:
   struct Parameter {
     std::string tf_map_frame_id = "map";
     std::string tf_robot_frame_id = "base_footprint";
+    std::string tf_target_frame_id = "base_footprint";
   };
 
   SickLocalizationPoseRepeater();
@@ -39,6 +42,8 @@ private:
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::LocalizationControllerResultMessage0502>> _sub_odometry;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>> _pub_pose;
   std::shared_ptr<tf2_ros::TransformBroadcaster> _tf_broadcaster;
+  std::shared_ptr<tf2_ros::Buffer> _tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
 };
 
 } // end namespace fleet
