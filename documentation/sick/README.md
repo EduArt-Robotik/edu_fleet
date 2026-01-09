@@ -37,9 +37,9 @@ Some pre-defined QR codes (virtual, placed with Sick Mapping Tool) are available
 |4. | police lighting | all lightings will flash in blue |
 |5. | warn lighting | all lightings will flash in yellow |
 |10.| disable robot | robot will be switched in mode **inactive** |
-|11.| set fast velocity | robot moves with 0.5 m/s (configurable) |
+|11.| set slow velocity | robot moves with 0.15 m/s (configurable) |
 |12.| set middle velocity | robot moves with 0.3 m/s (configurable) |
-|13.| set slow velocity | robot moves with 0.15 m/s (configurable) |
+|13.| set fast velocity | robot moves with 0.5 m/s (configurable) |
 |14.| drive forward | robot moves forward in x direction |
 |15.| drive backwards | robot moves backwards in x direction |
 |20.| stop for given time | robot switches in mode **inactive** for 5s (configurable) |
