@@ -105,14 +105,22 @@ void RobotRotateNode::executeRotate(
   auto feedback = std::make_shared<edu_fleet::action::RobotRotate::Feedback>();
   auto result = std::make_shared<edu_fleet::action::RobotRotate::Result>();
 
+  // Integrate actual driven angle from odometry to prevent overshoot
+  robot::AnglePiToPi current_yaw;
+  {
+    std::lock_guard<std::mutex> lock(_data.mutex);
+    current_yaw = _data.yaw;
+  }
+  float integrated_yaw = 0.0f; // [rad], accumulated driven yaw since start of rotation
+  const float target_relative_yaw = std::abs(goal->relative_yaw); 
+
   // loop until goal is reached or canceled (also function must finish when node is shutting down!)
   while (rclcpp::ok()) {
-    float yaw_error = 0.0f;
-
-    // get current yaw error
+    // integrate driven yaw (integral is positive always!)
     {
       std::lock_guard<std::mutex> lock(_data.mutex);
-      yaw_error = std::abs(_data.end_yaw - _data.yaw);
+      integrated_yaw += std::abs(robot::AnglePiToPi(_data.yaw - current_yaw));
+      current_yaw = _data.yaw;
     }
 
     if (goal_handle->is_canceling()) {
@@ -126,11 +134,16 @@ void RobotRotateNode::executeRotate(
       publish_velocity(_pub_velocity, 0.0f);
       _data.is_executing = false;
       _data.goal_is_accepted = false;
-      break;
+      return; // exit function, don't call succeed()
     }
-    if (std::abs(_data.end_yaw - _data.yaw) <= _parameter.yaw_error_tolerance.radian()) {
+
+    // check if goal is reached, negative error means goal reached
+    const float yaw_error = target_relative_yaw - integrated_yaw;
+
+    if (yaw_error <= _parameter.yaw_error_tolerance.radian()) {
       result->error_yaw = yaw_error;
-      RCLCPP_INFO(get_logger(), "goal succeeded. Reached target yaw %.2f with error %.2f", _data.yaw.radian(), yaw_error);
+      RCLCPP_INFO(get_logger(), "goal succeeded. Reached target relative yaw %.2f with error %.2f (integrated %.2f)",
+        target_relative_yaw, std::abs(yaw_error), integrated_yaw);
       break;
     }
 
@@ -138,8 +151,8 @@ void RobotRotateNode::executeRotate(
     const float control_variable = _pid_controller->process(
       0.0f, yaw_error, static_cast<float>(_parameter.process_interval.count()) / 1000.0f
     );
-    const float yaw_rate = control_variable * goal->yaw_rate;
-    publish_velocity(_pub_velocity, limit_yaw_rate(-yaw_rate, _parameter.min_yaw_rate));
+    const float yaw_rate = std::abs(control_variable) * goal->yaw_rate; // goal yaw rate sets the rotation direction
+    publish_velocity(_pub_velocity, limit_yaw_rate(yaw_rate, _parameter.min_yaw_rate));
 
     // sleep to get correct loop rate
     loop_rate.sleep();

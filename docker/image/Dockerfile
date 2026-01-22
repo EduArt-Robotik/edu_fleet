@@ -1,4 +1,4 @@
-FROM eduartrobotik/eduart-perception:0.4.1
+FROM eduartrobotik/eduart-perception:0.5.0
 
 ENV USER user
 ENV DEBIAN_FRONTEND=noninteractive
