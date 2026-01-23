@@ -20,7 +20,7 @@ ament_target_dependencies(pose_controller
 
 ### Line Controller
 ### Optional
-if (${sick_lidar_localization_msgs_FOUND})
+if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   message(STATUS "Building Line Controller for Sick Line Follower")
 
   # Line Controller Node
@@ -58,7 +58,7 @@ if (${sick_lidar_localization_msgs_FOUND})
 
   # Odometry Repeater Node
   add_executable(sick_odometry_repeater_node
-    sick_odometry_repeater.cpp
+    sick_odometry_repeater_node.cpp
   )
   target_link_libraries(sick_odometry_repeater_node
   )
@@ -66,6 +66,52 @@ if (${sick_lidar_localization_msgs_FOUND})
     "rclcpp"
     "nav_msgs"
     "sick_lidar_localization_msgs"
+    "edu_robot"
+  )
+
+  # Localization Pose Repeater Node
+  add_executable(sick_localization_pose_repeater_node
+    sick_localization_pose_repeater_node.cpp
+  )
+  target_link_libraries(sick_localization_pose_repeater_node
+    eduart-fleet-controller
+  )
+  ament_target_dependencies(sick_localization_pose_repeater_node
+    "rclcpp"
+    "geometry_msgs"
+    "sick_lidar_localization_msgs"
+    "edu_robot"
+    "rclcpp_lifecycle"
+  )
+
+  ### Triton Line Following Controller
+  add_executable(triton_line_following_controller_node
+    triton_line_following_controller_node.cpp
+  )
+  target_link_libraries(triton_line_following_controller_node
+    eduart-fleet-controller
+    "${cpp_typesupport_target}"
+  )
+  ament_target_dependencies(triton_line_following_controller_node
+    "rclcpp"
+    "rclcpp_lifecycle"
+    "geometry_msgs"
+    "edu_robot"
+    "accerion_driver_msgs"
+    "sick_lidar_localization_msgs"
+  )
+
+  ### Triton Pose Repeater
+  add_executable(triton_pose_repeater_node
+    triton_pose_repeater_node.cpp
+  )
+  target_link_libraries(triton_pose_repeater_node
+
+  )
+  ament_target_dependencies(triton_pose_repeater_node
+    "rclcpp"
+    "rclcpp_lifecycle"
+    "geometry_msgs"
     "edu_robot"
   )
 endif()

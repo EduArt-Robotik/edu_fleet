@@ -1,6 +1,7 @@
 #include "sick_line_controller_node.hpp"
 
 #include <rclcpp/executors.hpp>
+#include <lifecycle_msgs/msg/state.hpp>
 
 namespace eduart {
 namespace fleet {
@@ -153,7 +154,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "activating node.");
-  (void)previous_state;
   return rclcpp_lifecycle::LifecycleNode::on_activate(previous_state);
 }
 
@@ -161,7 +161,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SickLi
   const rclcpp_lifecycle::State& previous_state)
 {
   RCLCPP_INFO(get_logger(), "deactivating node.");
-  (void)previous_state;
   return rclcpp_lifecycle::LifecycleNode::on_deactivate(previous_state);
 }
 
@@ -302,6 +301,11 @@ void SickLineController::callbackAction(const std_msgs::msg::String& msg)
 
 void SickLineController::processDistances()
 {
+  // Cancel processing if node is inactive.
+  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    return;
+  }
+
   // Check if all measurements are valid.
   for (const auto valid : _processing_data.valid_line_distance) {
     if (valid == false) {

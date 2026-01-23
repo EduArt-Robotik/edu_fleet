@@ -167,6 +167,7 @@ static void send_lifecycle_node_transition(
   );
 }
 
+
 void SickLineNavigation::performFullTurn()
 {
   if (_action_client_rotate->wait_for_action_server(5s) == false) {
@@ -176,7 +177,7 @@ void SickLineNavigation::performFullTurn()
 
   // disable driving while turning
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
   );
   // stop robot before turning
   std::lock_guard<std::mutex> lock(_processing_data.mutex);
@@ -210,7 +211,7 @@ void SickLineNavigation::performFullTurn()
 
       // after turn enable driving again
       send_lifecycle_node_transition(
-        _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+        _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
       );
       // restore previous velocity
       std::lock_guard<std::mutex> lock(_processing_data.mutex);
@@ -219,6 +220,128 @@ void SickLineNavigation::performFullTurn()
 
   _action_client_rotate->async_send_goal(goal_msg, send_goal_options);
 }
+
+void SickLineNavigation::performDocking(const uint32_t cluster_id, const float velocity)
+{
+  if (_action_client_docking->wait_for_action_server(5s) == false) {
+    RCLCPP_ERROR(get_logger(), "docking action server not available after waiting");
+    return;
+  }
+
+  // stop robot before docking
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+  const auto drive_velocity = _processing_data.requested_velocity;
+  _processing_data.requested_velocity = 0.0;
+  _processing_data.docking_active = true;
+
+  // getting poses from triton pose repeater instead of sick pose repeater
+  // \todo at the moment we stay with the pose from sick 
+  // send_lifecycle_node_transition(
+  //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+  // );
+  // send_lifecycle_node_transition(
+  //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  // );
+
+  // activate docking action by sending goal
+  auto goal_msg = edu_fleet::action::TritonDocking::Goal();
+  goal_msg.cluster_id = cluster_id;
+  goal_msg.velocity = velocity;
+
+  auto send_goal_options = rclcpp_action::Client<edu_fleet::action::TritonDocking>::SendGoalOptions();
+
+  // callback for result
+  send_goal_options.result_callback = [this, drive_velocity](
+    const rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>::WrappedResult & result) 
+    {
+      switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+          RCLCPP_INFO(get_logger(), "docking action succeeded");
+          break;
+        case rclcpp_action::ResultCode::ABORTED:
+          RCLCPP_ERROR(get_logger(), "docking action was aborted");
+          break;
+        case rclcpp_action::ResultCode::CANCELED:
+          RCLCPP_ERROR(get_logger(), "docking action was canceled");
+          break;
+        default:
+          RCLCPP_ERROR(get_logger(), "unknown result code");
+          break;
+      }
+
+      // switching back to sick pose repeater
+      // \todo at the moment we stay with the pose from sick 
+      // send_lifecycle_node_transition(
+      //   _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+      // );
+      // send_lifecycle_node_transition(
+      //   _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      // );
+
+      // after docking enable driving again
+      send_lifecycle_node_transition(
+        _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+      );
+      
+      // change lighting to default
+      set_lighting_default(*_pub_lighting_color);
+      // restore previous velocity and reset docking variables
+      std::lock_guard<std::mutex> lock(_processing_data.mutex);
+      _processing_data.requested_velocity = drive_velocity;
+      _processing_data.docking_active = false;
+      _processing_data.docking_state = 0;
+    };
+
+  // callback for feedback
+  send_goal_options.feedback_callback = [this](
+    rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>::SharedPtr,
+    const std::shared_ptr<const edu_fleet::action::TritonDocking::Feedback> feedback)
+    {
+      if (_processing_data.docking_state == feedback->state) {
+        // no state change --> do nothing
+        return;
+      }
+
+      if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_IN) {
+        set_lighting(*_pub_lighting_color, "all", 0, 34, 34, edu_robot::msg::SetLightingColor::FLASH);
+      }
+      else if (feedback->state == edu_fleet::action::TritonDocking::Feedback::DOCKING_OUT) {
+        set_lighting(*_pub_lighting_color, "all", 0, 17, 34, edu_robot::msg::SetLightingColor::FLASH);
+      }
+
+      _processing_data.docking_state = feedback->state;
+    };
+
+  // sending goal
+  RCLCPP_INFO(get_logger(), "sending docking goal for cluster id %u.", cluster_id);
+  _processing_data.docking_goal_handle = _action_client_docking->async_send_goal(goal_msg, send_goal_options);
+}
+
+void SickLineNavigation::cancelDocking()
+{
+  std::lock_guard<std::mutex> lock(_processing_data.mutex);
+
+  if (_processing_data.docking_active == false) {
+    // no docking ongoing
+    return;
+  }
+  if (_processing_data.docking_goal_handle.valid() == false) {
+    // no shared future available --> no docking ongoing
+    return;
+  }
+  if (_processing_data.docking_goal_handle.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    // future not ready yet --> do nothing
+    return;
+  }
+  
+  // cancel docking using goal handle
+  auto goal_handle = _processing_data.docking_goal_handle.get();
+
+  if (goal_handle != nullptr) {
+    auto cancel_future = _action_client_docking->async_cancel_goal(goal_handle);
+    RCLCPP_INFO(get_logger(), "sent cancel request for docking goal.");
+  }
+} 
 
 SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   const Parameter &default_parameter, rclcpp::Node &ros_node)
@@ -231,12 +354,21 @@ SickLineNavigation::Parameter SickLineNavigation::get_parameter(
   ros_node.declare_parameter<double>("stop_time", default_parameter.stop_time);
   ros_node.declare_parameter<std::string>(
     "line_controller_node_name", default_parameter.line_controller_node_name);
+  ros_node.declare_parameter<std::string>(
+    "sick_pose_repeater_node_name", default_parameter.sick_pose_repeater_node_name);
+  ros_node.declare_parameter<std::string>(
+    "triton_pose_repeater_node_name", default_parameter.triton_pose_repeater_node_name);
+  ros_node.declare_parameter<std::string>(
+    "docking_controller_node_name", default_parameter.docking_controller_node_name);
 
   parameter.move_velocity_slow = ros_node.get_parameter("move_velocity.slow").as_double();
   parameter.move_velocity_middle = ros_node.get_parameter("move_velocity.middle").as_double();
   parameter.move_velocity_fast = ros_node.get_parameter("move_velocity.fast").as_double();
   parameter.stop_time = ros_node.get_parameter("stop_time").as_double();
   parameter.line_controller_node_name = ros_node.get_parameter("line_controller_node_name").as_string();
+  parameter.sick_pose_repeater_node_name = ros_node.get_parameter("sick_pose_repeater_node_name").as_string();
+  parameter.triton_pose_repeater_node_name = ros_node.get_parameter("triton_pose_repeater_node_name").as_string();
+  parameter.docking_controller_node_name = ros_node.get_parameter("docking_controller_node_name").as_string();
 
   return parameter;
 }
@@ -267,32 +399,50 @@ SickLineNavigation::SickLineNavigation()
     std::bind(&SickLineNavigation::callbackOnTrack, this, std::placeholders::_1)
   );
   _sub_code = create_subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>(
-    "in/code", 
+    "in/code",
     rclcpp::QoS(10).reliable(), 
     std::bind(&SickLineNavigation::callbackCode, this, std::placeholders::_1)
   );
-  _sub_field_evaluation = create_subscription<edu_perception::msg::LidarFieldEvaluation>(
-    "in/field_evaluation", 
-    rclcpp::QoS(1).reliable().transient_local(), 
-    std::bind(&SickLineNavigation::callbackFieldEvaluation, this, std::placeholders::_1)
+  _sub_status_report = create_subscription<edu_robot::msg::RobotStatusReport>(
+    "status_report",
+    rclcpp::QoS(2).best_effort(),
+    std::bind(&SickLineNavigation::callbackStatusReport, this, std::placeholders::_1)
   );
 
   // Services
   _client_set_mode = create_client<edu_robot::srv::SetMode>("set_mode");
-  _client_change_state = create_client<lifecycle_msgs::srv::ChangeState>(
+  _client_state_line_controller = create_client<lifecycle_msgs::srv::ChangeState>(
     _parameter.line_controller_node_name + "/change_state"
+  );
+  _client_sick_pose_repeater = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.sick_pose_repeater_node_name + "/change_state"
+  );
+  _client_triton_pose_repeater = create_client<lifecycle_msgs::srv::ChangeState>(
+    _parameter.triton_pose_repeater_node_name + "/change_state"
   );
 
   // Activate line controller node
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
   );
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+
+  // Activate pose repeater nodes
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
+  );
+  send_lifecycle_node_transition(
+    _client_sick_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE
+  );
+  send_lifecycle_node_transition(
+    _client_triton_pose_repeater, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE
   );
 
   // Actions
   _action_client_rotate = rclcpp_action::create_client<edu_fleet::action::RobotRotate>(this, "robot_rotate");
+  _action_client_docking = rclcpp_action::create_client<edu_fleet::action::TritonDocking>(this, "docking");
 
   // Starting Timer --> Starting Processing
   _timer_processing = create_timer(100ms, std::bind(&SickLineNavigation::process, this));
@@ -302,10 +452,10 @@ SickLineNavigation::~SickLineNavigation()
 {
   // Deactivate line controller node
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
   );
   send_lifecycle_node_transition(
-    _client_change_state, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
+    _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP
   );
 }
 
@@ -330,11 +480,12 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
   // 13. langsam
   // 14. vorwärts fahren
   // 15. rückwärts fahren
+  // 20. stop for given time
   // 30. drive straight at next switch
   // 31. drive left at next switch
   // 32. drive right at next switch
   // 33. 180 degree turn
-  // 20. stop for given time
+  // 4X. drive into docking station using cluster id X
   
   switch (msg->code) {
     // Lighting
@@ -373,6 +524,31 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
     case 32: send_drive_action(_pub_drive_action, "turn_right"); break;
     case 33: performFullTurn(); break;
 
+    // Docking
+    case 40:
+    case 41:
+    case 42:
+    case 43:
+    case 44:
+    case 45: 
+    case 46:
+    case 47:
+    case 48:
+    case 49: {
+        if (_processing_data.docking_active == true || _processing_data.last_code == msg->code) {
+          // docking already active --> do nothing
+          // or code was done last time --> do nothing
+          break;
+        }
+
+        // Activate docking controller
+        send_lifecycle_node_transition(
+          _client_state_line_controller, get_logger(), lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE
+        );
+        performDocking(msg->code - 40, _processing_data.requested_velocity); // code 40 --> cluster id 0
+      } 
+      break;
+
     // Special Actions
     // Stop/Halt for given time
     case 20: 
@@ -387,19 +563,20 @@ void SickLineNavigation::callbackCode(std::shared_ptr<const sick_lidar_localizat
 
     // Not supported code
     default:
-      RCLCPP_ERROR(get_logger(), "un suported code %i.", msg->code);
+      RCLCPP_ERROR(get_logger(), "unsupported code %i.", msg->code);
       break;
   }
+
+  _processing_data.last_code = msg->code;
 }
 
-void SickLineNavigation::callbackFieldEvaluation(std::shared_ptr<const edu_perception::msg::LidarFieldEvaluation> msg)
+void SickLineNavigation::callbackStatusReport(std::shared_ptr<const edu_robot::msg::RobotStatusReport> msg)
 {
-  for (const auto& field : msg->fields) {
-    if (field.name == "warnfeld") {
-      _processing_data.warnfeld_active = field.state == edu_perception::msg::LidarField::INFRINGED; 
-    }
-    else if (field.name == "schutzfeld") {
-      _processing_data.schutzfeld_active = field.state == edu_perception::msg::LidarField::INFRINGED;
+  // cancel docking if robot becomes inactive
+  if (msg->robot_state.mode.mode == edu_robot::msg::Mode::INACTIVE) {
+    if (_processing_data.docking_active) {
+      RCLCPP_WARN(get_logger(), "robot is INACTIVE --> disabling docking if active.");
+      cancelDocking();
     }
   }
 }
@@ -416,7 +593,18 @@ void SickLineNavigation::process()
 {
   geometry_msgs::msg::Twist twist;
 
+  // handle docking
+  if (_processing_data.docking_active) {
+    // docking is active --> stop line navigation
+    twist.linear.x = 0.0;
+    _pub_velocity->publish(twist);
+
+    return;
+  }
+
+  // handle sick line navigation
   if (_processing_data.on_track == false) {
+    // robot is off track --> stop robot
     twist.linear.x = 0.0;
   }
   // robot is on track
@@ -424,17 +612,7 @@ void SickLineNavigation::process()
     // stop is active --> send velocity 0 until stop ended
     twist.linear.x = 0.0;
   }
-  else if (_processing_data.schutzfeld_active) {
-    // some object is in Schutzfeld --> stop
-    twist.linear.x = 0.0;
-  }
-  // no collision with an object
-  else if (_processing_data.warnfeld_active) {
-    // some object is in Warnfeld --> slow down
-    std::lock_guard<std::mutex> lock(_processing_data.mutex);
-    twist.linear.x = _parameter.move_velocity_slow;
-  }
-  // no close object around robot
+  // normal driving on track
   else {
     std::lock_guard<std::mutex> lock(_processing_data.mutex);
     twist.linear.x = _processing_data.requested_velocity;

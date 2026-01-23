@@ -32,6 +32,7 @@ public:
   ~RobotRotateNode() override;
 
 private:
+  static Parameter get_parameter(const Parameter &default_parameter, rclcpp::Node &ros_node);
   void callbackOdometry(std::shared_ptr<nav_msgs::msg::Odometry> msg);
   rclcpp_action::GoalResponse callbackAcceptGoal(
     const rclcpp_action::GoalUUID & uuid,

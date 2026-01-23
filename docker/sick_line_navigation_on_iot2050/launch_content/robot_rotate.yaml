@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    use_sim_time: false
+
+    kp: 2.5                          # Proportional gain for yaw control
+    min_yaw_rate: 0.05               # Minimum yaw rate to command (rad/s)
+    process_interval_ms: 50          # Processing interval in milliseconds
+    yaw_error_tolerance_deg: 3.0     # Acceptable yaw error tolerance in degrees

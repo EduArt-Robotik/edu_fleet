@@ -15,14 +15,16 @@
 #include <std_msgs/msg/bool.hpp>
 
 #include <lifecycle_msgs/srv/change_state.hpp>
+#include <lifecycle_msgs/srv/get_state.hpp>
 
 #include <edu_robot/msg/set_lighting_color.hpp>
+#include <edu_robot/msg/robot_status_report.hpp>
 #include <edu_robot/srv/set_mode.hpp>
 
-#include <edu_perception/msg/lidar_field_evaluation.hpp>
 #include <sick_lidar_localization_msgs/msg/code_measurement_message0304.hpp>
 
 #include "edu_fleet/action/robot_rotate.hpp"
+#include "edu_fleet/action/triton_docking.hpp"
 
 namespace eduart {
 namespace fleet {
@@ -37,6 +39,9 @@ public:
     float turning_velocity = M_PI / 4.0f; // 45 degree per second
     float stop_time = 5.0f;
     std::string line_controller_node_name = "sick_line_controller";
+    std::string sick_pose_repeater_node_name = "sick_localization_pose_repeater";
+    std::string triton_pose_repeater_node_name = "triton_pose_repeater";
+    std::string docking_controller_node_name = "triton_line_following_controller";
   };
 
   SickLineNavigation();
@@ -47,9 +52,11 @@ public:
 private:
   void callbackOnTrack(std::shared_ptr<const std_msgs::msg::Bool> msg);
   void callbackCode(std::shared_ptr<const sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304> msg);
-  void callbackFieldEvaluation(std::shared_ptr<const edu_perception::msg::LidarFieldEvaluation> msg);
+  void callbackStatusReport(std::shared_ptr<const edu_robot::msg::RobotStatusReport> msg);
   void deactivateStop();
   void performFullTurn();
+  void performDocking(const uint32_t cluster_id, const float velocity);
+  void cancelDocking();
 
   void process();
 
@@ -61,7 +68,12 @@ private:
     std::atomic_bool schutzfeld_active = false;
     std::atomic_bool stop_active = false;
     std::atomic_bool drive_backwards = false;
+    std::atomic_bool docking_active = false;
+    int last_code = 0;
     float requested_velocity = 0.0;
+    std::shared_future<std::shared_ptr<lifecycle_msgs::srv::GetState::Response>> docking_controller_state;
+    std::atomic_uint8_t docking_state = 0;
+    std::shared_future<std::shared_ptr<rclcpp_action::ClientGoalHandle<edu_fleet::action::TritonDocking>>> docking_goal_handle;
     std::mutex mutex;
   } _processing_data;
 
@@ -70,10 +82,13 @@ private:
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> _pub_drive_action;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_on_track;
   std::shared_ptr<rclcpp::Subscription<sick_lidar_localization_msgs::msg::CodeMeasurementMessage0304>> _sub_code;
-  std::shared_ptr<rclcpp::Subscription<edu_perception::msg::LidarFieldEvaluation>> _sub_field_evaluation;
+  std::shared_ptr<rclcpp::Subscription<edu_robot::msg::RobotStatusReport>> _sub_status_report;
   std::shared_ptr<rclcpp::Client<edu_robot::srv::SetMode>> _client_set_mode;
-  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_change_state;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_state_line_controller;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_sick_pose_repeater;
+  std::shared_ptr<rclcpp::Client<lifecycle_msgs::srv::ChangeState>> _client_triton_pose_repeater;
   std::shared_ptr<rclcpp_action::Client<edu_fleet::action::RobotRotate>> _action_client_rotate;
+  std::shared_ptr<rclcpp_action::Client<edu_fleet::action::TritonDocking>> _action_client_docking;
   std::shared_ptr<rclcpp::TimerBase> _timer_processing;
   std::shared_ptr<rclcpp::TimerBase> _timer_process_stopping;
 };

@@ -75,19 +75,50 @@ def generate_launch_description():
     output='screen'
   )
 
+  ## Localization Pose Repeater
+  localization_pose_repeater = Node(
+    package='edu_fleet',
+    executable='sick_localization_pose_repeater_node',
+    name='sick_localization_pose_repeater',
+    namespace=edu_robot_namespace,
+    parameters=[
+      {'tf_map_frame_id': PathJoinSubstitution([edu_robot_namespace, 'map'])},
+      {'tf_robot_frame_id': PathJoinSubstitution([edu_robot_namespace, 'base_footprint'])}
+    ],
+    remappings=[
+      ('in/localization', '/localizationcontroller/out/localizationcontroller_result_message_0502'),
+      ('out/pose', 'localization/pose')
+    ],
+    output='screen'
+  )
+
+  ## Triton Docking Controller
+  triton_docking_controller = Node(
+    package='edu_fleet',
+    executable='triton_line_following_controller_node',
+    name='triton_line_following_controller',
+    namespace=edu_robot_namespace,
+    remappings=[
+      ('out/cmd_vel', 'docking/cmd_vel'),
+      ('in/line_following', 'line_follower'),
+      ('in/code', '/localizationcontroller/out/code_measurement_message_0304'),
+    ],
+    # prefix=['gdbserver localhost:3000'],    
+    output='screen'
+  )
+
   ## Rotate Robot Action Server
-  # rotate_robot_parameter_file = PathJoinSubstitution([
-  #   FindPackageShare('edu_fleet'),
-  #   'parameter',
-  #   'rotate_robot.yaml'
-  # ])
+  rotate_robot_parameter_file = PathJoinSubstitution([
+    './',
+    'rotate_robot.yaml'
+  ])
 
   rotate_robot = Node(
     package='edu_fleet',
     executable='robot_rotate_node',
     name='robot_rotate',
     namespace=edu_robot_namespace,
-    # parameters=[rotate_robot_parameter_file],
+    parameters=[rotate_robot_parameter_file],
     remappings=[
       ('in/odometry', 'odometry'),
       ('out/cmd_vel', 'rotate_robot/cmd_vel'),
@@ -102,12 +133,13 @@ def generate_launch_description():
     name='twist_accumulator',
     namespace=edu_robot_namespace,
     parameters=[
-      {'num_subscription': 3}
+      {'num_subscription': 4}
     ],
     remappings=[
       ('twist/input_0', 'line_controller/cmd_vel'),
       ('twist/input_1', 'line_navigation/cmd_vel'),
       ('twist/input_2', 'rotate_robot/cmd_vel'),
+      ('twist/input_3', 'docking/cmd_vel'),
       ('twist/output', 'combined/cmd_vel')
     ],
     # prefix=['gdbserver localhost:3000'],
@@ -154,9 +186,10 @@ def generate_launch_description():
     line_controller,
     line_navigation,
     odometry_repeater,
+    localization_pose_repeater,
+    triton_docking_controller,    
     rotate_robot,
     twist_accumulator,
     # collision_avoidance
     collision_avoidance_lidar_field
   ])
-    
