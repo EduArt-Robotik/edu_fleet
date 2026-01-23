@@ -25,8 +25,31 @@ static float limit_yaw_rate(const float yaw_rate, const float min_yaw_rate)
   return 0.0f;
 }
 
+RobotRotateNode::Parameter RobotRotateNode::get_parameter(
+  const Parameter &default_parameter, rclcpp::Node &ros_node)
+{
+  Parameter parameter;
+
+  ros_node.declare_parameter<int>(
+    "process_interval_ms", static_cast<int>(default_parameter.process_interval.count()));
+  ros_node.declare_parameter<double>(
+    "yaw_error_tolerance_deg", default_parameter.yaw_error_tolerance.degree());
+  ros_node.declare_parameter<float>("min_yaw_rate", default_parameter.min_yaw_rate);
+  ros_node.declare_parameter<float>("kp", default_parameter.kp);
+
+  parameter.process_interval = std::chrono::milliseconds(
+    ros_node.get_parameter("process_interval_ms").as_int());
+  parameter.yaw_error_tolerance = robot::Angle::createFromDegree(
+    ros_node.get_parameter("yaw_error_tolerance_deg").as_double());
+  parameter.min_yaw_rate = ros_node.get_parameter("min_yaw_rate").as_double();
+  parameter.kp = ros_node.get_parameter("kp").as_double();
+
+  return parameter;
+}
+
 RobotRotateNode::RobotRotateNode()
   : rclcpp::Node("robot_turn_node")
+  , _parameter(get_parameter({}, *this))
 {
   _sub_odometry = create_subscription<nav_msgs::msg::Odometry>(
     "in/odometry", rclcpp::QoS(2).best_effort(), 

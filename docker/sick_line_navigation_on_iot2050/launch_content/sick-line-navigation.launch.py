@@ -108,18 +108,17 @@ def generate_launch_description():
   )
 
   ## Rotate Robot Action Server
-  # rotate_robot_parameter_file = PathJoinSubstitution([
-  #   FindPackageShare('edu_fleet'),
-  #   'parameter',
-  #   'rotate_robot.yaml'
-  # ])
+  rotate_robot_parameter_file = PathJoinSubstitution([
+    './',
+    'rotate_robot.yaml'
+  ])
 
   rotate_robot = Node(
     package='edu_fleet',
     executable='robot_rotate_node',
     name='robot_rotate',
     namespace=edu_robot_namespace,
-    # parameters=[rotate_robot_parameter_file],
+    parameters=[rotate_robot_parameter_file],
     remappings=[
       ('in/odometry', 'odometry'),
       ('out/cmd_vel', 'rotate_robot/cmd_vel'),
