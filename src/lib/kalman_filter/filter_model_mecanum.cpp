@@ -58,7 +58,7 @@ void FilterModelMecanum::calculatePredictionMatrixPushAndRotate(
 
   // from p_x to ...
   // ... position
-  _prediction_matrix(W_POS_X, W_POS_Y) = 1.0;
+  _prediction_matrix(W_POS_X, W_POS_X) = 1.0;
   _prediction_matrix(W_POS_X, W_POS_Y) = 0.0;
   // ... velocity
   _prediction_matrix(W_POS_X, VEL_X) =  dt * cos_phi;
@@ -149,14 +149,14 @@ void FilterModelMecanum::calculatePredictionMatrixRotateAndPush(
 
   
   // calculate prediction based on current state and dt
-  // NOTE: predication matrix was initialized with an I matrix at beginning
+  // NOTE: prediction matrix was initialized with an I matrix at beginning
   // NOTE: all lower the diagonal is zero!
   const Data cos_phi = std::cos(state->yaw() + state->yaw_rate() * dt);
   const Data sin_phi = std::sin(state->yaw() + state->yaw_rate() * dt);
 
   // from p_x to ...
   // ... position
-  _prediction_matrix(W_POS_X, W_POS_Y) = 1.0;
+  _prediction_matrix(W_POS_X, W_POS_X) = 1.0;
   _prediction_matrix(W_POS_X, W_POS_Y) = 0.0;
   // ... velocity
   _prediction_matrix(W_POS_X, VEL_X) =  dt * cos_phi;
@@ -271,13 +271,13 @@ void FilterModelMecanum::calculateSystemNoiseMatrixPushAndRotate(
   {
     Eigen::Vector<Data, attribute_vector::size()> noise_vector = Eigen::Vector<Data, attribute_vector::size()>::Zero();
 
-    noise_vector[W_POS_X] = 0.5 * dt * dt * dt;// * (cos_phi - sin_phi);
-    noise_vector[W_POS_Y] = 0.5 * dt * dt * dt;// * (sin_phi + cos_phi);
+    noise_vector[W_POS_X] = 0.5 * dt * dt;
+    noise_vector[W_POS_Y] = 0.5 * dt * dt;
 
-    noise_vector[VEL_X] = dt * dt;
-    noise_vector[VEL_Y] = dt * dt;
-    noise_vector[ACC_X] = 1.0 * dt;
-    noise_vector[ACC_Y] = 1.0 * dt;
+    noise_vector[VEL_X] = dt;
+    noise_vector[VEL_Y] = dt;
+    noise_vector[ACC_X] = 1.0;
+    noise_vector[ACC_Y] = 1.0;
 
     _system_noise_matrix += _parameter.noise.acceleration * noise_vector * noise_vector.transpose();
     std::cout << "Q_a:\n" << _system_noise_matrix << std::endl;
