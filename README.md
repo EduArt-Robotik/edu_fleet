@@ -40,3 +40,7 @@ sudo apt install ros-$ROS_DISTRO-aruco-opencv-msgs
 |192.168.0.102| Eduard Red (eno2)
 |192.168.0.60 | Level 2 Start Address (eno2) |
 |192.168.0.111| Oak D Cam |
+
+
+# sick_line_follow
+Use develop branch (since SPS Triton implementation) 
