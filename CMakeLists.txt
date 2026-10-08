@@ -31,7 +31,8 @@ find_package(edu_robot REQUIRED)
 find_package(edu_perception REQUIRED)
 
 # optional packages
-find_package(sick_lidar_localization)
+find_package(sick_lidar_localization_msgs)
+find_package(accerion_driver_msgs)
 
 
 ## Build Defined ROS Messages
@@ -39,6 +40,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # Messages
 # Services
   "srv/GetTransform.srv"
+# Actions
+  "action/RobotRotate.action"
+  "action/TritonDocking.action"
   DEPENDENCIES
   "edu_robot"
 )
@@ -69,12 +73,17 @@ set(TARGET_NODE_LIST
   robot_localization_node
   collision_avoidance_lidar_node
   collision_avoidance_lidar_field_node
+  robot_rotate_node
 )
-if (${sick_lidar_localization_FOUND})
+if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   set(TARGET_NODE_LIST
     ${TARGET_NODE_LIST}
     sick_line_controller_node
-    sick_line_navigation_node    
+    sick_line_navigation_node
+    sick_odometry_repeater_node
+    sick_localization_pose_repeater_node
+    triton_line_following_controller_node
+    triton_pose_repeater_node
   )
 endif()
 
