@@ -1,0 +1,10 @@
+<class_libraries>
+    <library path="eduard-fleet-mecanum-path-controller">
+        <class type="edu_fleet::mecanum_path_controller::MecanumController" base_class_type="nav2_core::Controller">
+            <description>
+                2d mecanum Controller that follows the xy-Position of the Path while simultaneously rotating to the orientation of the Waypoint-Pose
+            </description>
+        </class>
+    </library>
+</class_libraries>
+

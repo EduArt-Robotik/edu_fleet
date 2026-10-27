@@ -26,6 +26,9 @@ find_package(aruco_opencv_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(laser_geometry REQUIRED)
+find_package(nav2_core REQUIRED)
+find_package(pluginlib REQUIRED)
+
 
 find_package(edu_robot REQUIRED)
 find_package(edu_perception REQUIRED)
@@ -52,6 +55,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typ
 ## Building Library and Nodes
 add_subdirectory(src/lib)
 add_subdirectory(src/node)
+add_subdirectory(src/plugin)
 
 ## Installing of Content
 install(
@@ -105,6 +109,17 @@ install(
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+install(
+  TARGETS
+  # plugins
+  eduard-fleet-mecanum-path-controller
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+pluginlib_export_plugin_description_file(nav2_core src/plugin/mecanum_path_controller.xml)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -128,6 +143,7 @@ ament_export_libraries(
   eduart-fleet-kalman-filter
   eduart-fleet-transform
   eduart-fleet-controller
+  eduard-fleet-mecanum-path-controller
 )
 ament_export_dependencies(
   rclcpp
@@ -140,6 +156,8 @@ ament_export_dependencies(
   nav_msgs
   Eigen3
   std_srvs
+  nav2_core
+  pluginlib
 )
 ament_export_targets(
   export_${PROJECT_NAME}
