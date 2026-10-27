@@ -1,0 +1,81 @@
+autoStart:
+  active: false
+vehicle:
+  name: Eduard
+  manufacturer: EduArt
+  model: IOTBot
+  geometry:
+    width: 0.4
+    length: 0.4
+  odometer:
+    type: external
+    external:
+      name: odometry_input
+    differentialDrive:
+      encoderLeft:
+        type: INCREMENTAL
+communication:
+  smopUdp:
+    output:
+      destinationIp: 192.168.0.100
+sensors:
+  lidar:
+    - name: PicoScan_localhost
+      active: true
+      mountedUpsideDown: false
+      interface:
+        ipAddress: 127.0.0.1
+        port: 2111
+        timeOffset: 0
+      pose:
+        type: 2D
+        x: 0.12
+        y: 0.0
+        yaw: 0.0
+  virtualLine:
+    - name: virtual_line_front
+      active: true
+      width: 1.0
+      interface:
+        msgVersion: 4
+        sourceId: 1
+      pose:
+        type: 2D
+        x: 0.05
+        y: 0.0
+        yaw: 0.0
+    - name: virtual_line_rear
+      active: true
+      width: 1.0
+      interface:
+        msgVersion: 4
+        sourceId: 2
+      pose:
+        type: 2D
+        x: -0.05
+        y: 0.0
+        yaw: 0.0
+    - name: virtual_line_front2
+      active: true
+      width: 1.0
+      interface:
+        msgVersion: 4
+        sourceId: 3
+      pose:
+        type: 2D
+        x: 0.04
+        y: 0.0
+        yaw: 0.0
+  virtualCodeReader:
+    - name: code_reader
+      active: true
+      type: LINE
+      size: 0.5
+      interface:
+        msgVersion: 4
+        sourceId: 5
+      pose:
+        type: 2D
+        x: 0.15
+        y: -0.25
+        yaw: 0.0

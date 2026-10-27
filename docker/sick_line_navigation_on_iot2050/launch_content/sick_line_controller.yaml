@@ -10,16 +10,16 @@
     max_error_yaw: 0.5      # maximum allowed angular error
 
     # used source ids of line sensors
-    source_ids:
-    - 1
-    - 2
+    source_ids: [1, 2, 3]
+    front_source_ids: [1, 3]
+    rear_source_ids: [2]
 
     # controller
     pid:
       angular:
-        kp: 1.5
+        kp: 2.5
         limit: 1.5707963267948966
       linear:
-        kp: 1.0
+        kp: 2.0
         limit: 0.5
 
