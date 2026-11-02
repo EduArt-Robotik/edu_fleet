@@ -7,12 +7,15 @@ USER root
 
 # Install Dependencies for Perception Package
 RUN apt-get update \
+    && apt-get update -y \
     && apt-get install -y \
     ros-$ROS_DISTRO-geometry-msgs \
     ros-$ROS_DISTRO-cv-bridge \
     ros-$ROS_DISTRO-aruco-opencv \
     ros-$ROS_DISTRO-aruco-opencv-msgs \
     ros-$ROS_DISTRO-laser-geometry \
+    ros-$ROS_DISTRO-navigation2 \
+    ros-$ROS_DISTRO-slam-toolbox \
     libcurl4-openssl-dev \
     libjsoncpp-dev \
     && apt-get clean

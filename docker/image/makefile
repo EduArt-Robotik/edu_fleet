@@ -1,4 +1,4 @@
-image_name = eduart-fleet:0.3.2
+image_name = eduart-fleet:0.4.0
 
 download-sources:
 	git clone git@github.com:EduArt-Robotik/edu_fleet.git
@@ -19,5 +19,5 @@ all: download-sources build-docker
 	$(info Creating EduArt's robot library Docker image "$(image_name)".)
 
 clean:
-	rm -rf edu_swarm
+	rm -rf edu_fleet
 	rm -rf sick_lidar_localization
