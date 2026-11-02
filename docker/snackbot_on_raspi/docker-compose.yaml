@@ -1,7 +1,7 @@
 services:
     snackbot-amcl:
-        image: eduartrobotik/nav2:1.3.0
-        container_name: snackbot-amcl-1.3.0
+        image: eduart-fleet:0.4.0
+        container_name: snackbot-amcl-0.4.0
         user: user
         restart: always
         privileged: true
@@ -17,5 +17,25 @@ services:
         devices:
             - '/dev:/dev'
         command: bash -c 'cd /home/user/ros/launch_content; ros2 launch amcl.launch.py use_keepout:=${USE_KEEPOUT:-false}'
+        volumes:
+            - './launch_content:/home/user/ros/launch_content:r'
+    snackbot-nav2:
+        image: eduart-fleet:0.4.0
+        container_name: snackbot-nav2-0.4.0
+        user: user
+        restart: always
+        privileged: true
+        ipc: host
+        pid: host
+        mem_limit: 300mb
+        environment:
+            - EDU_ROBOT_NAMESPACE=${EDU_ROBOT_NAMESPACE}
+            - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+            - CYCLONEDDS_URI=/home/user/ros/launch_content/cyclone_dds_profile.xml
+            - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+        network_mode: "host"
+        devices:
+            - '/dev:/dev'
+        command: bash -c 'cd /home/user/ros/launch_content; ros2 launch nav2-path-following.launch.py use_keepout:=${USE_KEEPOUT:-false}'
         volumes:
             - './launch_content:/home/user/ros/launch_content:r'
