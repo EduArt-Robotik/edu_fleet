@@ -16,6 +16,16 @@ namespace edu_fleet::mecanum_path_controller {
 class PathHandler {
 
 public:
+
+  struct Pose2D
+  {
+    double x, y, yaw;
+
+    Pose2D(double x, double y, double yaw): x(x), y(y), yaw(yaw){};
+    Pose2D() = default;
+  };
+
+
   /**
    * @param waypoint_distance: the maximal distance to a waypoint on the path to
    * move on to the next waypoint
@@ -24,7 +34,7 @@ public:
               std::shared_ptr<tf2_ros::Buffer> tf, double waypoint_distance);
   ~PathHandler() = default;
 
-  // TODO: Reject paths that only contain one Pose/handle differently
+  // TODO: Reject paths that dont contain poses
   void setPlan(const nav_msgs::msg::Path &path) { global_plan_ = path; current_index_ = 0;}
 
   /**
@@ -32,6 +42,17 @@ public:
   */
   geometry_msgs::msg::PoseStamped getLocalGoal(const geometry_msgs::msg::PoseStamped& global_pose);
 
+  /**
+  * @brief returns the last position of the path
+  */
+  geometry_msgs::msg::PoseStamped getGlobalGoal();
+
+  /**
+  * @brief calculates the max angle between 2 Path segments in the next few segments
+  * @param lookahead the amount of segments in front of the robot to check
+  * @param lookback the amount of segments behind the robot to check
+  */
+  double getMaxAngle(size_t lookahead, size_t lookback);
 
 protected:
   rclcpp::Logger logger_{rclcpp::get_logger("edu_PathHandler")};

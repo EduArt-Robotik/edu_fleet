@@ -7,10 +7,12 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav2_core/controller.hpp"
 #include <memory>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 namespace edu_fleet::mecanum_path_controller {
 
-class MecanumController : public nav2_core::Controller {
+class MecanumController : public nav2_core::Controller
+{
 public:
   MecanumController() = default;
   ~MecanumController() override = default;
@@ -23,9 +25,11 @@ public:
    * @param costmap_ros Costmap2DROS object of environment
    */
   void configure(
-      const rclcpp_lifecycle::LifecycleNode::WeakPtr &parent, std::string name,
-      std::shared_ptr<tf2_ros::Buffer> tf,
-      std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros) override;
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr& parent,
+    std::string name,
+    std::shared_ptr<tf2_ros::Buffer> tf,
+    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros
+  ) override;
 
   /**
    * @brief Cleanup controller state machine
@@ -57,9 +61,7 @@ public:
    * @return          Best command
    */
   geometry_msgs::msg::TwistStamped
-  computeVelocityCommands(const geometry_msgs::msg::PoseStamped &pose,
-                          const geometry_msgs::msg::Twist &velocity,
-                          nav2_core::GoalChecker * /*goal_checker*/) override;
+  computeVelocityCommands(const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity, nav2_core::GoalChecker* /*goal_checker*/) override;
 
   bool cancel() override;
 
@@ -67,7 +69,7 @@ public:
    * @brief nav2_core setPlan - Sets the global plan
    * @param path The global plan
    */
-  void setPlan(const nav_msgs::msg::Path &path) override;
+  void setPlan(const nav_msgs::msg::Path& path) override;
 
   /**
    * @brief Limits the maximum linear speed of the robot.
@@ -76,8 +78,7 @@ public:
    * @param percentage Setting speed limit in percentage if true
    * or in absolute values in false case.
    */
-  void setSpeedLimit(const double &speed_limit,
-                     const bool &percentage) override;
+  void setSpeedLimit(const double& speed_limit, const bool& percentage) override;
 
   void reset() override;
 
@@ -87,25 +88,63 @@ protected:
    * applying any motion constraints
    */
   geometry_msgs::msg::TwistStamped
-  computeRawVelocity(const geometry_msgs::msg::PoseStamped &robot_pose,
-                     const geometry_msgs::msg::PoseStamped &goal_pose);
+  computeRawVelocity(const geometry_msgs::msg::PoseStamped& robot_pose, const geometry_msgs::msg::PoseStamped& goal_pose);
+
+  /**
+   * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
+   */
+  void applyCornerSpeedScaling(geometry_msgs::msg::TwistStamped& raw_velocity);
 
   geometry_msgs::msg::TwistStamped applyMotionConstraints(
-      const geometry_msgs::msg::TwistStamped &raw_velocity,
-      const geometry_msgs::msg::Twist &current_velocity);
+    const geometry_msgs::msg::TwistStamped& raw_velocity,
+    const geometry_msgs::msg::Twist& current_velocity,
+    const geometry_msgs::msg::Twist& max_stopping_velocity
+  );
+
+  /**
+   * @brief computes the maximum velocity so that the robot is able to stop at
+   * the Goal and ont overshoot
+   */
+  geometry_msgs::msg::Twist
+  computeMaxStoppingVelocity(const geometry_msgs::msg::PoseStamped& robot_pose);
+
+  // ############# Software redesign is after this: TODO: remove this line
+  geometry_msgs::msg::PoseStamped transformPoseToRobotFrame(
+    const geometry_msgs::msg::PoseStamped& input_pose,
+    const geometry_msgs::msg::PoseStamped& robot_pose
+  );
+
+  /**
+  * @brief calculate the x,y and yaw offset from the robot to the local Goal
+  */
+  PathHandler::Pose2D calculateError(const geometry_msgs::msg::PoseStamped & robot_pose);
+
+  /**
+  * @brief convert the error into twist with P-Controller
+  */
+  geometry_msgs::msg::TwistStamped calculateRawTwist(const PathHandler::Pose2D & error, const std::string &frame_id);
+
 
   void loadParameters();
 
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::string plugin_name_;
-  rclcpp::Logger logger_{rclcpp::get_logger("MecanumController")};
-  std::shared_ptr<edu_fleet::mecanum_path_controller::PathHandler> path_handler_;
+  rclcpp::Logger logger_{ rclcpp::get_logger("MecanumController") };
+  std::shared_ptr<edu_fleet::mecanum_path_controller::PathHandler>
+    path_handler_;
+  rclcpp_lifecycle::LifecyclePublisher<
+    geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
 
   double control_duration_;
   double max_x_vel_, max_y_vel_, max_angular_vel_, max_x_accel_, max_y_accel_,
-      max_angular_accel_;
+    max_angular_accel_;
+  double linear_gain_, angular_gain_;
   double transform_tolerance_, waypoint_tolerance_;
+  // Corner Scaling
+  bool apply_corner_velocity_scaling_;
+  double min_corner_scaling_factor_, start_corner_scaling_angle_, end_corner_scaling_angle_;
+  int corner_lookahead_, corner_lookback_;
 };
 
 } // namespace edu_fleet::mecanum_path_controller
