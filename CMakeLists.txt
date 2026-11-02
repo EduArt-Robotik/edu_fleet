@@ -66,6 +66,7 @@ install(
   DIRECTORY
     launch
     parameter
+    maps
   DESTINATION share/${PROJECT_NAME}
 )
 
