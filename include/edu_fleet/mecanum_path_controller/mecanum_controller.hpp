@@ -47,6 +47,25 @@ public:
   void deactivate() override;
 
   /**
+   * @brief nav2_core setPlan - Sets the global plan
+   * @param path The global plan
+   */
+  void setPlan(const nav_msgs::msg::Path& path) override;
+
+  bool cancel() override;
+
+  void reset() override;
+
+  /**
+   * @brief Limits the maximum linear speed of the robot.
+   * @param speed_limit expressed in absolute value (in m/s)
+   * or in percentage from maximum robot speed.
+   * @param percentage Setting speed limit in percentage if true
+   * or in absolute values in false case.
+   */
+  void setSpeedLimit(const double& speed_limit, const bool& percentage) override;
+
+  /**
    * @brief Compute the best command given the current pose and velocity, with
    * possible debug information
    *
@@ -63,67 +82,61 @@ public:
   geometry_msgs::msg::TwistStamped
   computeVelocityCommands(const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity, nav2_core::GoalChecker* /*goal_checker*/) override;
 
-  bool cancel() override;
-
-  /**
-   * @brief nav2_core setPlan - Sets the global plan
-   * @param path The global plan
-   */
-  void setPlan(const nav_msgs::msg::Path& path) override;
-
-  /**
-   * @brief Limits the maximum linear speed of the robot.
-   * @param speed_limit expressed in absolute value (in m/s)
-   * or in percentage from maximum robot speed.
-   * @param percentage Setting speed limit in percentage if true
-   * or in absolute values in false case.
-   */
-  void setSpeedLimit(const double& speed_limit, const bool& percentage) override;
-
-  void reset() override;
-
 protected:
-  /**
-   * @brief calculates the twist command to the provided goal Position without
-   * applying any motion constraints
-   */
-  geometry_msgs::msg::TwistStamped
-  computeRawVelocity(const geometry_msgs::msg::PoseStamped& robot_pose, const geometry_msgs::msg::PoseStamped& goal_pose);
+  geometry_msgs::msg::Twist convertToTwist(const PathHandler::GlobalError2D& global_error, const geometry_msgs::msg::PoseStamped& robot_pose);
 
   /**
-   * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
-   */
-  void applyCornerSpeedScaling(geometry_msgs::msg::TwistStamped& raw_velocity);
-
-  geometry_msgs::msg::TwistStamped applyMotionConstraints(
-    const geometry_msgs::msg::TwistStamped& raw_velocity,
-    const geometry_msgs::msg::Twist& current_velocity,
-    const geometry_msgs::msg::Twist& max_stopping_velocity
-  );
-
-  /**
-   * @brief computes the maximum velocity so that the robot is able to stop at
-   * the Goal and ont overshoot
-   */
-  geometry_msgs::msg::Twist
-  computeMaxStoppingVelocity(const geometry_msgs::msg::PoseStamped& robot_pose);
-
-  // ############# Software redesign is after this: TODO: remove this line
-  geometry_msgs::msg::PoseStamped transformPoseToRobotFrame(
-    const geometry_msgs::msg::PoseStamped& input_pose,
-    const geometry_msgs::msg::PoseStamped& robot_pose
-  );
-
-  /**
-  * @brief calculate the x,y and yaw offset from the robot to the local Goal
+  * @brief compute the velocity scaling factor to ensure acceleration limits
   */
-  PathHandler::Pose2D calculateError(const geometry_msgs::msg::PoseStamped & robot_pose);
+  // double computeAccelerationLimitFactor(const geometry_msgs::msg::Twist & cmd_vel_raw, const geometry_msgs::msg::Twist & current_vel);
+  // /**
+  //  * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
+  //  */
+  // void applyCornerSpeedScaling(geometry_msgs::msg::TwistStamped& raw_velocity);
 
-  /**
-  * @brief convert the error into twist with P-Controller
-  */
-  geometry_msgs::msg::TwistStamped calculateRawTwist(const PathHandler::Pose2D & error, const std::string &frame_id);
+  // geometry_msgs::msg::TwistStamped applyMotionConstraints(
+  //   const geometry_msgs::msg::TwistStamped& raw_velocity,
+  //   const geometry_msgs::msg::Twist& current_velocity,
+  //   const geometry_msgs::msg::Twist& max_stopping_velocity
+  // );
 
+  // /**
+  //  * @brief computes the maximum velocity so that the robot is able to stop at
+  //  * the Goal and ont overshoot
+  //  */
+  // geometry_msgs::msg::Twist
+  // computeMaxStoppingVelocity(const geometry_msgs::msg::PoseStamped& robot_pose);
+
+  // struct VelocityScale
+  // {
+  //   double linear, angular;
+  //   VelocityScale(): linear(1.0), angular(1.0){};
+  //   VelocityScale(double lin, double angle): linear(lin), angular(angle){};
+  // };
+
+  // geometry_msgs::msg::PoseStamped transformPoseToRobotFrame(
+  //   const geometry_msgs::msg::PoseStamped& input_pose,
+  //   const geometry_msgs::msg::PoseStamped& robot_pose
+  // );
+
+  // /**
+  // * @brief calculate the x,y and yaw offset from the robot to the local Goal
+  // */
+  // PathHandler::GlobalError2D calculateError(const geometry_msgs::msg::PoseStamped & robot_pose);
+
+  // /**
+  // * @brief convert the error into twist with P-Controller
+  // */
+  // geometry_msgs::msg::TwistStamped calculateRawTwist(const PathHandler::GlobalError2D & error, const std::string &frame_id);
+
+  // /**
+  // * compute the linear and angular scaling factor based on the distance to the final goal
+  // */
+  // VelocityScale computeDistToGoalScale(
+  //   const geometry_msgs::msg::PoseStamped & robot_pose,
+  //   const geometry_msgs::msg::Twist & current_velocity,
+  //   const geometry_msgs::msg::TwistStamped & cmd_vel_raw
+  // );
 
   void loadParameters();
 
@@ -137,9 +150,8 @@ protected:
     geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
 
   double control_duration_;
-  double max_x_vel_, max_y_vel_, max_angular_vel_, max_x_accel_, max_y_accel_,
-    max_angular_accel_;
-  double linear_gain_, angular_gain_;
+  double max_linear_vel_, max_angular_vel_, max_linear_accel_, max_angular_accel_;
+  double offset_gain_, angular_gain_;
   double transform_tolerance_, waypoint_tolerance_;
   // Corner Scaling
   bool apply_corner_velocity_scaling_;
