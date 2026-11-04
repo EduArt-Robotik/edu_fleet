@@ -220,11 +220,12 @@ PathHandler::getLinearGoalDistance(const geometry_msgs::msg::PoseStamped& robot_
 
 double PathHandler::getAngleError(const geometry_msgs::msg::PoseStamped &robot_pose)
 {
-    const auto &target = global_plan_.poses[nearest_index_];
+  const auto &target = global_plan_.poses[nearest_index_];
 
-    const double robot_yaw = tf2::getYaw(robot_pose.pose.orientation);
-    const double target_yaw = tf2::getYaw(target.pose.orientation);
+  const double robot_yaw = tf2::getYaw(robot_pose.pose.orientation);
+  const double target_yaw = tf2::getYaw(target.pose.orientation);
 
-    return angles::shortest_angular_distance(robot_yaw, target_yaw);}
+  return angles::shortest_angular_distance(robot_yaw, target_yaw);
+}
 
 } // namespace edu_fleet::mecanum_path_controller

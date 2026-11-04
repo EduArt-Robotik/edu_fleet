@@ -145,10 +145,10 @@ MecanumController::computeVelocityCommands(
   }
 
   // ensure angular slow-down to avoid overshooting
-  if(global_error.yaw <= ((max_angular_vel_ * max_angular_vel_)/(2 * max_angular_accel_)))
-  {
-    global_error.yaw = std::sqrt(2*global_error.yaw * max_angular_accel_);
-  }
+  // if(global_error.yaw <= ((max_angular_vel_ * max_angular_vel_)/(2 * max_angular_accel_)))
+  // {
+  //   global_error.yaw = std::sqrt(2*global_error.yaw * max_angular_accel_);
+  // }
 
   auto twist = convertToTwist(global_error, pose);
 

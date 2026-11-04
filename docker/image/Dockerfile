@@ -7,7 +7,7 @@ USER root
 
 # Install Dependencies for Perception Package
 RUN apt-get update \
-    && apt-get update -y \
+    && apt-get upgrade -y \
     && apt-get install -y \
     ros-$ROS_DISTRO-geometry-msgs \
     ros-$ROS_DISTRO-cv-bridge \
