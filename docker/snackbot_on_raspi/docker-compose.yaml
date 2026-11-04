@@ -19,6 +19,7 @@ services:
         command: bash -c 'cd /home/user/ros/launch_content; ros2 launch amcl.launch.py use_keepout:=${USE_KEEPOUT:-false}'
         volumes:
             - './launch_content:/home/user/ros/launch_content:r'
+
     snackbot-nav2:
         image: eduartrobotik/eduart-fleet:0.4.0
         container_name: snackbot-nav2-0.4.0

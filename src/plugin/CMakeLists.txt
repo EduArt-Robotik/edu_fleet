@@ -17,4 +17,5 @@ ament_target_dependencies(eduard-fleet-mecanum-path-controller
   nav_msgs
   nav2_core
   tf2
+  tf2_geometry_msgs
 )

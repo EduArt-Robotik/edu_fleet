@@ -13,6 +13,7 @@
   <depend>geometry_msgs</depend>
   <depend>rclcpp</depend>
   <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
   <depend>edu_robot</depend>
   <depend>edu_perception</depend>
   <depend>sensor_msgs</depend>

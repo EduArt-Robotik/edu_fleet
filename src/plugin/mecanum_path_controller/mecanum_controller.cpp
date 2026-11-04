@@ -16,6 +16,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2/utils.hpp>
 
 namespace edu_fleet::mecanum_path_controller {
