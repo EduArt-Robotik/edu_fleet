@@ -53,6 +53,7 @@ PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
     global_plan_.poses[nearest_index_].pose.position.y - global_plan_.poses[nearest_index_-1].pose.position.y
   );
   global_error.along.normalize();
+  global_error.along *= getLinearGoalDistance(robot_pose);
 
   global_error.yaw = angle_error;
 

@@ -26,8 +26,7 @@ MecanumController::configure(
   const rclcpp_lifecycle::LifecycleNode::WeakPtr& parent,
   std::string name,
   std::shared_ptr<tf2_ros::Buffer> tf,
-  [[maybe_unused]] std::shared_ptr<nav2_costmap_2d::Costmap2DROS>
-    costmap_ros
+  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros
 )
 {
 
@@ -40,6 +39,7 @@ MecanumController::configure(
   tf_ = tf;
   plugin_name_ = name;
   logger_ = node->get_logger();
+  local_costmap_ = costmap_ros;
 
   loadParameters();
 
@@ -54,6 +54,8 @@ MecanumController::configure(
       rclcpp::QoS(1)
     );
 
+
+  // hardcode parameters for testing purposes; TODO: remove
   corner_lookahead_ = 2;
   corner_lookback_ = 3;
   apply_corner_velocity_scaling_ = true;
@@ -63,6 +65,7 @@ MecanumController::configure(
 
   offset_gain_ = 2.0;
   angular_gain_ = 2.0;
+  along_gain_ = 0.7;
 }
 
 void
@@ -129,20 +132,28 @@ MecanumController::computeVelocityCommands(
 {
   auto global_error = path_handler_->getGlobalError(pose);
 
-  // scale global error
-  global_error.offset *= offset_gain_;
-  global_error.yaw *= angular_gain_;
+  // apply gain to global error
+  global_error.offset *= offset_gain_; // e_y -> error orthogonal to path 
+  global_error.yaw *= angular_gain_; // rotational error
 
-  // ensure linear slow-down when approaching the goal
-  double lin_goal_dist = path_handler_->getLinearGoalDistance(pose);
-  if(lin_goal_dist > ((max_linear_vel_ * max_linear_vel_)/(2* max_linear_accel_)))
-  { 
+  // experiment of applying gain to error parallel to path instead of the case-based approach below
+  global_error.along *= along_gain_;
+  if(global_error.along.norm() > max_linear_vel_) // clamp speed to maximum velocity from parameters
+  {
+    global_error.along.normalize();
     global_error.along *= max_linear_vel_;
   }
-  else
-  {
-    global_error.along *= std::sqrt(2*lin_goal_dist*max_linear_accel_);
-  }
+
+  // ensure linear slow-down when approaching the goal
+  // double lin_goal_dist = path_handler_->getLinearGoalDistance(pose);
+  // if(lin_goal_dist > ((max_linear_vel_ * max_linear_vel_)/(2* max_linear_accel_)))
+  // { 
+  //   global_error.along *= max_linear_vel_;
+  // }
+  // else
+  // {
+  //   global_error.along *= std::sqrt(2*lin_goal_dist*max_linear_accel_);
+  // }
 
   // ensure angular slow-down to avoid overshooting
   // if(global_error.yaw <= ((max_angular_vel_ * max_angular_vel_)/(2 * max_angular_accel_)))
@@ -228,7 +239,9 @@ VelocityScale MecanumController::computeAccelerationLimitFactor(const geometry_m
   
   // angular acceleration
   double max_new_angular_vel = current_vel.angular.z + control_duration_ * max_angular_accel_;
-  scale.angular = std::clamp(max_new_angular_vel / cmd_vel_raw.angular.z, 0.0, 1.0);
+  double inter = std::abs(max_new_angular_vel / cmd_vel_raw.angular.z);
+  scale.angular = std::clamp(inter, 0.0, 1.0);
+  RCLCPP_INFO(logger_, "max_new_angular_vel: %f; inter: %f, scale_factor: %f", max_new_angular_vel, inter, scale.angular);
 
   // linear acceleration
   double current_vel_vector_length = std::sqrt(current_vel.linear.x * current_vel.linear.x + current_vel.linear.y * current_vel.linear.y);
@@ -255,6 +268,17 @@ VelocityScale MecanumController::computeCornerScalingFactor(const geometry_msgs:
   VelocityScale scale;
 
   RCLCPP_INFO(logger_, "corner scaling");
+
+  return scale;
+}
+
+VelocityScale MecanumController::computeCollisionAvoidanceScale(
+  const geometry_msgs::msg::Twist &cmd_vel_raw,
+  const geometry_msgs::msg::Twist &,
+  const geometry_msgs::msg::PoseStamped &robot_pose)
+{
+  VelocityScale scale;
+
 
   return scale;
 }
@@ -503,6 +527,7 @@ MecanumController::loadParameters()
         std::placeholders::_2,
         std::placeholders::_3
     ));
+    RCLCPP_INFO(logger_, "Activating velocity Scaling based on acceleration!");
   }
 
   if(corner_scaling == true)
@@ -514,6 +539,7 @@ MecanumController::loadParameters()
         std::placeholders::_2,
         std::placeholders::_3
     ));
+    RCLCPP_INFO(logger_, "Activating velocity Scaling based on Corners!");
   }
 
 

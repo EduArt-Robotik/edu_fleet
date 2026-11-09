@@ -35,8 +35,9 @@ controller_server:
       max_angular_vel: 0.4
       max_linear_accel: 0.2
       max_angular_accel: 0.3
+      do_accel_scaling: false
       corner_velocity_scaling:
-        apply: true
+        apply: false
 
 
 local_costmap:

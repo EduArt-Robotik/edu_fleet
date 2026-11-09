@@ -7,6 +7,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav2_core/controller.hpp"
 #include <memory>
+#include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 namespace edu_fleet::mecanum_path_controller {
@@ -111,6 +112,14 @@ protected:
    */
   VelocityScale computeCornerScalingFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
   
+  /**
+   * @brief compute the velocity scaling factor to ensure acceleration limits
+   */
+  VelocityScale computeCollisionAvoidanceScale(
+    const geometry_msgs::msg::Twist& cmd_vel_raw,
+    const geometry_msgs::msg::Twist& current_vel,
+    const geometry_msgs::msg::PoseStamped& robot_pose);
+
   
   // /**
   //  * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
@@ -164,12 +173,13 @@ protected:
     path_handler_;
   rclcpp_lifecycle::LifecyclePublisher<
     geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
+  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> local_costmap_;
 
   std::vector<VelocityFactorFunction> velocity_factor_functions_;
 
   double control_duration_;
   double max_linear_vel_, max_angular_vel_, max_linear_accel_, max_angular_accel_;
-  double offset_gain_, angular_gain_;
+  double along_gain_, offset_gain_, angular_gain_;
   double transform_tolerance_, waypoint_tolerance_;
   // Corner Scaling
   bool apply_corner_velocity_scaling_;
