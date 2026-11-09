@@ -6,6 +6,7 @@ fi
 
 docker_compose_file_path=$(pwd)
 systemd_service_file="snackbot-navigation.service"
+map_recording_compose_file="map-recording-compose.yaml"
 tag="<docker_compose_file_path>"
 
 echo "Deploying Docker Compose Services for Navigation Setup on Snackbot Robot"
@@ -13,10 +14,12 @@ echo "Deploying Docker Compose Services for Navigation Setup on Snackbot Robot"
 # First installing systemd services on system. In addition, copying heartbeat files, too.
 echo "Installing systemd service on system"
 cp $systemd_service_file /etc/systemd/system/
+cp $map_recording_compose_file /etc/systemd/system/
 
 # Modify systemd service so it runs the correct docker compose file.
 echo "Add current file path \"$docker_compose_file_path\" to systemd service."
 sed -i "s|$tag|$docker_compose_file_path|g" /etc/systemd/system/$systemd_service_file
+sed -i "s|$tag|$docker_compose_file_path|g" /etc/systemd/system/$map_recording_compose_file
 
 # Do use docker compose command to install Docker image.
 echo "Pulling docker image..."
