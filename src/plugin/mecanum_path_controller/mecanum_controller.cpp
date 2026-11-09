@@ -144,17 +144,19 @@ MecanumController::computeVelocityCommands(
   }
 
   // ensure angular slow-down to avoid overshooting
-  if(global_error.yaw <= ((max_angular_vel_ * max_angular_vel_)/(2 * max_angular_accel_)))
+  if(std::abs(global_error.yaw) <= ((max_angular_vel_ * max_angular_vel_)/(2 * max_angular_accel_)))
   {
-    global_error.yaw = std::sqrt(2*global_error.yaw * max_angular_accel_);
+    global_error.yaw = std::sqrt(2*std::abs(global_error.yaw) * max_angular_accel_);
   }
 
   auto twist = convertToTwist(global_error, pose);
 
+  auto scaled_twist = applyScalingFactors(twist, velocity, pose);
+
   geometry_msgs::msg::TwistStamped stamped;
 
   stamped.header.frame_id = pose.header.frame_id;
-  stamped.twist = twist;
+  stamped.twist = scaled_twist;
 
   return stamped;
 }
@@ -185,6 +187,75 @@ MecanumController::convertToTwist(const PathHandler::GlobalError2D& global_error
   twist.angular.z = global_error.yaw;
 
   return twist;
+}
+
+geometry_msgs::msg::Twist MecanumController::applyScalingFactors(const geometry_msgs::msg::Twist &cmd_vel_raw, const geometry_msgs::msg::Twist &current_vel, const geometry_msgs::msg::PoseStamped &robot_pose)
+{
+  geometry_msgs::msg::Twist scaled = cmd_vel_raw;
+  double lowest_linear_factor = 1.0;
+  double lowest_angular_factor = 1.0;
+
+  // compute lowest(most restriction) factor
+  for(auto function : velocity_factor_functions_)
+  {
+    auto scale = function(cmd_vel_raw, current_vel, robot_pose);
+    if(scale.linear  < lowest_linear_factor)
+    {    
+      lowest_linear_factor = scale.linear;
+    }
+    if(scale.angular < lowest_angular_factor)
+    {
+      lowest_angular_factor = scale.angular;
+    }
+  }
+
+  // apply scale
+  scaled.linear.x *= lowest_linear_factor;
+  scaled.linear.y *= lowest_linear_factor;
+  scaled.angular.z *= lowest_angular_factor;
+
+  return scaled;
+}
+
+VelocityScale MecanumController::computeAccelerationLimitFactor(const geometry_msgs::msg::Twist & cmd_vel_raw, const geometry_msgs::msg::Twist & current_vel, const geometry_msgs::msg::PoseStamped &)
+{
+  /*
+  new_max = current + dt * accel
+  new_max = cmd_raw * factor <-> factor = new_max/cmd_raw 
+  */
+  VelocityScale scale;
+  
+  // angular acceleration
+  double max_new_angular_vel = current_vel.angular.z + control_duration_ * max_angular_accel_;
+  scale.angular = std::clamp(max_new_angular_vel / cmd_vel_raw.angular.z, 0.0, 1.0);
+
+  // linear acceleration
+  double current_vel_vector_length = std::sqrt(current_vel.linear.x * current_vel.linear.x + current_vel.linear.y * current_vel.linear.y);
+  double cmd_vel_vector_length = std::sqrt(cmd_vel_raw.linear.x * cmd_vel_raw.linear.x + cmd_vel_raw.linear.y * cmd_vel_raw.linear.y);
+
+  double max_new_linear_vel = current_vel_vector_length + control_duration_ * max_linear_accel_;
+  scale.linear = std::clamp(max_new_linear_vel/cmd_vel_vector_length, 0.0, 1.0);
+
+
+  // RCLCPP_INFO(logger_, "max_new_linear_vel: %f, current_vel_vector_length: %f, cmd_vel_vector_length: %f", max_new_linear_vel, current_vel_vector_length, cmd_vel_vector_length);
+  // RCLCPP_INFO(logger_, "accel-limit: linear: %f, angular: %f", scale.linear, scale.angular);
+  // RCLCPP_INFO(logger_, "current_vel: (%f, %f, %f)", current_vel.linear.x,current_vel.linear.y, current_vel.angular.z);
+  
+  return scale;
+}
+
+VelocityScale MecanumController::computeCornerScalingFactor(const geometry_msgs::msg::Twist &cmd_vel_raw, const geometry_msgs::msg::Twist &current_vel, const geometry_msgs::msg::PoseStamped &robot_pose)
+{
+  /*
+  - compute max velocity based on how tight the corner is
+  - use deceleration function to ensure low speed is reached in time
+  */
+
+  VelocityScale scale;
+
+  RCLCPP_INFO(logger_, "corner scaling");
+
+  return scale;
 }
 
 
@@ -412,6 +483,39 @@ MecanumController::loadParameters()
   node->get_parameter(plugin_name_ + ".max_angular_accel", max_angular_accel_);
   node->get_parameter(plugin_name_ + ".transform_tolerance", transform_tolerance_);
   node->get_parameter(plugin_name_ + ".waypoint_tolerance", waypoint_tolerance_);
+
+
+  // decide which velocity scaling functions to use
+  bool accel_scaling, corner_scaling;
+  node->declare_parameter<bool>(plugin_name_ + ".do_acceleration_scaling", true);
+  node->declare_parameter<bool>(plugin_name_ + ".corner_velocity_scaling.apply", true);
+
+  node->get_parameter(plugin_name_ + ".do_acceleration_scaling", accel_scaling);
+  node->get_parameter(plugin_name_ + ".corner_velocity_scaling.apply", corner_scaling);
+  
+  if(accel_scaling == true)
+  {
+    velocity_factor_functions_.push_back(std::bind(
+        &MecanumController::computeAccelerationLimitFactor,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3
+    ));
+  }
+
+  if(corner_scaling == true)
+  {
+    velocity_factor_functions_.push_back(std::bind(
+        &MecanumController::computeCornerScalingFactor,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3
+    ));
+  }
+
+
 }
 
 } // namespace edu_fleet::mecanum_path_controller
