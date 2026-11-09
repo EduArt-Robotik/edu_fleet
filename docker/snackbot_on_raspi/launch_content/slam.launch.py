@@ -79,9 +79,7 @@ def generate_launch_description():
     }
     # RewrittenYaml returns a path to a temporary YAML file with substitutions applied
     slam_parameter_file = PathJoinSubstitution([
-        FindPackageShare('edu_fleet'),
-        'parameter',
-        'navigation',
+        './',
         'slam.yaml'
     ])
     slam_configured_params = RewrittenYaml(
