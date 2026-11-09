@@ -11,6 +11,20 @@
 
 namespace edu_fleet::mecanum_path_controller {
 
+struct VelocityScale
+{
+  double linear, angular;
+  VelocityScale(): linear(1.0), angular(1.0){};
+  VelocityScale(double lin, double angle): linear(lin), angular(angle){};
+};
+
+using VelocityFactorFunction = std::function<
+  VelocityScale(
+    const geometry_msgs::msg::Twist&,
+    const geometry_msgs::msg::Twist&,
+    const geometry_msgs::msg::PoseStamped&
+  )>;
+
 class MecanumController : public nav2_core::Controller
 {
 public:
@@ -85,10 +99,19 @@ public:
 protected:
   geometry_msgs::msg::Twist convertToTwist(const PathHandler::GlobalError2D& global_error, const geometry_msgs::msg::PoseStamped& robot_pose);
 
+  geometry_msgs::msg::Twist applyScalingFactors(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
+
   /**
-  * @brief compute the velocity scaling factor to ensure acceleration limits
-  */
-  // double computeAccelerationLimitFactor(const geometry_msgs::msg::Twist & cmd_vel_raw, const geometry_msgs::msg::Twist & current_vel);
+   * @brief compute the velocity scaling factor to ensure acceleration limits
+   */
+  VelocityScale computeAccelerationLimitFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
+  
+  /**
+   * @brief compute the velocity scaling factor to ensure acceleration limits
+   */
+  VelocityScale computeCornerScalingFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
+  
+  
   // /**
   //  * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
   //  */
@@ -106,13 +129,6 @@ protected:
   //  */
   // geometry_msgs::msg::Twist
   // computeMaxStoppingVelocity(const geometry_msgs::msg::PoseStamped& robot_pose);
-
-  // struct VelocityScale
-  // {
-  //   double linear, angular;
-  //   VelocityScale(): linear(1.0), angular(1.0){};
-  //   VelocityScale(double lin, double angle): linear(lin), angular(angle){};
-  // };
 
   // geometry_msgs::msg::PoseStamped transformPoseToRobotFrame(
   //   const geometry_msgs::msg::PoseStamped& input_pose,
@@ -148,6 +164,8 @@ protected:
     path_handler_;
   rclcpp_lifecycle::LifecyclePublisher<
     geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
+
+  std::vector<VelocityFactorFunction> velocity_factor_functions_;
 
   double control_duration_;
   double max_linear_vel_, max_angular_vel_, max_linear_accel_, max_angular_accel_;
