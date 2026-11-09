@@ -22,10 +22,9 @@ distanceBetweenPoses(const geometry_msgs::msg::PoseStamped& pose1, const geometr
   );
 }
 
-PathHandler::PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf, double waypoint_distance)
+PathHandler::PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf)
   : transform_tolerance_(transform_tolerance)
   , tf_(tf)
-// , waypoint_distance_(waypoint_distance)
 {};
 
 PathHandler::GlobalError2D

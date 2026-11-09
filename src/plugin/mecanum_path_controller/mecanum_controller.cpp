@@ -45,7 +45,7 @@ MecanumController::configure(
 
   path_handler_ =
     std::make_unique<edu_fleet::mecanum_path_controller::PathHandler>(
-      tf2::durationFromSec(transform_tolerance_), tf_, waypoint_tolerance_
+      tf2::durationFromSec(transform_tolerance_), tf_
     );
 
   local_goal_publisher_ =
@@ -238,10 +238,9 @@ VelocityScale MecanumController::computeAccelerationLimitFactor(const geometry_m
   VelocityScale scale;
   
   // angular acceleration
-  double max_new_angular_vel = current_vel.angular.z + control_duration_ * max_angular_accel_;
-  double inter = std::abs(max_new_angular_vel / cmd_vel_raw.angular.z);
-  scale.angular = std::clamp(inter, 0.0, 1.0);
-  RCLCPP_INFO(logger_, "max_new_angular_vel: %f; inter: %f, scale_factor: %f", max_new_angular_vel, inter, scale.angular);
+  int sign = current_vel.angular.z > 0 ? 1 : -1;
+  double max_new_angular_vel = current_vel.angular.z + sign * control_duration_ * max_angular_accel_;
+  scale.angular = std::clamp(std::abs(max_new_angular_vel / cmd_vel_raw.angular.z), 0.0, 1.0);
 
   // linear acceleration
   double current_vel_vector_length = std::sqrt(current_vel.linear.x * current_vel.linear.x + current_vel.linear.y * current_vel.linear.y);
@@ -493,10 +492,9 @@ MecanumController::loadParameters()
 
   node->declare_parameter<double>(plugin_name_ + ".max_linear_vel", 0.25);
   node->declare_parameter<double>(plugin_name_ + ".max_angular_vel", 1.0);
-  node->declare_parameter<double>(plugin_name_ + ".max_linear_accel", 0.1);
-  node->declare_parameter<double>(plugin_name_ + ".max_angular_accel", 0.4);
+  node->declare_parameter<double>(plugin_name_ + ".acceleration_velocity_scaling.max_linear_accel", 0.1);
+  node->declare_parameter<double>(plugin_name_ + ".acceleration_velocity_scaling.max_angular_accel", 0.4);
   node->declare_parameter<double>(plugin_name_ + ".transform_tolerance", 1.0);
-  node->declare_parameter<double>(plugin_name_ + ".waypoint_tolerance", 0.25);
 
   double control_frequency = 20;
   node->get_parameter("controller_frequency", control_frequency);
@@ -504,18 +502,17 @@ MecanumController::loadParameters()
 
   node->get_parameter(plugin_name_ + ".max_linear_vel", max_linear_vel_);
   node->get_parameter(plugin_name_ + ".max_angular_vel", max_angular_vel_);
-  node->get_parameter(plugin_name_ + ".max_linear_accel", max_linear_accel_);
-  node->get_parameter(plugin_name_ + ".max_angular_accel", max_angular_accel_);
+  node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.max_linear_accel", max_linear_accel_);
+  node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.max_angular_accel", max_angular_accel_);
   node->get_parameter(plugin_name_ + ".transform_tolerance", transform_tolerance_);
-  node->get_parameter(plugin_name_ + ".waypoint_tolerance", waypoint_tolerance_);
 
 
   // decide which velocity scaling functions to use
   bool accel_scaling, corner_scaling;
-  node->declare_parameter<bool>(plugin_name_ + ".do_acceleration_scaling", true);
+  node->declare_parameter<bool>(plugin_name_ + ".acceleration_velocity_scaling.apply", true);
   node->declare_parameter<bool>(plugin_name_ + ".corner_velocity_scaling.apply", true);
 
-  node->get_parameter(plugin_name_ + ".do_acceleration_scaling", accel_scaling);
+  node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.apply", accel_scaling);
   node->get_parameter(plugin_name_ + ".corner_velocity_scaling.apply", corner_scaling);
   
   if(accel_scaling == true)
@@ -527,7 +524,7 @@ MecanumController::loadParameters()
         std::placeholders::_2,
         std::placeholders::_3
     ));
-    RCLCPP_INFO(logger_, "Activating velocity Scaling based on acceleration!");
+    RCLCPP_INFO(logger_, ANSI_COLOR_GREEN "Activating velocity Scaling based on acceleration!" ANSI_COLOR_RESET);
   }
 
   if(corner_scaling == true)
@@ -539,7 +536,7 @@ MecanumController::loadParameters()
         std::placeholders::_2,
         std::placeholders::_3
     ));
-    RCLCPP_INFO(logger_, "Activating velocity Scaling based on Corners!");
+    RCLCPP_INFO(logger_, ANSI_COLOR_GREEN "Activating velocity Scaling based on Corners!" ANSI_COLOR_RESET);
   }
 
 

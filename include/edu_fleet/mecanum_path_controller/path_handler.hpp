@@ -33,11 +33,7 @@ public:
     GlobalError2D() = default;
   };
 
-  /**
-   * @param waypoint_distance: the maximal distance to a waypoint on the path to
-   * move on to the next waypoint
-   */
-  PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf, double waypoint_distance);
+  PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf);
   ~PathHandler() = default;
 
   // TODO: Reject paths that dont contain poses

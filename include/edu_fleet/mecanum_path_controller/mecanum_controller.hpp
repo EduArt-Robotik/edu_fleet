@@ -10,6 +10,9 @@
 #include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 namespace edu_fleet::mecanum_path_controller {
 
 struct VelocityScale
@@ -180,7 +183,7 @@ protected:
   double control_duration_;
   double max_linear_vel_, max_angular_vel_, max_linear_accel_, max_angular_accel_;
   double along_gain_, offset_gain_, angular_gain_;
-  double transform_tolerance_, waypoint_tolerance_;
+  double transform_tolerance_;
   // Corner Scaling
   bool apply_corner_velocity_scaling_;
   double min_corner_scaling_factor_, start_corner_scaling_angle_, end_corner_scaling_angle_;

@@ -30,13 +30,13 @@ controller_server:
     FollowPath:
       plugin: "edu_fleet::mecanum_path_controller::MecanumController"
       transform_tolerance: 1.0
-      waypoint_tolerance: 0.25
       max_linear_vel: 0.5
       max_angular_vel: 0.4
-      max_linear_accel: 0.2
-      max_angular_accel: 0.3
-      do_accel_scaling: false
-      corner_velocity_scaling:
+      acceleration_velocity_scaling:
+        apply: false
+        max_linear_accel: 0.7
+        max_angular_accel: 1.0
+      corner_velocity_scaling: # Work in Progress
         apply: false
 
 
