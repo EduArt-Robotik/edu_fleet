@@ -24,7 +24,7 @@ def generate_launch_description():
     if robot_namespace[len(robot_namespace) - 1] != '/': robot_namespace += '/'         # ensure trailing "/"
     tf_prefix = robot_namespace[1:] if robot_namespace[0] == '/' else robot_namespace   # removes preceding "/" for tf_prefix
 
-    map_file = "./container_map_2cm.yaml"
+    map_file = "./arena_simulator.yaml"
 
     # Check if environment variable "FILTER_FILE" is set. 
     # If set -> use Keep-out-zone filter
@@ -94,7 +94,7 @@ def generate_launch_description():
     ])
     map_amcl_configured_params = RewrittenYaml(
         source_file=map_amcl_parameter_file,
-        root_key=EnvironmentVariable('EDU_ROBOT_NAMESPACE', default_value="eduard"),
+        root_key=robot_namespace,
         param_rewrites=map_amcl_param_substitutions,
         convert_types=True)
     

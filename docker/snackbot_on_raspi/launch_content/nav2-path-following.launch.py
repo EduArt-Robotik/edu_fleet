@@ -76,7 +76,7 @@ def generate_launch_description():
     configured_params = ParameterFile(
         RewrittenYaml(
             source_file=params_file,
-            root_key=namespace,
+            root_key=robot_namespace,
             param_rewrites=param_substitutions,
             convert_types=True),
         allow_substs=True)
@@ -135,7 +135,7 @@ def generate_launch_description():
                 parameters=[configured_params],
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings=remappings + [('cmd_vel', robot_namespace + 'autonomous/cmd_vel'), ('odom', robot_namespace + 'odometry')],
-                namespace=namespace
+                namespace=robot_namespace
             ),          
             Node(
                 package='nav2_lifecycle_manager',
@@ -146,7 +146,7 @@ def generate_launch_description():
                 parameters=[{'use_sim_time': use_sim_time},
                             {'autostart': autostart},
                             {'node_names': lifecycle_nodes}],
-                namespace=namespace
+                namespace=robot_namespace
             ),                               
         ]
     )

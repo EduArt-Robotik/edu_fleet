@@ -8,7 +8,7 @@
         <General>
             <Interfaces>
                 <!-- Main interface connected to access point usually. -->
-                <NetworkInterface name="eth0" priority="10" multicast="true" presence_required="true"/>
+                <NetworkInterface name="enxf4a80d6fcb75" priority="10" multicast="true" presence_required="true"/>
                 <!-- Optional interface wifi card. -->
                 <NetworkInterface name="wlp1s0" priority="10" multicast="true" presence_required="false"/>
             </Interfaces>
