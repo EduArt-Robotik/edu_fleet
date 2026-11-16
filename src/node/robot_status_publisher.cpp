@@ -43,7 +43,7 @@ namespace eduart::fleet {
     {
         publisher_ = create_publisher<std_msgs::msg::String>(
             param_.topic_name, 
-            rclcpp::QoS(1).best_effort()
+            rclcpp::QoS(1).reliable()
         );
 
         state_subscription_ = create_subscription<edu_robot::msg::State>(
@@ -58,7 +58,7 @@ namespace eduart::fleet {
 
         register_status_functions();
 
-        publish_timer_ = this->create_wall_timer(
+        publish_timer_ = create_wall_timer(
             1s,
             std::bind(&RobotStatusPublisher::timer_callback, this)
         );
@@ -180,4 +180,5 @@ int main(int argc, char ** argv)
     rclcpp::spin(
         std::make_shared<eduart::fleet::RobotStatusPublisher>()
     );
+    rclcpp::shutdown();
 }
