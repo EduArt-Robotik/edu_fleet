@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(edu_fleet)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -std=c++1z)# -O2)
+  add_compile_options(-Wall -Wextra -Wpedantic -std=c++20)# -O2)
 endif()
 
 ## Dependencies
@@ -79,6 +79,7 @@ set(TARGET_NODE_LIST
   collision_avoidance_lidar_node
   collision_avoidance_lidar_field_node
   robot_rotate_node
+  robot_status_pub_node
 )
 if (${sick_lidar_localization_msgs_FOUND} AND ${accerion_driver_msgs_FOUND})
   set(TARGET_NODE_LIST

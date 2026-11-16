@@ -226,3 +226,13 @@ ament_target_dependencies(robot_rotate_node
   "geometry_msgs"
   "edu_robot"
 )
+
+
+### Robot status publisher node
+add_executable(robot_status_pub_node robot_status_publisher.cpp)
+ament_target_dependencies( robot_status_pub_node
+  "rclcpp"
+  "std_msgs"
+  "tf2_ros"
+  "edu_robot"
+)
