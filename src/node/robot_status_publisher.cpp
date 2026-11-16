@@ -1,4 +1,5 @@
 #include "robot_status_publisher.hpp"
+#include "edu_robot/msg/robot_status_report.hpp"
 #include "edu_robot/msg/state.hpp"
 #include "std_msgs/msg/string.hpp"
 #include <cmath>
@@ -46,11 +47,11 @@ namespace eduart::fleet {
             rclcpp::QoS(1).reliable()
         );
 
-        state_subscription_ = create_subscription<edu_robot::msg::State>(
+        state_subscription_ = create_subscription<edu_robot::msg::RobotStatusReport>(
             param_.state_sub_topic,
             rclcpp::QoS(1).best_effort(),
-            [this](const edu_robot::msg::State::SharedPtr msg) -> void
-            {last_state_ = msg->value;}
+            [this](const edu_robot::msg::RobotStatusReport::SharedPtr msg) -> void
+            {last_state_ = msg->robot_state.state.value;}
         );
 
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());

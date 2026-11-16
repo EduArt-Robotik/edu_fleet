@@ -17,7 +17,7 @@
 #include <tf2_ros/buffer.hpp>
 #include <vector>
 
-#include "edu_robot/msg/state.hpp"
+#include "edu_robot/msg/robot_status_report.hpp"
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -53,7 +53,7 @@ namespace eduart::fleet {
         // member attribute required for check-functions
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-        rclcpp::Subscription<edu_robot::msg::State>::SharedPtr state_subscription_;
+        rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr state_subscription_;
         uint8_t last_state_;
 
 
