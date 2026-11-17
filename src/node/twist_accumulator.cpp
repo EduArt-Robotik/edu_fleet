@@ -105,7 +105,7 @@ void TwistAccumulator::callbackTwistInput(
   );
   const auto twist_out = accumulate_twist(_current_input);
   _pub_twist->publish(twist_out);
-}  
+}
 
 } // end namespace fleet
 } // end namespace eduart
