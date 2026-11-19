@@ -1,6 +1,7 @@
 #ifndef EDU_FLEET__MECANUM_PATH_CONTROLLER__PATH_HANDLER_HPP_
 #define EDU_FLEET__MECANUM_PATH_CONTROLLER__PATH_HANDLER_HPP_
 
+#include "edu_fleet/mecanum_path_controller/costmap_handler.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -8,6 +9,7 @@
 #include <Eigen/Core>
 #include <Eigen/src/Core/Matrix.h>
 #include <cstddef>
+#include <memory>
 
 namespace edu_fleet::mecanum_path_controller {
 
@@ -33,7 +35,12 @@ public:
     GlobalError2D() = default;
   };
 
-  PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf);
+  struct Parameter
+  {
+    double lookahead_distance = 0.4; // the distance to look along the path to check for collisions [m] 
+  };
+
+  PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf, std::shared_ptr<CostmapHandler> costmap_handler);
   ~PathHandler() = default;
 
   // TODO: Reject paths that dont contain poses
@@ -53,6 +60,11 @@ public:
    * @brief calculate the distance along the path from the current robot position to to final goal position
    */
   double getLinearGoalDistance(const geometry_msgs::msg::PoseStamped& robot_pose);
+
+  /**
+  * @brief lookahead on the path and return a reduced speed if there are close objects or collisions 
+  */
+  double lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & robot_pose);
 
   //  /*  *
   //   * @brief calculate the next local goal position based on the current global position
@@ -86,6 +98,7 @@ protected:
 
   /**
    * @brief project a given point onto the path segment
+   * @param end_index the index to the point at the end of the path segment
    */
   geometry_msgs::msg::Point projectPoint(const geometry_msgs::msg::Point& point, size_t end_index);
 
@@ -100,10 +113,12 @@ protected:
   tf2::Duration transform_tolerance_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   nav_msgs::msg::Path global_plan_;
+  std::shared_ptr<CostmapHandler> costmap_handler_;
   // double waypoint_distance_;
   bool nearest_index_initialized_;
   size_t nearest_index_; // the index of the nearest point on the path that is ahead of the robot; must be >= 1
   size_t max_index_;     // the maximum valid index for the current global plan
+  Parameter params_;
 };
 
 } // namespace edu_fleet::mecanum_path_controller

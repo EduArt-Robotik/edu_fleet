@@ -1,4 +1,5 @@
 #include "edu_fleet/mecanum_path_controller/mecanum_controller.hpp"
+#include "edu_fleet/mecanum_path_controller/costmap_handler.hpp"
 #include "edu_fleet/mecanum_path_controller/path_handler.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -8,6 +9,7 @@
 #include <algorithm>
 #include <angles/angles.h>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <rclcpp/duration.hpp>
@@ -39,13 +41,13 @@ MecanumController::configure(
   tf_ = tf;
   plugin_name_ = name;
   logger_ = node->get_logger();
-  local_costmap_ = costmap_ros;
+  costmap_handler_ = std::make_shared<CostmapHandler>(costmap_ros);
 
   loadParameters();
 
   path_handler_ =
     std::make_unique<edu_fleet::mecanum_path_controller::PathHandler>(
-      tf2::durationFromSec(transform_tolerance_), tf_
+      tf2::durationFromSec(transform_tolerance_), tf_, costmap_handler_
     );
 
   local_goal_publisher_ =
@@ -178,6 +180,8 @@ MecanumController::convertToTwist(const PathHandler::GlobalError2D& global_error
 {
   geometry_msgs::msg::Twist twist;
 
+  RCLCPP_INFO(logger_,"global_error along: x: %f, y: %f", global_error.along.x(), global_error.along.y());
+
   // Extract robot yaw
   const double robot_yaw = tf2::getYaw(robot_pose.pose.orientation);
 
@@ -259,6 +263,7 @@ VelocityScale MecanumController::computeAccelerationLimitFactor(const geometry_m
 
 VelocityScale MecanumController::computeCornerScalingFactor(const geometry_msgs::msg::Twist &cmd_vel_raw, const geometry_msgs::msg::Twist &current_vel, const geometry_msgs::msg::PoseStamped &robot_pose)
 {
+  // TODO: Implement
   /*
   - compute max velocity based on how tight the corner is
   - use deceleration function to ensure low speed is reached in time
@@ -271,15 +276,91 @@ VelocityScale MecanumController::computeCornerScalingFactor(const geometry_msgs:
   return scale;
 }
 
-VelocityScale MecanumController::computeCollisionAvoidanceScale(
+VelocityScale MecanumController::computeCollisionRadiusScalingFactor(
   const geometry_msgs::msg::Twist &cmd_vel_raw,
-  const geometry_msgs::msg::Twist &,
+  const geometry_msgs::msg::Twist &current_vel,
   const geometry_msgs::msg::PoseStamped &robot_pose)
 {
+  double factor = path_handler_->lookaheadMaxSpeed(robot_pose);
+
+  // // extract the cost in the current cell from the costmap
+  // unsigned int mx, my;
+  // double wx = robot_pose.pose.position.x;
+  // double wy = robot_pose.pose.position.y;
+  // local_costmap_->worldToMap(wx, wy, mx, my);
+  // auto cost = local_costmap_->getCost(mx, my);
+
+  // // use function to calculate scaling factor
+  // double factor_calc;
+  // if(cost < cost_0_)
+  // {
+  //   factor_calc = 1;
+  // } else if (cost > cost_max_)
+  // {
+  //   factor_calc = 0;
+  // }
+  // else {
+  //   factor_calc = (((-1.0)/(cost_max_ - cost_0_))*cost ) + (static_cast<double>(cost_max_) / (cost_max_ - cost_0_)); 
+  // }
+
+  // // apply calculated scaling factor to max velocity and calculate proportional scaling factor based on raw velocity
+  // double max_vel_linear = max_linear_vel_ * factor_calc;
+  // double max_vel_angular = max_angular_vel_ * factor_calc;
+  // double raw_vel_length = std::sqrt(cmd_vel_raw.linear.x * cmd_vel_raw.linear.x + cmd_vel_raw.linear.y * cmd_vel_raw.linear.y);
+
+  // double linear_scale_calc = std::clamp(std::abs(max_vel_linear/raw_vel_length), 0.0, 1.0);
+  // double angular_scale_calc = std::clamp(std::abs(max_vel_angular/cmd_vel_raw.angular.z), 0.0, 1.0);
+
+
+  auto min_scaling_factor = computeMinDecelerationScalingFactor(cmd_vel_raw, current_vel);
   VelocityScale scale;
+  
+  scale.angular = std::max(min_scaling_factor.angular, factor);
+  scale.linear = std::max(min_scaling_factor.linear, factor);
+  
+  // RCLCPP_INFO(logger_, "Calculated min_Decel_factor: linear: %f, angular: %f", min_scaling_factor.linear, min_scaling_factor.angular);
+  // RCLCPP_INFO(logger_, "Distance Scaling factor calculated: %f; using linear: %f and angular: %f", factor_calc, scale.linear, scale.angular);
 
-
+  // RCLCPP_INFO(logger_, "Using velocity scale: linear: %f, angular: %f", scale.linear, scale.angular);
   return scale;
+}
+
+VelocityScale MecanumController::computeMinDecelerationScalingFactor(
+  const geometry_msgs::msg::Twist &cmd_vel_raw,
+  const geometry_msgs::msg::Twist &current_vel)
+{
+  // VelocityScale scale;
+
+  // // calculate max velocity with valid deceleration to ensure motion constraints in linear direction
+  // // handle linear different as it is a vector
+  // // calculate vector lengths
+  // double vel_raw_length = std::sqrt(cmd_vel_raw.linear.x * cmd_vel_raw.linear.x + cmd_vel_raw.linear.y * cmd_vel_raw.linear.y);
+  // double current_vel_length = std::sqrt(current_vel.linear.x * current_vel.linear.x + current_vel.linear.y * current_vel.linear.y);
+  // double v1_l = current_vel_length - control_duration_ * max_linear_accel_; // calculate the max valid length to slow down with max_linear_accel_
+  // scale.linear = std::clamp(std::abs(v1_l / vel_raw_length), 0.0, 1.0); 
+  // RCLCPP_INFO(logger_, "calculated v1_l: %f", v1_l);
+
+  // // max angular velocity
+  // int sign_angular = current_vel.angular.z > 0 ? 1 : -1;
+  // double max_decel_vel_angular = current_vel.angular.z - control_duration_ * max_linear_accel_ * sign_angular;
+  // scale.angular = std::clamp(std::abs(max_decel_vel_angular/cmd_vel_raw.angular.z), 0.0, 1.0);
+
+  // return scale;
+
+  const double raw_linear = std::hypot(cmd_vel_raw.linear.x, cmd_vel_raw.linear.y);
+  const double current_linear = std::hypot(current_vel.linear.x, current_vel.linear.y);
+  const double raw_angular = std::abs(cmd_vel_raw.angular.z);
+  const double current_angular = std::abs(current_vel.angular.z);
+
+  const double min_linear =
+    std::max(0.0, current_linear - control_duration_ * max_linear_accel_);
+  const double min_angular =
+    std::max(0.0, current_angular - control_duration_ * max_angular_accel_);
+
+  return VelocityScale{
+    raw_linear > 0.0 ? std::min(1.0, min_linear / raw_linear) : 0.0,
+    raw_angular > 0.0 ? std::min(1.0, min_angular / raw_angular) : 0.0
+  };
 }
 
 
@@ -492,9 +573,12 @@ MecanumController::loadParameters()
 
   node->declare_parameter<double>(plugin_name_ + ".max_linear_vel", 0.25);
   node->declare_parameter<double>(plugin_name_ + ".max_angular_vel", 1.0);
-  node->declare_parameter<double>(plugin_name_ + ".acceleration_velocity_scaling.max_linear_accel", 0.1);
-  node->declare_parameter<double>(plugin_name_ + ".acceleration_velocity_scaling.max_angular_accel", 0.4);
+  node->declare_parameter<double>(plugin_name_ + ".max_linear_accel", 0.1);
+  node->declare_parameter<double>(plugin_name_ + ".max_angular_accel", 0.4);
   node->declare_parameter<double>(plugin_name_ + ".transform_tolerance", 1.0);
+  node->declare_parameter<uint8_t>(plugin_name_ + ".collision_velocity_scaling.cost_0", 50);
+  node->declare_parameter<uint8_t>(plugin_name_ + ".collision_velocity_scaling.cost_max", 150);
+
 
   double control_frequency = 20;
   node->get_parameter("controller_frequency", control_frequency);
@@ -502,18 +586,22 @@ MecanumController::loadParameters()
 
   node->get_parameter(plugin_name_ + ".max_linear_vel", max_linear_vel_);
   node->get_parameter(plugin_name_ + ".max_angular_vel", max_angular_vel_);
-  node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.max_linear_accel", max_linear_accel_);
-  node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.max_angular_accel", max_angular_accel_);
+  node->get_parameter(plugin_name_ + ".max_linear_accel", max_linear_accel_);
+  node->get_parameter(plugin_name_ + ".max_angular_accel", max_angular_accel_);
   node->get_parameter(plugin_name_ + ".transform_tolerance", transform_tolerance_);
-
+  node->get_parameter(plugin_name_ + ".collision_velocity_scaling.cost_0", cost_0_);
+  node->get_parameter(plugin_name_ + ".collision_velocity_scaling.cost_max", cost_max_);
 
   // decide which velocity scaling functions to use
-  bool accel_scaling, corner_scaling;
+  bool accel_scaling, corner_scaling, collision_radius_scaling;
   node->declare_parameter<bool>(plugin_name_ + ".acceleration_velocity_scaling.apply", true);
   node->declare_parameter<bool>(plugin_name_ + ".corner_velocity_scaling.apply", true);
+  node->declare_parameter<bool>(plugin_name_ + ".collision_velocity_scaling.apply_radius_scaling", true);
+  
 
   node->get_parameter(plugin_name_ + ".acceleration_velocity_scaling.apply", accel_scaling);
   node->get_parameter(plugin_name_ + ".corner_velocity_scaling.apply", corner_scaling);
+  node->get_parameter(plugin_name_ + ".collision_velocity_scaling.apply_radius_scaling", collision_radius_scaling);
   
   if(accel_scaling == true)
   {
@@ -537,6 +625,18 @@ MecanumController::loadParameters()
         std::placeholders::_3
     ));
     RCLCPP_INFO(logger_, ANSI_COLOR_GREEN "Activating velocity Scaling based on Corners!" ANSI_COLOR_RESET);
+  }
+
+  if(collision_radius_scaling == true)
+  {
+     velocity_factor_functions_.push_back(std::bind(
+        &MecanumController::computeCollisionRadiusScalingFactor,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3
+    ));
+    RCLCPP_INFO(logger_, ANSI_COLOR_GREEN "Activating velocity Scaling based on Collisions at the Current Robot Position!" ANSI_COLOR_RESET);
   }
 
 

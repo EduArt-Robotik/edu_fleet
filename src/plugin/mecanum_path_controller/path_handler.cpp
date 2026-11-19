@@ -1,4 +1,5 @@
 #include "edu_fleet/mecanum_path_controller/path_handler.hpp"
+#include "edu_fleet/mecanum_path_controller/costmap_handler.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include <Eigen/src/Core/Matrix.h>
@@ -22,10 +23,12 @@ distanceBetweenPoses(const geometry_msgs::msg::PoseStamped& pose1, const geometr
   );
 }
 
-PathHandler::PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf)
+PathHandler::PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf, std::shared_ptr<CostmapHandler> costmap_handler)
   : transform_tolerance_(transform_tolerance)
   , tf_(tf)
-{};
+  , costmap_handler_(costmap_handler)
+  , params_(Parameter()) // TODO: replace with actual parameters from config file 
+  {};
 
 PathHandler::GlobalError2D
 PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
@@ -59,6 +62,46 @@ PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
   // RCLCPP_INFO(logger_, "global error: along: (%f, %f), offset: (%f, %f)", global_error.along.x(), global_error.along.y(), global_error.offset.x(), global_error.offset.y());
 
   return global_error;
+}
+
+double PathHandler::lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & robot_pose)
+{
+  // start- and endpoints of the path segments; change them while walking through the path
+  geometry_msgs::msg::Point start = projectPoint(robot_pose.pose.position, nearest_index_);
+  geometry_msgs::msg::Point end = global_plan_.poses[nearest_index_].pose.position;
+  size_t current_end_index = nearest_index_; // the index to the point that is the end to the current segment
+  double distance_remaining = params_.lookahead_distance; // the remaining distance to look ahead; get decremented while traversing the path
+  double current_distance = std::sqrt((start.x-end.x) * (start.x-end.x) + (start.y-end.y) * (start.y-end.y));
+
+  double max_speed_factor = 1.0; // the max allowed speed based on the obstacles ahead
+
+  while(current_distance < distance_remaining && current_end_index < max_index_)
+  {
+    distance_remaining -= current_distance;
+    max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end));
+    // RCLCPP_INFO(logger_, "checking Segment from (%f, %f) to (%f, %f): %f", start.x, start.y, end.x, end.y, max_speed_factor);
+
+
+    // switch the next path segment
+    ++current_end_index;
+    start = global_plan_.poses[current_end_index-1].pose.position;
+    end = global_plan_.poses[current_end_index].pose.position;
+
+    current_distance = std::sqrt((start.x-end.x) * (start.x-end.x) + (start.y-end.y) * (start.y-end.y));
+  }
+
+  // handle rest of the distance that was not enough for the full segment
+  Eigen::Vector2d direction (end.x - start.x, end.y - start.y);
+  double last_segment_length = direction.norm();
+  direction.normalize();
+  direction *= std::min(distance_remaining, last_segment_length); // scale direction vector to correct distance; cap at actual length for the case that the robot approaches the end of the path
+  end.x = start.x + direction.x();
+  end.y = start.y + direction.y();
+
+  max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end));
+  // RCLCPP_INFO(logger_, "checking last piece of the the Segment from (%f, %f) to (%f, %f): %f", start.x, start.y, end.x, end.y, max_speed_factor);
+
+  return max_speed_factor;
 }
 
 // geometry_msgs::msg::PoseStamped
@@ -125,7 +168,7 @@ PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
 void
 PathHandler::findNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
 {
-  nearest_index_ = 1;
+  nearest_index_ = 0;
   double nearest_distance = distanceBetweenPoses(robot_pose, global_plan_.poses[nearest_index_]);
   for (uint i = 1; i < max_index_; ++i) {
     double distance = distanceBetweenPoses(robot_pose, global_plan_.poses[i]);
@@ -134,6 +177,9 @@ PathHandler::findNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
       nearest_index_ = i;
     }
   }
+  if(nearest_index_ == 0) // catch case where nearest index is at the start of the path
+    nearest_index_ = 1;
+
   updateNearestIndex(robot_pose);
   nearest_index_initialized_ = true;
 }

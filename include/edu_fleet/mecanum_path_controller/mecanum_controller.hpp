@@ -1,14 +1,17 @@
 #ifndef EDU_FLEET__MECANUM_PATH_CONTROLLER__MECANUM_CONTROLLER_HPP_
 #define EDU_FLEET__MECANUM_PATH_CONTROLLER__MECANUM_CONTROLLER_HPP_
 
+#include "edu_fleet/mecanum_path_controller/costmap_handler.hpp"
 #include "edu_fleet/mecanum_path_controller/path_handler.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav2_core/controller.hpp"
 #include <memory>
+#include <nav2_costmap_2d/costmap_2d.hpp>
 #include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
+#include <sys/types.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
@@ -111,19 +114,28 @@ protected:
   VelocityScale computeAccelerationLimitFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
   
   /**
-   * @brief compute the velocity scaling factor to ensure acceleration limits
+   * @brief compute the velocity scaling factor to slow down befor tight corners to avoid overshooting
    */
   VelocityScale computeCornerScalingFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
   
   /**
-   * @brief compute the velocity scaling factor to ensure acceleration limits
+   * @brief compute the velocity scaling factor to slow the robot down based on costmap at the current position of the robot while taking deceleration limits into account
    */
-  VelocityScale computeCollisionAvoidanceScale(
+  VelocityScale computeCollisionRadiusScalingFactor(
     const geometry_msgs::msg::Twist& cmd_vel_raw,
     const geometry_msgs::msg::Twist& current_vel,
     const geometry_msgs::msg::PoseStamped& robot_pose);
 
   
+  /**
+  * @brief compute the minimal scaling factor that can be applied to the raw cmd_vel without violating deceleration limits;
+  * assume deceleration is the same as acceleration 
+  */
+  VelocityScale computeMinDecelerationScalingFactor(
+    const geometry_msgs::msg::Twist& cmd_vel_raw,
+    const geometry_msgs::msg::Twist& current_vel
+  );
+
   // /**
   //  * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
   //  */
@@ -176,7 +188,7 @@ protected:
     path_handler_;
   rclcpp_lifecycle::LifecyclePublisher<
     geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
-  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> local_costmap_;
+  std::shared_ptr<CostmapHandler> costmap_handler_;
 
   std::vector<VelocityFactorFunction> velocity_factor_functions_;
 
@@ -188,6 +200,8 @@ protected:
   bool apply_corner_velocity_scaling_;
   double min_corner_scaling_factor_, start_corner_scaling_angle_, end_corner_scaling_angle_;
   int corner_lookahead_, corner_lookback_;
+  // Collision velocity Scaling
+  unsigned char cost_0_, cost_max_;
 };
 
 } // namespace edu_fleet::mecanum_path_controller

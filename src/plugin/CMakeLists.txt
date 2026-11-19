@@ -1,6 +1,7 @@
 add_library(eduard-fleet-mecanum-path-controller SHARED
   mecanum_path_controller/mecanum_controller.cpp
   mecanum_path_controller/path_handler.cpp
+  mecanum_path_controller/costmap_handler.cpp
 )
 
 target_compile_features(eduard-fleet-mecanum-path-controller PUBLIC c_std_99 cxx_std_20)  # Require C99 and C++17
