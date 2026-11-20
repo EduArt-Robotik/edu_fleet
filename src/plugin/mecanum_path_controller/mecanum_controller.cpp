@@ -180,7 +180,7 @@ MecanumController::convertToTwist(const PathHandler::GlobalError2D& global_error
 {
   geometry_msgs::msg::Twist twist;
 
-  RCLCPP_INFO(logger_,"global_error along: x: %f, y: %f", global_error.along.x(), global_error.along.y());
+  // RCLCPP_INFO(logger_,"global_error along: x: %f, y: %f", global_error.along.x(), global_error.along.y());
 
   // Extract robot yaw
   const double robot_yaw = tf2::getYaw(robot_pose.pose.orientation);
