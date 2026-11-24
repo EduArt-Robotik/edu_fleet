@@ -67,27 +67,26 @@ PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
 double PathHandler::lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & robot_pose)
 {
   // start- and endpoints of the path segments; change them while walking through the path
-  geometry_msgs::msg::Point start = projectPoint(robot_pose.pose.position, nearest_index_);
-  geometry_msgs::msg::Point end = global_plan_.poses[nearest_index_].pose.position;
+  geometry_msgs::msg::Point start = robot_pose.pose.position;
+  geometry_msgs::msg::Point end = projectPoint(robot_pose.pose.position, nearest_index_);
   size_t current_end_index = nearest_index_; // the index to the point that is the end to the current segment
   double distance_remaining = params_.lookahead_distance; // the remaining distance to look ahead; get decremented while traversing the path
-  double current_distance = std::sqrt((start.x-end.x) * (start.x-end.x) + (start.y-end.y) * (start.y-end.y));
+  double current_distance = std::hypot(start.x-end.x, start.y-end.y);
 
   double max_speed_factor = 1.0; // the max allowed speed based on the obstacles ahead
 
-  while(current_distance < distance_remaining && current_end_index < max_index_)
+  while(current_distance < distance_remaining && current_end_index <= max_index_)
   {
     distance_remaining -= current_distance;
     max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end));
     // RCLCPP_INFO(logger_, "checking Segment from (%f, %f) to (%f, %f): %f", start.x, start.y, end.x, end.y, max_speed_factor);
 
-
     // switch the next path segment
-    ++current_end_index;
-    start = global_plan_.poses[current_end_index-1].pose.position;
+    start = end;
     end = global_plan_.poses[current_end_index].pose.position;
+    ++current_end_index;
 
-    current_distance = std::sqrt((start.x-end.x) * (start.x-end.x) + (start.y-end.y) * (start.y-end.y));
+    current_distance = std::hypot(start.x-end.x, start.y-end.y);
   }
 
   // handle rest of the distance that was not enough for the full segment
@@ -257,7 +256,7 @@ PathHandler::getLinearGoalDistance(const geometry_msgs::msg::PoseStamped& robot_
 
   double distance = distanceBetweenPoses(robot_pose, poses[nearest_index_]);
 
-  for (uint i = nearest_index_; i < max_index_ - 1; ++i) {
+  for (uint i = nearest_index_; i <= max_index_ - 1; ++i) {
     distance += distanceBetweenPoses(poses[i], poses[i + 1]);
   }
 

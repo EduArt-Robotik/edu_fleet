@@ -132,8 +132,10 @@ MecanumController::computeVelocityCommands(
   [[maybe_unused]] nav2_core::GoalChecker* /*goal_checker*/
 )
 {
+  // calculate error in global map frame
   auto global_error = path_handler_->getGlobalError(pose);
 
+  // TODO: neue variable (control_command) für die Skalierung der Fehlervektoren im globalen Rahmen; macht so logishc mehr sinn
   // apply gain to global error
   global_error.offset *= offset_gain_; // e_y -> error orthogonal to path 
   global_error.yaw *= angular_gain_; // rotational error
@@ -215,14 +217,8 @@ geometry_msgs::msg::Twist MecanumController::applyScalingFactors(const geometry_
   for(auto function : velocity_factor_functions_)
   {
     auto scale = function(cmd_vel_raw, current_vel, robot_pose);
-    if(scale.linear  < lowest_linear_factor)
-    {    
-      lowest_linear_factor = scale.linear;
-    }
-    if(scale.angular < lowest_angular_factor)
-    {
-      lowest_angular_factor = scale.angular;
-    }
+    lowest_linear_factor = std::min(lowest_linear_factor, scale.linear);
+    lowest_angular_factor = std::min(lowest_angular_factor, scale.angular);
   }
 
   // apply scale
@@ -352,10 +348,8 @@ VelocityScale MecanumController::computeMinDecelerationScalingFactor(
   const double raw_angular = std::abs(cmd_vel_raw.angular.z);
   const double current_angular = std::abs(current_vel.angular.z);
 
-  const double min_linear =
-    std::max(0.0, current_linear - control_duration_ * max_linear_accel_);
-  const double min_angular =
-    std::max(0.0, current_angular - control_duration_ * max_angular_accel_);
+  const double min_linear = std::max(0.0, current_linear - control_duration_ * max_linear_accel_);
+  const double min_angular = std::max(0.0, current_angular - control_duration_ * max_angular_accel_);
 
   return VelocityScale{
     raw_linear > 0.0 ? std::min(1.0, min_linear / raw_linear) : 0.0,
