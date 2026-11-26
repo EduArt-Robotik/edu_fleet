@@ -27,59 +27,86 @@ PathHandler::PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_
   : transform_tolerance_(transform_tolerance)
   , tf_(tf)
   , costmap_handler_(costmap_handler)
-  , params_(Parameter()) // TODO: replace with actual parameters from config file 
   {};
 
-PathHandler::GlobalError2D
-PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
+void PathHandler::setPlan(const nav_msgs::msg::Path& path)
 {
+  if(path.poses.empty())
+  {
+    throw std::invalid_argument("PathHandler::setPlan: path contains no poses");
+  }
+  global_plan_ = path;
+  max_index_ = path.poses.size() - 1;
+  nearest_index_initialized_ = false;
+}
+
+PathHandler::GlobalError2D PathHandler::getGlobalError(const geometry_msgs::msg::PoseStamped& robot_pose)
+{
+  // initialize and update nearest index if necessary
   if(nearest_index_initialized_ == false)
   {
     findNearestIndex(robot_pose);
   }
   updateNearestIndex(robot_pose);
 
-  double angle_error = getAngleError(robot_pose); 
-
-  auto projected_point = projectPoint(robot_pose.pose.position, nearest_index_);
-
   GlobalError2D global_error;
 
-  global_error.offset = Eigen::Vector2d(
+  // project robot position onto the nearest path segment
+  const auto projected_point = projectPoint(robot_pose.pose.position, nearest_index_);
+
+  // projection error is the vector from the robot position to the projected point on the path segment
+  global_error.projection = Eigen::Vector2d(
     projected_point.x - robot_pose.pose.position.x,
     projected_point.y - robot_pose.pose.position.y
   );
 
+  // along error is the vector along the path segment from the projected point
   global_error.along = Eigen::Vector2d(
     global_plan_.poses[nearest_index_].pose.position.x - global_plan_.poses[nearest_index_-1].pose.position.x,
     global_plan_.poses[nearest_index_].pose.position.y - global_plan_.poses[nearest_index_-1].pose.position.y
   );
   global_error.along.normalize();
-  global_error.along *= getLinearGoalDistance(robot_pose);
+  global_error.along *= getLinearGoalDistance(robot_pose); // scale the along error by the remaining distance to the goal
 
+  // handle angle separately
+  double angle_error = getAngleError(robot_pose); 
   global_error.yaw = angle_error;
-
-  // RCLCPP_INFO(logger_, "global error: along: (%f, %f), offset: (%f, %f)", global_error.along.x(), global_error.along.y(), global_error.offset.x(), global_error.offset.y());
 
   return global_error;
 }
 
-double PathHandler::lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & robot_pose)
+double PathHandler::getLinearGoalDistance(const geometry_msgs::msg::PoseStamped& robot_pose) 
+{
+  const auto& poses = global_plan_.poses;
+
+  double distance = distanceBetweenPoses(robot_pose, poses[nearest_index_]);
+
+  for (uint i = nearest_index_; i <= max_index_ - 1; ++i) {
+    distance += distanceBetweenPoses(poses[i], poses[i + 1]);
+  }
+
+  return distance;
+}
+
+double PathHandler::collisionLookahead(
+  const geometry_msgs::msg::PoseStamped & robot_pose,
+  const double lookahead_distance,
+  const unsigned char cost_max)
 {
   // start- and endpoints of the path segments; change them while walking through the path
   geometry_msgs::msg::Point start = robot_pose.pose.position;
   geometry_msgs::msg::Point end = projectPoint(robot_pose.pose.position, nearest_index_);
   size_t current_end_index = nearest_index_; // the index to the point that is the end to the current segment
-  double distance_remaining = params_.lookahead_distance; // the remaining distance to look ahead; get decremented while traversing the path
+  double distance_remaining = lookahead_distance; // the remaining distance to look ahead; get decremented while traversing the path
   double current_distance = std::hypot(start.x-end.x, start.y-end.y);
 
   double max_speed_factor = 1.0; // the max allowed speed based on the obstacles ahead
 
+  // step through path segments until the length of the segment is smaller then the remaining lookahead distance
   while(current_distance < distance_remaining && current_end_index <= max_index_)
   {
     distance_remaining -= current_distance;
-    max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end));
-    // RCLCPP_INFO(logger_, "checking Segment from (%f, %f) to (%f, %f): %f", start.x, start.y, end.x, end.y, max_speed_factor);
+    max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end, cost_max));
 
     // switch the next path segment
     start = end;
@@ -97,76 +124,14 @@ double PathHandler::lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & ro
   end.x = start.x + direction.x();
   end.y = start.y + direction.y();
 
-  max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end));
-  // RCLCPP_INFO(logger_, "checking last piece of the the Segment from (%f, %f) to (%f, %f): %f", start.x, start.y, end.x, end.y, max_speed_factor);
+  max_speed_factor = std::min(max_speed_factor, costmap_handler_->checkSegment(start, end, cost_max));
 
   return max_speed_factor;
 }
 
-// geometry_msgs::msg::PoseStamped
-// PathHandler::getLocalGoal(const geometry_msgs::msg::PoseStamped& global_pose)
-// {
-//   if (current_index_ == global_plan_.poses.size() - 1) {
-//     return global_plan_.poses[current_index_];
-//   }
-
-//   // due to the check above, ther is always one more pose on the path ahead
-//   auto distance = std::hypot(global_pose.pose.position.x - global_plan_.poses[current_index_].pose.position.x, global_pose.pose.position.y - global_plan_.poses[current_index_].pose.position.y);
-
-//   if (distance < waypoint_distance_) {
-//     ++current_index_;
-//   }
-
-//   return global_plan_.poses[current_index_];
-// }
-
-// geometry_msgs::msg::PoseStamped
-// PathHandler::getGlobalGoal()
-// {
-//   if (global_plan_.poses.size() > 0) {
-//     return global_plan_.poses[global_plan_.poses.size() - 1];
-//   }
-//   return geometry_msgs::msg::PoseStamped();
-// }
-
-// double
-// PathHandler::getMaxAngle(size_t lookahead, size_t lookback)
-// {
-//   const auto& poses = global_plan_.poses;
-//   const size_t path_size = static_cast<size_t>(poses.size());
-
-//   // Include up to two points before the current index
-//   const int start_index = current_index_ - std::min(current_index_, lookback);
-
-//   // Do not access points outside the path
-//   const int end_index = std::min(path_size - 2, current_index_ + lookahead);
-
-//   double max_angle = 0.0;
-
-//   for (int i = start_index; i < end_index; ++i) {
-//     // Calculate the direction vectors of the two consecutive segments
-//     const double dx1 = poses[i + 1].pose.position.x - poses[i].pose.position.x;
-//     const double dy1 = poses[i + 1].pose.position.y - poses[i].pose.position.y;
-
-//     const double dx2 = poses[i + 2].pose.position.x - poses[i + 1].pose.position.x;
-//     const double dy2 = poses[i + 2].pose.position.y - poses[i + 1].pose.position.y;
-
-//     // Calculate the angle between the segments using the dot product
-//     const double dot_product = dx1 * dx2 + dy1 * dy2;
-//     const double cross_product = dx1 * dy2 - dy1 * dx2;
-
-//     const double angle = std::abs(std::atan2(cross_product, dot_product));
-
-//     // Store the maximum angle
-//     max_angle = std::max(max_angle, angle);
-//   }
-
-//   return max_angle;
-// }
-
-void
-PathHandler::findNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
+void PathHandler::findNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
 {
+  // loop through all points to find the one closest to the robot
   nearest_index_ = 0;
   double nearest_distance = distanceBetweenPoses(robot_pose, global_plan_.poses[nearest_index_]);
   for (uint i = 1; i < max_index_; ++i) {
@@ -179,12 +144,13 @@ PathHandler::findNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
   if(nearest_index_ == 0) // catch case where nearest index is at the start of the path
     nearest_index_ = 1;
 
+  // closes point is either start or end of closest path segment
+  // updateNearestIndex will adjust nearest_index_ if closest point is the start of the segment
   updateNearestIndex(robot_pose);
   nearest_index_initialized_ = true;
 }
 
-void
-PathHandler::updateNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
+void PathHandler::updateNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pose)
 {
   double factor = getProjectionFactor(robot_pose.pose.position, nearest_index_);
   if (factor > 1.0 && nearest_index_ < max_index_) {
@@ -192,13 +158,15 @@ PathHandler::updateNearestIndex(const geometry_msgs::msg::PoseStamped& robot_pos
   }
 }
 
-geometry_msgs::msg::Point
-PathHandler::projectPoint(const geometry_msgs::msg::Point& point, size_t end_index)
+geometry_msgs::msg::Point PathHandler::projectPoint(
+  const geometry_msgs::msg::Point& point,
+  size_t end_index)
 {
   if (end_index < 1 || end_index > max_index_) {
     throw std::runtime_error("end_index must be within [1, poses.size()).");
   }
 
+  // grab the 2 endpoints of the path segment
   const auto& point1 = global_plan_.poses[end_index - 1].pose.position;
   const auto& point2 = global_plan_.poses[end_index].pose.position;
 
@@ -219,13 +187,15 @@ PathHandler::projectPoint(const geometry_msgs::msg::Point& point, size_t end_ind
   return projected_point;
 }
 
-double
-PathHandler::getProjectionFactor(const geometry_msgs::msg::Point& point, size_t end_index)
+double PathHandler::getProjectionFactor(
+  const geometry_msgs::msg::Point& point,
+  size_t end_index)
 {
   if (end_index < 1 || end_index > max_index_) {
     throw std::runtime_error("end_index must be within [1, poses.size()).");
   }
 
+  // grab the 2 endpoints of the path segment
   const auto& point1 = global_plan_.poses[end_index - 1].pose.position;
   const auto& point2 = global_plan_.poses[end_index].pose.position;
 
@@ -249,19 +219,6 @@ PathHandler::getProjectionFactor(const geometry_msgs::msg::Point& point, size_t 
   return (px * dx + py * dy) / length_squared;
 }
 
-double
-PathHandler::getLinearGoalDistance(const geometry_msgs::msg::PoseStamped& robot_pose)
-{
-  const auto& poses = global_plan_.poses;
-
-  double distance = distanceBetweenPoses(robot_pose, poses[nearest_index_]);
-
-  for (uint i = nearest_index_; i <= max_index_ - 1; ++i) {
-    distance += distanceBetweenPoses(poses[i], poses[i + 1]);
-  }
-
-  return distance;
-}
 
 double PathHandler::getAngleError(const geometry_msgs::msg::PoseStamped &robot_pose)
 {

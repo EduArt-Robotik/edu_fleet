@@ -5,7 +5,6 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "tf2_ros/buffer.h"
 #include <Eigen/Core>
 #include <Eigen/src/Core/Matrix.h>
 #include <cstddef>
@@ -28,28 +27,18 @@ class PathHandler
 public:
   struct GlobalError2D
   {
-    Eigen::Vector2d offset;
+    Eigen::Vector2d projection; // error orthogonal to the path
     Eigen::Vector2d along; // normalized -> only direction relevant
     double yaw; // already in robot frame and does not need to be transformed
 
     GlobalError2D() = default;
   };
 
-  struct Parameter
-  {
-    double lookahead_distance = 0.4; // the distance to look along the path to check for collisions [m] 
-  };
-
   PathHandler(tf2::Duration transform_tolerance, std::shared_ptr<tf2_ros::Buffer> tf, std::shared_ptr<CostmapHandler> costmap_handler);
   ~PathHandler() = default;
 
   // TODO: Reject paths that dont contain poses
-  void setPlan(const nav_msgs::msg::Path& path)
-  {
-    global_plan_ = path;
-    max_index_ = path.poses.size() - 1;
-    nearest_index_initialized_ = false;
-  }
+  void setPlan(const nav_msgs::msg::Path& path);
 
   /**
    * @brief calculate the x(along the path)-, y(normal to the path) and yaw error in global map-frame
@@ -64,24 +53,7 @@ public:
   /**
   * @brief lookahead on the path and return a reduced speed if there are close objects or collisions 
   */
-  double lookaheadMaxSpeed(const geometry_msgs::msg::PoseStamped & robot_pose);
-
-  //  /*  *
-  //   * @brief calculate the next local goal position based on the current global position
-  //   */
-  //   geometry_msgs::msg::PoseStamped getLocalGoal(const geometry_msgs::msg::PoseStamped& global_pose);
-
-  // /**
-  // * @brief returns the last position of the path
-  // */
-  // geometry_msgs::msg::PoseStamped getGlobalGoal();
-
-  // /**
-  //  * @brief calculates the max angle between 2 Path segments in the next few segments
-  //  * @param lookahead the amount of segments in front of the robot to check
-  //  * @param lookback the amount of segments behind the robot to check
-  //  */
-  // double getMaxAngle(size_t lookahead, size_t lookback);
+  double collisionLookahead(const geometry_msgs::msg::PoseStamped & robot_pose, const double lookahead_distance, const unsigned char cost_max);
 
 protected:
   /**
@@ -109,16 +81,16 @@ protected:
 
   double getAngleError(const geometry_msgs::msg::PoseStamped& robot_pose);
 
-  rclcpp::Logger logger_{ rclcpp::get_logger("edu_PathHandler") };
   tf2::Duration transform_tolerance_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   nav_msgs::msg::Path global_plan_;
+
   std::shared_ptr<CostmapHandler> costmap_handler_;
-  // double waypoint_distance_;
+  rclcpp::Logger logger_{ rclcpp::get_logger("edu_PathHandler") };
+
   bool nearest_index_initialized_;
   size_t nearest_index_; // the index of the nearest point on the path that is ahead of the robot; must be >= 1
   size_t max_index_;     // the maximum valid index for the current global plan
-  Parameter params_;
 };
 
 } // namespace edu_fleet::mecanum_path_controller

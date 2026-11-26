@@ -5,13 +5,15 @@
 namespace edu_fleet::mecanum_path_controller {
 
     CostmapHandler::CostmapHandler(std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap)
-    : local_costmap_ros_(costmap), local_costmap_(costmap->getCostmap()),
-      param_()
+    : local_costmap_ros_(costmap), local_costmap_(costmap->getCostmap())
     {
 
     }
 
-    double CostmapHandler::checkSegment(const geometry_msgs::msg::Point &start, const geometry_msgs::msg::Point &end)
+    double CostmapHandler::checkSegment(
+        const geometry_msgs::msg::Point &start,
+        const geometry_msgs::msg::Point &end,
+        const unsigned char cost_max)
     {
         // Lock costmap while reading.
         std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(
@@ -24,7 +26,7 @@ namespace edu_fleet::mecanum_path_controller {
             || local_costmap_->worldToMap(end.x, end.y, end_x, end_y) == false)
         {
             RCLCPP_WARN(logger_, "Start or end point is outside the costmap");
-            return 1.0; // indicate that the segment is not traversable due to being outside the costmap
+            return 1.0; // no data available -> no collision assumed
         }
 
         unsigned char max_cost = 0;
@@ -34,17 +36,10 @@ namespace edu_fleet::mecanum_path_controller {
             std::bind(&CostmapHandler::findMaxCost, this, std::placeholders::_1, std::placeholders::_2, std::ref(max_cost))
         );
 
-        if (max_cost >= param_.stopping_cost)
-        {
-            // RCLCPP_WARN(logger_, "Max cost along the segment exceeds stopping cost: %u", static_cast<unsigned int>(max_cost));
+        if (max_cost >= cost_max)
             return 0.0; // indicate that the segment is not traversable due to high cost
-        }
-        else
-        {
-            // RCLCPP_INFO(logger_, "Max cost along the segment: %u", static_cast<unsigned int>(max_cost));
-        }
 
-
+        
         return 1.0;
     }
 

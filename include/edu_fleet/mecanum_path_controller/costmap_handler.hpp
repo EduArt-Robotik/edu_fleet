@@ -11,15 +11,13 @@ namespace edu_fleet::mecanum_path_controller {
 class CostmapHandler
 {
 public:
-    struct Parameter
-    {
-        unsigned char stopping_cost = 200; // stop the robot if the path contains a cell with this cost or higher
-    };
-
     CostmapHandler(std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap);
     ~CostmapHandler() = default;
 
-    double checkSegment(const geometry_msgs::msg::Point & start, const geometry_msgs::msg::Point & end );
+    double checkSegment(
+        const geometry_msgs::msg::Point & start,
+        const geometry_msgs::msg::Point & end,
+        const unsigned char cost_max);
 
 protected:
     /**
@@ -55,8 +53,6 @@ protected:
     std::shared_ptr<nav2_costmap_2d::Costmap2DROS> local_costmap_ros_;
     std::unique_ptr<nav2_costmap_2d::Costmap2D> local_costmap_;
     rclcpp::Logger logger_{ rclcpp::get_logger("edu_CostmapHandler") };
-    Parameter param_;
-
 };
 
 } // namespace edu_fleet::mecanum_path_controller

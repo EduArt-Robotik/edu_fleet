@@ -35,16 +35,10 @@ controller_server:
       max_linear_accel: 0.7
       max_angular_accel: 1.0
       acceleration_velocity_scaling:
-        apply: false
-      corner_velocity_scaling: # Work in Progress
-        apply: false
+        enable: true
       collision_velocity_scaling:
-        apply_radius_scaling: true
-        cost_0: 100 # the minimal cost value in the costmap to start scaling down velocity
-        cost_max: 230 # the maximal cost value where to robot is still moving, all values greater than this result in a complete stop
-        radius: 0.2
-
-
+        enable: true
+        stop_cost: 200 # Stop the robot if the path contains a cost > this value
         lookahead: 0.5
 
 
@@ -60,7 +54,7 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.1
-      robot_radius: 0.22
+      robot_radius: 0.25
       plugins: ["voxel_layer", "inflation_layer"] # TODO: voxel -> obstacle layer
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

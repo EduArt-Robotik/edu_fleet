@@ -10,6 +10,8 @@
 #include <memory>
 #include <nav2_costmap_2d/costmap_2d.hpp>
 #include <nav2_costmap_2d/costmap_2d_ros.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sys/types.h>
 
@@ -35,6 +37,26 @@ using VelocityFactorFunction = std::function<
 class MecanumController : public nav2_core::Controller
 {
 public:
+  struct Parameter {
+    double control_duration = 0.05; // control loop duration in seconds
+    double transform_tolerance = 1.0;
+    double max_linear_vel = 0.25;
+    double max_angular_vel = 1.0;
+    double max_linear_accel = 0.5;
+    double max_angular_accel = 1.0;
+
+    double along_gain = 0.7; 
+    double projection_gain = 2.0;
+    double angular_gain = 2.0;
+  };
+  struct CollisionScalingParameter {
+    double lookahead = 0.5;
+    unsigned char cost_max = 230; // Stop the robot if the path contains a cost > this value
+  };
+
+  static Parameter loadParameters(const std::string prefix, const rclcpp_lifecycle::LifecycleNode::SharedPtr node);
+  void loadScalingFunctions(const std::string prefix, const rclcpp_lifecycle::LifecycleNode::SharedPtr node);
+
   MecanumController() = default;
   ~MecanumController() override = default;
 
@@ -100,28 +122,35 @@ public:
    * in computing commands
    * @return          Best command
    */
-  geometry_msgs::msg::TwistStamped
-  computeVelocityCommands(const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity, nav2_core::GoalChecker* /*goal_checker*/) override;
+  geometry_msgs::msg::TwistStamped computeVelocityCommands(
+    const geometry_msgs::msg::PoseStamped& pose,
+    const geometry_msgs::msg::Twist& velocity,
+    nav2_core::GoalChecker* goal_checker
+  ) override;
 
 protected:
-  geometry_msgs::msg::Twist convertToTwist(const PathHandler::GlobalError2D& global_error, const geometry_msgs::msg::PoseStamped& robot_pose);
+  /**
+  * @brief Convert the control values in the global path frame to a Twist message in the local robot frame
+   */
+  geometry_msgs::msg::Twist convertToTwist(const PathHandler::GlobalError2D& control_command, const geometry_msgs::msg::PoseStamped& robot_pose);
 
+  /**
+  * @brief Apply scaling factors to raw velocity commands, such as acceleration limits or collision detection
+   */
   geometry_msgs::msg::Twist applyScalingFactors(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
 
   /**
    * @brief compute the velocity scaling factor to ensure acceleration limits
    */
-  VelocityScale computeAccelerationLimitFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
+  VelocityScale computeAccelerationLimitFactor(
+    const geometry_msgs::msg::Twist& cmd_vel_raw,
+    const geometry_msgs::msg::Twist& current_vel,
+    const geometry_msgs::msg::PoseStamped& robot_pose);
   
   /**
-   * @brief compute the velocity scaling factor to slow down befor tight corners to avoid overshooting
+   * @brief compute the velocity scaling factor to stop the robot before hitting an obstacle on the path
    */
-  VelocityScale computeCornerScalingFactor(const geometry_msgs::msg::Twist& cmd_vel_raw, const geometry_msgs::msg::Twist& current_vel, const geometry_msgs::msg::PoseStamped& robot_pose);
-  
-  /**
-   * @brief compute the velocity scaling factor to slow the robot down based on costmap at the current position of the robot while taking deceleration limits into account
-   */
-  VelocityScale computeCollisionRadiusScalingFactor(
+  VelocityScale computePathCollisionFactor(
     const geometry_msgs::msg::Twist& cmd_vel_raw,
     const geometry_msgs::msg::Twist& current_vel,
     const geometry_msgs::msg::PoseStamped& robot_pose);
@@ -136,72 +165,17 @@ protected:
     const geometry_msgs::msg::Twist& current_vel
   );
 
-  // /**
-  //  * @brief apply a scaling factor to the raw speed based the on how steep the next corners are going to be
-  //  */
-  // void applyCornerSpeedScaling(geometry_msgs::msg::TwistStamped& raw_velocity);
-
-  // geometry_msgs::msg::TwistStamped applyMotionConstraints(
-  //   const geometry_msgs::msg::TwistStamped& raw_velocity,
-  //   const geometry_msgs::msg::Twist& current_velocity,
-  //   const geometry_msgs::msg::Twist& max_stopping_velocity
-  // );
-
-  // /**
-  //  * @brief computes the maximum velocity so that the robot is able to stop at
-  //  * the Goal and ont overshoot
-  //  */
-  // geometry_msgs::msg::Twist
-  // computeMaxStoppingVelocity(const geometry_msgs::msg::PoseStamped& robot_pose);
-
-  // geometry_msgs::msg::PoseStamped transformPoseToRobotFrame(
-  //   const geometry_msgs::msg::PoseStamped& input_pose,
-  //   const geometry_msgs::msg::PoseStamped& robot_pose
-  // );
-
-  // /**
-  // * @brief calculate the x,y and yaw offset from the robot to the local Goal
-  // */
-  // PathHandler::GlobalError2D calculateError(const geometry_msgs::msg::PoseStamped & robot_pose);
-
-  // /**
-  // * @brief convert the error into twist with P-Controller
-  // */
-  // geometry_msgs::msg::TwistStamped calculateRawTwist(const PathHandler::GlobalError2D & error, const std::string &frame_id);
-
-  // /**
-  // * compute the linear and angular scaling factor based on the distance to the final goal
-  // */
-  // VelocityScale computeDistToGoalScale(
-  //   const geometry_msgs::msg::PoseStamped & robot_pose,
-  //   const geometry_msgs::msg::Twist & current_velocity,
-  //   const geometry_msgs::msg::TwistStamped & cmd_vel_raw
-  // );
-
-  void loadParameters();
+  rclcpp::Logger logger_{ rclcpp::get_logger("MecanumController") };
 
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
-  std::string plugin_name_;
-  rclcpp::Logger logger_{ rclcpp::get_logger("MecanumController") };
-  std::shared_ptr<edu_fleet::mecanum_path_controller::PathHandler>
-    path_handler_;
-  rclcpp_lifecycle::LifecyclePublisher<
-    geometry_msgs::msg::PoseStamped>::SharedPtr local_goal_publisher_;
+  std::shared_ptr<PathHandler> path_handler_;
   std::shared_ptr<CostmapHandler> costmap_handler_;
 
+  std::string plugin_name_;
   std::vector<VelocityFactorFunction> velocity_factor_functions_;
-
-  double control_duration_;
-  double max_linear_vel_, max_angular_vel_, max_linear_accel_, max_angular_accel_;
-  double along_gain_, offset_gain_, angular_gain_;
-  double transform_tolerance_;
-  // Corner Scaling
-  bool apply_corner_velocity_scaling_;
-  double min_corner_scaling_factor_, start_corner_scaling_angle_, end_corner_scaling_angle_;
-  int corner_lookahead_, corner_lookback_;
-  // Collision velocity Scaling
-  unsigned char cost_0_, cost_max_;
+  Parameter param_;
+  CollisionScalingParameter collision_param_;
 };
 
 } // namespace edu_fleet::mecanum_path_controller
